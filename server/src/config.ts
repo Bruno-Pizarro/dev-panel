@@ -85,6 +85,8 @@ export const configSchema = z.object({
       configFile: z.string().default(''),
       /** Vacío = el `redmine_url` de ese archivo. */
       baseUrl: z.string().default(''),
+      /** Estados que cuentan como "entregado": los SP de un ticket suman en la semana en que llegó por primera vez a alguno. */
+      doneStatuses: z.array(z.string()).default(['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado']),
     })
     .default({}),
   /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
@@ -150,7 +152,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
-  redmine: { enabled: true, configFile: '', baseUrl: '' },
+  redmine: { enabled: true, configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   claude: { binary: 'claude' },
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   git: { baseBranch: 'desarrollo' },

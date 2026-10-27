@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
+import { paths } from '../config.js';
 
 export class RedmineError extends Error {
   constructor(message: string, readonly status = 502) {
@@ -232,4 +233,144 @@ export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', da
   const board: Board = { scope, days: safeDays, statuses: orderStatuses(statuses), issues, truncated, fetchedAt: new Date(now).toISOString() };
   boardCache.set(cacheKey, { at: now, board });
   return board;
+};
+
+// ---------------------------------------------------------------- historial semanal de story points
+export interface SpWeek {
+  /** Lunes de la semana, AAAA-MM-DD (hora local). */
+  weekStart: string;
+  sp: number;
+  /** `sp: null` = el título no trae "[N SP]": se entregó pero no se puede sumar. */
+  tickets: Array<{ id: number; title: string; sp: number | null; at: string }>;
+  /** Entregados sin SP en el título. */
+  withoutSp: number;
+}
+export interface SpHistory {
+  weeks: SpWeek[];
+  /** Promedio de las 4 semanas (incluida la actual, que está en curso). */
+  average: number;
+  /** Promedio de las semanas ya terminadas (sin la actual). */
+  averageClosed: number | null;
+  doneStatuses: string[];
+  source: 'redmine' | 'saved';
+  generatedAt: string;
+}
+
+export const WEEKS = 4;
+const pad = (n: number) => String(n).padStart(2, '0');
+const dayKey = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+/** Lunes (00:00 local) de la semana de `date`. */
+export const mondayOf = (date: Date): Date => {
+  const day = (date.getDay() + 6) % 7;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - day);
+};
+
+export interface Delivery {
+  id: number;
+  title: string;
+  sp: number | null;
+  /** ISO del primer cambio a un estado "entregado". */
+  at: string;
+}
+
+/** Reparte las entregas en las últimas 4 semanas (la más reciente primero) y calcula los promedios. */
+export const buildSpHistory = (deliveries: Delivery[], doneStatuses: string[], source: SpHistory['source'], now = new Date()): SpHistory => {
+  const current = mondayOf(now);
+  const weeks: SpWeek[] = Array.from({ length: WEEKS }, (_, i) => ({ weekStart: dayKey(new Date(current.getFullYear(), current.getMonth(), current.getDate() - 7 * i)), sp: 0, tickets: [], withoutSp: 0 }));
+  for (const delivery of deliveries) {
+    const week = weeks.find((item) => dayKey(mondayOf(new Date(delivery.at))) === item.weekStart);
+    if (!week) continue;
+    week.tickets.push({ id: delivery.id, title: delivery.title, sp: delivery.sp, at: delivery.at });
+    if (delivery.sp === null) week.withoutSp += 1;
+    else week.sp += delivery.sp;
+  }
+  weeks.forEach((week) => week.tickets.sort((a, b) => b.at.localeCompare(a.at)));
+  const total = weeks.reduce((sum, week) => sum + week.sp, 0);
+  const closed = weeks.slice(1);
+  return {
+    weeks,
+    average: Math.round((total / WEEKS) * 10) / 10,
+    averageClosed: closed.length ? Math.round((closed.reduce((sum, week) => sum + week.sp, 0) / closed.length) * 10) / 10 : null,
+    doneStatuses,
+    source,
+    generatedAt: now.toISOString(),
+  };
+};
+
+interface RawJournal {
+  created_on: string;
+  details?: Array<{ property?: string; name?: string; new_value?: string }>;
+}
+
+/** Fecha del primer cambio de estado a alguno de `doneIds` en el historial de un ticket (o null). */
+export const firstDelivery = (journals: RawJournal[], doneIds: Set<string>): string | null => {
+  const times = journals
+    .filter((journal) => journal.details?.some((detail) => detail.property === 'attr' && detail.name === 'status_id' && detail.new_value !== undefined && doneIds.has(detail.new_value)))
+    .map((journal) => journal.created_on)
+    .sort();
+  return times[0] ?? null;
+};
+
+const historyFile = () => join(paths.data, 'sp-history.json');
+const readSaved = (): SpHistory | null => {
+  try {
+    return existsSync(historyFile()) ? (JSON.parse(readFileSync(historyFile(), 'utf8')) as SpHistory) : null;
+  } catch {
+    return null;
+  }
+};
+
+const MIN_PARALLEL = 4;
+let memo: { at: number; value: SpHistory } | null = null;
+const MEMO_MS = 10 * 60_000;
+export const clearSpMemo = (): void => {
+  memo = null;
+};
+
+/**
+ * Story points entregados por semana, de mis tickets (asignados a quien dueña la API key). Se lee el historial de cambios de
+ * estado de cada ticket tocado en las últimas semanas, así el resultado es retroactivo. Se guarda en data/ y, si Redmine no
+ * responde, se devuelve lo guardado. Solo lectura.
+ */
+export const fetchSpHistory = async (config: DevPanelConfig, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = new Date()): Promise<SpHistory> => {
+  if (memo && now.getTime() - memo.at < MEMO_MS) return memo.value;
+  const credentials = loadCredentials(config);
+  if (!credentials) throw new RedmineError('Redmine no está configurado: falta la API key (skill redmine-drive o REDMINE_API_KEY)', 503);
+  const doneStatuses = config.redmine.doneStatuses;
+  try {
+    const get = async (path: string): Promise<unknown> => {
+      const response = await fetcher(`${credentials.baseUrl}${path}`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(20_000) });
+      if (!response.ok) throw new RedmineError(`Redmine respondió ${response.status}`, 502);
+      return response.json();
+    };
+    const statusBody = (await get('/issue_statuses.json')) as { issue_statuses?: Array<{ id: number; name: string }> };
+    const doneIds = new Set((statusBody.issue_statuses ?? []).filter((status) => doneStatuses.includes(status.name)).map((status) => String(status.id)));
+    const since = dayKey(new Date(mondayOf(now).getTime() - (WEEKS - 1) * 7 * 86_400_000 - 86_400_000));
+    const query = new URLSearchParams({ assigned_to_id: 'me', status_id: '*', updated_on: `>=${since}`, limit: '100', sort: 'updated_on:desc' });
+    const list = (await get(`/issues.json?${query.toString()}`)) as { issues?: RawIssue[] };
+    const issues = list.issues ?? [];
+
+    const deliveries: Delivery[] = [];
+    const queue = [...issues];
+    await Promise.all(
+      Array.from({ length: MIN_PARALLEL }, async () => {
+        for (let next = queue.shift(); next; next = queue.shift()) {
+          const detail = (await get(`/issues/${next.id}.json?include=journals`)) as { issue?: { journals?: RawJournal[] } };
+          const at = firstDelivery(detail.issue?.journals ?? [], doneIds);
+          const parsed = parseSubject(next.subject ?? '');
+          if (at) deliveries.push({ id: next.id, title: parsed.title, sp: parsed.storyPoints, at });
+        }
+      }),
+    );
+    const history = buildSpHistory(deliveries, doneStatuses, 'redmine', now);
+    mkdirSync(paths.data, { recursive: true });
+    writeFileSync(historyFile(), JSON.stringify(history, null, 2), { mode: 0o600 });
+    memo = { at: now.getTime(), value: history };
+    return history;
+  } catch (error) {
+    const saved = readSaved();
+    if (saved) return { ...saved, source: 'saved' };
+    throw error instanceof RedmineError ? error : new RedmineError('No se pudo conectar con Redmine', 502);
+  }
 };

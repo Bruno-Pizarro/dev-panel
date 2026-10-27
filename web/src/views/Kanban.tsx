@@ -1,6 +1,7 @@
-import { ClipboardCheck, ExternalLink, Layers, RefreshCw, Search, Timer, UserRound } from 'lucide-react';
+import { ClipboardCheck, Columns3, ExternalLink, Layers, RefreshCw, Search, Timer, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SpHistoryCard } from '../components/SpHistoryCard';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -11,6 +12,7 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { pillStyle, serviceColor } from '../lib/colors';
 import { useStoredState } from '../lib/hooks';
+import { useDragScroll } from '../lib/useDragScroll';
 import { timeAgo } from '../lib/tickets';
 import type { Board, RedmineIssue, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -68,6 +70,9 @@ export const Kanban = () => {
   const [days, setDays] = useStoredState<number>('devpanel.kanban.days', 30);
   const [sort, setSort] = useStoredState<Sort>('devpanel.kanban.sort', 'updated');
   const [showClosed, setShowClosed] = useStoredState<boolean>('devpanel.kanban.closed', false);
+  const [hiddenColumns, setHiddenColumns] = useStoredState<string[]>('devpanel.kanban.hidden', []);
+  const [picking, setPicking] = useState(false);
+  const dragRef = useDragScroll<HTMLDivElement>();
   const [query, setQuery] = useState('');
   const [assignee, setAssignee] = useState<string | null>(null);
   const board = useAsync(() => api.get<Board>(`/api/redmine/board?scope=${scope}&days=${days}`));
@@ -91,13 +96,13 @@ export const Kanban = () => {
     const order = (a: RedmineIssue, b: RedmineIssue) =>
       sort === 'sp' ? (b.storyPoints ?? -1) - (a.storyPoints ?? -1) : sort === 'priority' ? (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3) || b.updatedOn.localeCompare(a.updatedOn) : b.updatedOn.localeCompare(a.updatedOn);
     return data.statuses
-      .filter((status) => showClosed || !status.closed)
+      .filter((status) => (showClosed || !status.closed) && !hiddenColumns.includes(status.name))
       .map((status) => {
         const issues = visible.filter((issue) => issue.status === status.name).sort(order);
         return { status, issues, sp: issues.reduce((sum, issue) => sum + (issue.storyPoints ?? 0), 0), hours: issues.reduce((sum, issue) => sum + (issue.estimatedHours ?? 0), 0) };
       })
       .filter((column) => column.issues.length > 0 || !column.status.closed);
-  }, [data, query, assignee, sort, showClosed]);
+  }, [data, query, assignee, sort, showClosed, hiddenColumns]);
 
   const shown = columns.reduce((sum, column) => sum + column.issues.length, 0);
   // Columnas sin tickets ocupan lugar: se colapsan a un rótulo angosto.
@@ -120,6 +125,7 @@ export const Kanban = () => {
         <div className="flex items-center gap-2"><span className="text-sm text-muted">Cambios en</span>{[7, 30, 60].map((value) => <Chip key={value} selected={days === value} onToggle={() => setDays(value)}>{value} días</Chip>)}</div>
         <div className="flex items-center gap-2"><span className="text-sm text-muted">Ordenar</span>{([['updated', 'Actualización'], ['sp', 'SP'], ['priority', 'Prioridad']] as const).map(([id, label]) => <Chip key={id} selected={sort === id} onToggle={() => setSort(id)}>{label}</Chip>)}</div>
         <Chip selected={showClosed} onToggle={() => setShowClosed(!showClosed)} hint="Entregado, Rechazado y Baja">Mostrar cerrados</Chip>
+        <Button className="h-10" icon={<Columns3 className="size-4" />} onClick={() => setPicking(!picking)}>Columnas{hiddenColumns.length ? ` (${hiddenColumns.length} ocultas)` : ''}</Button>
         {scope === 'all' && people.length > 0 && (
           <select value={assignee ?? ''} onChange={(event) => setAssignee(event.target.value || null)} aria-label="Asignado a" className="h-10 rounded-lg border border-line bg-surface px-3 text-sm outline-none focus:border-accent/60">
             <option value="">Todos los asignados</option>{people.map((name) => <option key={name} value={name}>{name}</option>)}
@@ -127,12 +133,28 @@ export const Kanban = () => {
         )}
       </div>
 
+      {picking && data && (
+        <div className="mb-5 rounded-xl border border-line bg-surface p-4">
+          <div className="mb-3 flex items-center justify-between"><span className="font-medium">Elegí qué columnas ver</span>
+            <span className="flex gap-3 text-sm"><button type="button" className="text-accent hover:underline" onClick={() => setHiddenColumns([])}>Mostrar todas</button><button type="button" className="text-accent hover:underline" onClick={() => setHiddenColumns(data.statuses.map((status) => status.name))}>Ocultar todas</button></span></div>
+          <div className="flex flex-wrap gap-2">
+            {data.statuses.map((status) => {
+              const count = data.issues.filter((issue) => issue.status === status.name).length;
+              return <Chip key={status.id} color={STATUS_RGB[status.name] ?? '138 151 255'} selected={!hiddenColumns.includes(status.name)} onToggle={() => setHiddenColumns(hiddenColumns.includes(status.name) ? hiddenColumns.filter((name) => name !== status.name) : [...hiddenColumns, status.name])}>{status.name} <span className="opacity-70">{count}</span></Chip>;
+            })}
+          </div>
+          {!showClosed && <p className="mt-3 text-sm text-muted">Los estados cerrados (Entregado, Rechazado, Baja) además necesitan “Mostrar cerrados”.</p>}
+        </div>
+      )}
+
+      {scope === 'me' && <SpHistoryCard />}
+
       {board.loading && !data ? <div className="flex gap-4"><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /></div> : board.error ? (
         <p className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-muted">Redmine: {board.error}</p>
       ) : (
         <>
           {data?.truncated && <p className="mb-3 text-sm text-warning">Hay más de 500 tickets: se muestran los 500 más recientes. Acotá los días o usá “Mis tickets”.</p>}
-          <div className="flex items-start gap-4 overflow-x-auto pb-4">
+          <div ref={dragRef} className="flex cursor-grab items-start gap-4 overflow-x-auto pb-4" title="Arrastrá para moverte">
             {filled.map(({ status, issues, sp, hours }) => {
               const rgb = STATUS_RGB[status.name] ?? '138 151 255';
               return (

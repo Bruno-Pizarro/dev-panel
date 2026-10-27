@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { defaultConfig, paths } from '../config.js';
 import { KEEP_DAYS, classifyDoc, collectTickets, mergeActivity, pruneActivity, windowDays, type ActivityEvent } from './activity.js';
 import { ChecklistError, getDailyChecklist, itemId, setDailyItem, setTestRun, testStatusOf, getTestState } from './checklists.js';
-import { clearBoardCache, fetchBoard, orderStatuses } from './redmine.js';
+import { buildSpHistory, clearBoardCache, fetchBoard, firstDelivery, mondayOf, orderStatuses } from './redmine.js';
 
 const NOW = new Date(2026, 9, 27, 18, 0);
 const ev = (id: string, at: Date, type: ActivityEvent['type'] = 'commit'): ActivityEvent => ({ id, type, at: at.toISOString(), title: id });
@@ -97,7 +97,7 @@ describe('checklists', () => {
 });
 
 describe('kanban de Redmine', () => {
-  const config = { ...defaultConfig('/x'), redmine: { enabled: true, configFile: '', baseUrl: 'https://r.test' } };
+  const config = { ...defaultConfig('/x'), redmine: { enabled: true, configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
   const env = process.env['REDMINE_API_KEY'];
   beforeEach(() => {
     process.env['REDMINE_API_KEY'] = 'clave-de-prueba';
@@ -129,5 +129,46 @@ describe('kanban de Redmine', () => {
     expect(list[0]!.url).toContain('updated_on=%3E%3D2026-09-27');
     expect(list.every((c) => c.key === 'clave-de-prueba' && !c.url.includes('clave-de-prueba'))).toBe(true);
     afterAll();
+  });
+});
+
+describe('historial semanal de story points', () => {
+  const now = new Date(2026, 9, 28, 12); // miércoles 28/10/2026
+  const at = (day: number, month = 9) => new Date(2026, month, day, 10).toISOString();
+
+  it('la semana empieza el lunes', () => {
+    expect(mondayOf(now).getDate()).toBe(26);
+    expect(mondayOf(new Date(2026, 9, 25)).getDate()).toBe(19); // domingo pertenece a la semana anterior
+  });
+
+  it('reparte las entregas en 4 semanas y calcula los dos promedios', () => {
+    const history = buildSpHistory(
+      [
+        { id: 1, title: 'a', sp: 5, at: at(27) }, // semana actual
+        { id: 2, title: 'b', sp: 3, at: at(21) }, // semana pasada
+        { id: 3, title: 'c', sp: 8, at: at(15) },
+        { id: 4, title: 'd', sp: 2, at: at(8) },
+        { id: 5, title: 'viejo', sp: 13, at: at(1) }, // fuera de las 4 semanas
+        { id: 6, title: 'sin sp', sp: null, at: at(27) },
+      ],
+      ['Revisión'],
+      'redmine',
+      now,
+    );
+    expect(history.weeks.map((week) => [week.weekStart, week.sp])).toEqual([['2026-10-26', 5], ['2026-10-19', 3], ['2026-10-12', 8], ['2026-10-05', 2]]);
+    expect(history.weeks[0]).toMatchObject({ sp: 5, withoutSp: 1 });
+    expect(history.average).toBe(4.5);
+    expect(history.averageClosed).toBe(4.3);
+  });
+
+  it('toma solo el primer cambio a un estado entregado, comparando por id', () => {
+    const journals = [
+      { created_on: '2026-10-20T10:00:00Z', details: [{ property: 'attr', name: 'status_id', new_value: '16' }] },
+      { created_on: '2026-10-22T10:00:00Z', details: [{ property: 'attr', name: 'status_id', new_value: '20' }] },
+      { created_on: '2026-10-25T10:00:00Z', details: [{ property: 'attr', name: 'status_id', new_value: '21' }] },
+      { created_on: '2026-10-21T10:00:00Z', details: [{ property: 'attr', name: 'assigned_to_id', new_value: '20' }] },
+    ];
+    expect(firstDelivery(journals, new Set(['20', '21']))).toBe('2026-10-22T10:00:00Z');
+    expect(firstDelivery(journals, new Set(['99']))).toBeNull();
   });
 });

@@ -299,3 +299,18 @@ export interface Board {
   truncated: boolean;
   fetchedAt: string;
 }
+
+export interface SpWeek {
+  weekStart: string;
+  sp: number;
+  tickets: Array<{ id: number; title: string; sp: number | null; at: string }>;
+  withoutSp: number;
+}
+export interface SpHistory {
+  weeks: SpWeek[];
+  average: number;
+  averageClosed: number | null;
+  doneStatuses: string[];
+  source: 'redmine' | 'saved';
+  generatedAt: string;
+}
