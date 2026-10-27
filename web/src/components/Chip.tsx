@@ -26,7 +26,7 @@ export const Chip = ({ children, selected = false, locked = false, onToggle, hin
       onClick={onToggle}
       style={color && active ? pillStyle(color, true) : undefined}
       className={cn(
-        'inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-all',
+        'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-sm font-medium transition-all',
         active ? (color ? '' : 'border-accent/50 bg-accent/15 text-accent') : 'border-line bg-surface-2 text-muted hover:border-accent/30 hover:text-fg',
         locked && 'cursor-default opacity-90',
       )}

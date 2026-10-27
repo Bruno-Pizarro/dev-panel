@@ -187,13 +187,24 @@ export const Startup = ({ config }: { config: DevPanelConfig }) => {
         onCancel={() => setStopScope(null)}
         onConfirm={() => stopScope && call(async () => { await api.post('/api/startup/stop', { scope: stopScope, confirm: true }); setStopScope(null); }, 'Servicios detenidos.')}
       >
-        <div className="space-y-3">
-          <p>Elegí qué detener:</p>
-          <div className="flex gap-2">
-            <Chip selected={stopScope === 'apps'} onToggle={() => setStopScope('apps')}>Solo los servicios</Chip>
-            <Chip selected={stopScope === 'all'} onToggle={() => setStopScope('all')}>Todo (incluye RabbitMQ, Mongo y MinIO)</Chip>
-          </div>
-        </div>
+        <fieldset className="space-y-3">
+          <legend className="mb-3 text-fg">Elegí qué detener:</legend>
+          {([
+            { id: 'apps', title: 'Solo los servicios', text: 'Detiene panel, security, files, legajo y los opcionales que estén corriendo. RabbitMQ, Mongo y MinIO siguen arriba.' },
+            { id: 'all', title: 'Todo', text: 'Además detiene RabbitMQ, Mongo y MinIO. Para volver a empezar hay que levantar todo de nuevo, en orden.' },
+          ] as const).map((option) => (
+            <label key={option.id} className={cn('flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors', stopScope === option.id ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface-2 hover:border-accent/30')}>
+              <input type="radio" name="stop-scope" className="peer sr-only" checked={stopScope === option.id} onChange={() => setStopScope(option.id)} />
+              <span className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border peer-focus-visible:ring-2 peer-focus-visible:ring-accent/70', stopScope === option.id ? 'border-accent' : 'border-line')} aria-hidden>
+                {stopScope === option.id && <span className="size-2.5 rounded-full bg-accent" />}
+              </span>
+              <span className="min-w-0">
+                <span className="block font-medium text-fg">{option.title}</span>
+                <span className="mt-0.5 block text-sm text-muted">{option.text}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
       </ConfirmModal>
     </>
   );
