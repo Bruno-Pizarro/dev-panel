@@ -34,8 +34,17 @@
   :focus-visible { @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-bg; }
   /* Los campos ya cambian el borde (de ellos o de su contenedor) al enfocarse: sin un segundo anillo interno. */
   input:focus-visible, textarea:focus-visible, select:focus-visible { box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; }
+  /*
+   * "Reducir movimiento" (Windows sin animaciones, etc.): se quitan fundidos y desplazamientos, pero una animación
+   * infinita NO puede acortarse a 0 ms (giraría sin parar a una velocidad absurda): se ejecuta una sola vez.
+   * El círculo de carga y el brillo de los marcadores son indicadores suaves y siguen, a la misma velocidad lenta.
+   */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    .animate-spin { animation: spin 2.4s linear infinite !important; }
+    /* El brillo de los marcadores de carga es un barrido suave, no un movimiento brusco: se conserva. */
+    .animate-shimmer { animation: shimmer 2.4s linear infinite !important; }
+    .animate-pulse-dot { animation: none !important; }
   }
 }
 
