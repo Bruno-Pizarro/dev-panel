@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { usePolling } from '../lib/hooks';
 import { tint } from '../lib/colors';
 import type { ClaudeUsage } from '../lib/types';
+import { ClaudeIcon } from './ClaudeIcon';
 import { UsageBar } from './UsageBar';
 
 const ago = (seconds: number) => (seconds < 90 ? 'recién' : seconds < 3600 ? `hace ${Math.round(seconds / 60)} min` : `hace ${Math.round(seconds / 3600)} h`);
@@ -19,8 +20,8 @@ export const ClaudeUsageBar = () => {
   return (
     <Link to="/claude" className="flex items-center gap-4 rounded-xl border border-line bg-surface-2 px-3.5 py-1.5 transition-colors hover:border-accent/40" title={title}>
       <span className="flex items-center gap-2 text-sm font-medium">
-        <span className="size-2.5 rounded-full" style={{ backgroundColor: tint(account.color, 0.95) }} aria-hidden />
-        <span className="max-w-32 truncate">{account.label}</span>
+        <ClaudeIcon className="size-5 shrink-0" style={{ color: tint(account.color, 0.95) }} />
+        <span className="whitespace-nowrap">{account.label}</span>
       </span>
       {usage && (usage.fiveHour || usage.sevenDay) ? (
         <>

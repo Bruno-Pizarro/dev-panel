@@ -47,7 +47,7 @@ export const loadAccounts = (): AccountsFile => {
     /* archivo dañado: se parte de cero */
   }
   const hasDefault = stored.accounts.some((account) => account.id === DEFAULT_ID);
-  const accounts = hasDefault ? stored.accounts : [{ id: DEFAULT_ID, label: 'Cuenta actual (~/.claude)', color: '138 151 255', configDir: defaultDir() }, ...stored.accounts];
+  const accounts = hasDefault ? stored.accounts : [{ id: DEFAULT_ID, label: 'Cuenta actual', color: '138 151 255', configDir: defaultDir() }, ...stored.accounts];
   return { activeId: stored.activeId ?? DEFAULT_ID, accounts };
 };
 
