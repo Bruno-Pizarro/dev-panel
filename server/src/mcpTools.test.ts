@@ -9,12 +9,12 @@ describe('herramientas MCP', () => {
     expect(names).not.toMatch(/restore|reset|password|session|clean|restart|apply|stop|revoke|delete/);
   });
 
-  it('el único POST que modifica el entorno es el levantado en orden', async () => {
+  it('el único POST que modifica el entorno es el levantado en orden (los otros solo calculan y devuelven datos)', async () => {
     const calls: Array<[string, string]> = [];
     const spy: CallApi = async (method, path) => (calls.push([method, path]), {});
     for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today' }, spy);
     const posts = calls.filter(([method]) => method === 'POST').map(([, path]) => path);
-    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/startup/run']);
+    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/startup/run']);
   });
 
   it('arma las rutas con parámetros escapados', async () => {

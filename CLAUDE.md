@@ -12,7 +12,7 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 | Sesiones de prueba | Entrar como un usuario del entorno local (firma un token con el `JWT_SECRET` de `security`; el panel recuerda y puede cerrar lo que creó) |
 | Repos y .env | Ramas por repo (solo lectura) y perfiles de `.env` MinIO local ⇄ remoto (comenta/descomenta, con diff y respaldo) |
 | Pruebas / Planificación | Lector de `_EXTRA` (cada ticket tiene "Pantalla completa" para concentrarse y "Eliminar carpeta", que exige escribir el nombre y la mueve a `.papelera/` de la base de conocimiento, recuperable a mano) (Pruebas filtra por estado, por defecto sin aprobados, y cada tanda tiene su checklist): informes MD, capturas con visor, MRs, code review, plan, diagrama Mermaid y referencia visual |
-| Daily | Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA`; checklist de todos los días (entrada, salida, horas); pestaña **Historial** (5 días, solo lectura: commits, push, MRs, reviews, análisis, estimaciones, pruebas; lo más viejo se borra solo) |
+| Daily | **Resumen semanal**: botón que copia un pedido para Claude con los datos de la semana por ticket (git, base de conocimiento y Redmine) y el formato del reporte del Google Doc (`services/weekly.ts`, fuente única del formato; el MCP expone la misma herramienta `weekly_report`). Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA`; checklist de todos los días (entrada, salida, horas); pestaña **Historial** (5 días, solo lectura: commits, push, MRs, reviews, análisis, estimaciones, pruebas; lo más viejo se borra solo) |
 | Kanban | Tickets de Redmine con cambios en los últimos 7/30/60 días por columna de estado, con SP, horas, asignado y última actualización (solo lectura) |
 | Configuración | Edita `config.json` (rutas con selector nativo del sistema, orden de levantado, repos) |
 
@@ -64,7 +64,7 @@ Vistas pendientes (marcadas F1…F3 en el menú) se construyen por fases según 
 yarn build
 claude mcp add dev-panel -- node /ruta/a/dev-panel/server/dist/mcp.js
 ```
-Usar `node` directo (no `yarn`): yarn imprime banners por stdout y rompe el protocolo. Herramientas: `checks`, `containers`, `startup_plan`, `startup_run`, `startup_state`, `tickets`, `ticket_detail`, `repos`, `env_status`, `daily_draft`, `snapshots`, `testdata`. **A propósito no expone nada destructivo** (restaurar datos, resetear contraseñas, sesiones, limpiar datos, reiniciar contenedores, cambiar `.env`, detener): eso queda en la interfaz, con confirmación. Lo comprueba un test (`mcpTools.test.ts`); no agregar herramientas destructivas.
+Usar `node` directo (no `yarn`): yarn imprime banners por stdout y rompe el protocolo. Herramientas: `checks`, `containers`, `startup_plan`, `startup_run`, `startup_state`, `tickets`, `ticket_detail`, `repos`, `env_status`, `daily_draft`, `weekly_report`, `activity`, `daily_checklist`, `redmine_issue`, `kanban`, `sp_history`, `snapshots`, `testdata`. **A propósito no expone nada destructivo** (restaurar datos, resetear contraseñas, sesiones, limpiar datos, reiniciar contenedores, cambiar `.env`, detener): eso queda en la interfaz, con confirmación. Lo comprueba un test (`mcpTools.test.ts`); no agregar herramientas destructivas.
 
 ## Seguridad (no relajar)
 - Solo escucha en `127.0.0.1`; valida `Host` y `Origin`; toda escritura exige la cabecera `X-Dev-Panel: 1` (`web/src/lib/api.ts` ya la pone).

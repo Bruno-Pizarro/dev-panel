@@ -51,6 +51,27 @@ export const mcpTools: McpToolDef[] = [
     shape: { since: z.enum(['today', 'yesterday', 'last']).default('today') },
     run: (args, call) => call('POST', '/api/daily/draft', { since: args['since'] }),
   },
+  {
+    name: 'weekly_report',
+    description: 'Resumen semanal de avances: datos por ticket (commits, MRs, revisiones, pruebas, análisis, estimaciones, estado en Redmine) y el pedido con las reglas y el formato del Google Doc. Devolvé el texto final en un bloque para copiar y pegar.',
+    shape: { week: z.enum(['current', 'previous']).default('current').describe('"current" = esta semana (lunes a hoy), "previous" = la semana pasada') },
+    run: (args, call) => call('POST', '/api/daily/weekly', { week: args['week'] }),
+  },
+  { name: 'activity', description: 'Historial de los últimos 5 días: commits, push, MRs, revisiones, análisis, estimaciones y pruebas, por día.', shape: {}, run: (_a, call) => call('GET', '/api/activity') },
+  { name: 'daily_checklist', description: 'Checklist de todos los días de hoy (entrada, salida, cargar horas) y qué está tildado.', shape: {}, run: (_a, call) => call('GET', '/api/checklist/daily') },
+  {
+    name: 'redmine_issue',
+    description: 'Un ticket de Redmine (solo lectura): estado, asignado, story points, horas, fechas y últimos comentarios.',
+    shape: { id: z.string().regex(/^\d{3,6}$/).describe('Número de ticket, ej. 33526') },
+    run: (args, call) => call('GET', `/api/redmine/issues/${String(args['id'])}`),
+  },
+  {
+    name: 'kanban',
+    description: 'Tickets de Redmine con cambios recientes (el kanban): por estado, con SP, horas y última actualización.',
+    shape: { scope: z.enum(['me', 'all']).default('me'), days: z.number().int().min(1).max(90).default(30) },
+    run: (args, call) => call('GET', `/api/redmine/board${query({ scope: String(args['scope']), days: String(args['days']) })}`),
+  },
+  { name: 'sp_history', description: 'Story points entregados por semana (últimas 4) y su promedio.', shape: {}, run: (_a, call) => call('GET', '/api/redmine/sp-history') },
   { name: 'snapshots', description: 'Snapshots de datos guardados en este equipo.', shape: {}, run: (_a, call) => call('GET', '/api/data/snapshots') },
   {
     name: 'testdata',

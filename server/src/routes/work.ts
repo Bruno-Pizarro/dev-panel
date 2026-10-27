@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { KEEP_DAYS, refreshActivity } from '../services/activity.js';
 import { CONCLUSIONS, ChecklistError, getDailyChecklist, getTestState, itemId, localDay, setDailyItem, setTestRun } from '../services/checklists.js';
+import { buildWeeklyReport } from '../services/weekly.js';
 import { requireConfig } from './helpers.js';
 
 const fail = (reply: FastifyReply, error: unknown) => {
@@ -15,6 +16,15 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     return { keepDays: KEEP_DAYS, days: await refreshActivity(config) };
+  });
+
+  /** Datos de la semana (por ticket) y el pedido listo para que Claude arme el resumen semanal con el formato del Google Doc. */
+  app.post('/api/daily/weekly', async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const body = z.object({ week: z.enum(['current', 'previous']).default('current') }).safeParse(request.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: 'Parámetro inválido' });
+    return buildWeeklyReport(config, body.data.week);
   });
 
   app.get<{ Querystring: { date?: string } }>('/api/checklist/daily', async (request, reply) => {

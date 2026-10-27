@@ -315,3 +315,10 @@ export interface SpHistory {
   source: 'redmine' | 'saved';
   generatedAt: string;
 }
+
+export interface WeeklyReport {
+  range: { start: string; end: string; label: string };
+  tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;
+  data: string;
+  prompt: string;
+}

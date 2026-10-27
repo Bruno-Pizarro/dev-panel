@@ -8,6 +8,7 @@ import { Markdown } from '../components/Markdown';
 import { PageHeader } from '../components/PageHeader';
 import { ActivityHistory } from '../components/ActivityHistory';
 import { DailyChecklistCard } from '../components/DailyChecklistCard';
+import { WeeklyReportCard } from '../components/WeeklyReportCard';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { useToast } from '../components/Toast';
@@ -122,6 +123,7 @@ export const Daily = () => {
     <>
       <PageHeader title="Daily" description={`Resumen del día para dar el update. Se conservan los últimos ${list.data?.maxFiles ?? 5} en ${list.data?.dir ?? ''}.`} />
       <DailyChecklistCard />
+      <WeeklyReportCard />
       <Tabs<'daily' | 'historial'> value={view} onChange={setView} items={[{ id: 'daily', label: 'Daily' }, { id: 'historial', label: 'Historial (5 días)' }]} />
       {view === 'historial' ? <ActivityHistory /> : (
         <>
