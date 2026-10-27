@@ -42,7 +42,7 @@ export default {
         shimmer: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
         'pulse-dot': { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.35' } },
       },
-      animation: { shimmer: 'shimmer 1.6s ease-in-out infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
+      animation: { shimmer: 'shimmer 3s linear infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
     },
   },
   plugins: [],
