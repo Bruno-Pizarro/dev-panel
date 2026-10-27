@@ -16,7 +16,8 @@
     "start": "yarn build && yarn workspace @dev-panel/server start",
     "lint": "yarn workspaces run lint",
     "typecheck": "yarn workspaces run typecheck",
-    "test": "yarn workspaces run test"
+    "test": "yarn workspaces run test",
+    "verify": "yarn typecheck && yarn lint && yarn test && yarn build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

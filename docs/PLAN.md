@@ -1,5 +1,7 @@
 # Dev Panel — plan de construcción
 
+> **Estado (27/10/2026): Fases 0 a 5 implementadas.** Este documento queda como registro del diseño; el estado vigente y las vistas están en [CLAUDE.md](../CLAUDE.md). Diferencias respecto del plan original: los nombres de servicio de MinIO son `minio` y `mc`; los perfiles de `.env` usan matchers `CLAVE`, `CLAVE=valor` y `CLAVE!=valor` para distinguir bloques repetidos; "entrar como usuario" siembra el navegador con un script para la consola (el panel no puede escribir el `localStorage` de otro origen); RabbitMQ quedó fuera por pedido.
+
 Panel web local para el entorno de desarrollo de e-sueldos. Reemplaza los scripts sueltos (`backup_improved4.sh`, `reset_password_superadmin.sh`, secuencias de `docker compose` a mano) por una interfaz en modo oscuro pensada para desarrolladores. Parte del prototipo de `_EXTRA/dev-panel` (Node sin dependencias, ver su `PLAN_DEV_PANEL.md`), que se migra a este repo.
 
 Fecha del plan: 27/10/2026.

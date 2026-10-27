@@ -9,7 +9,134 @@
     "minio": "/path/to/projects/file-manager/docker.compose.minio.yml"
   },
   "mongo": {
-    "container": "mongo-db"
+    "container": "mongo-db",
+    "deniedDbs": [
+      "admin",
+      "config",
+      "local"
+    ],
+    "superadmin": {
+      "email": "e-sueldos@gmail.com",
+      "db": "node-ts-boilerplate"
+    }
+  },
+  "remoteBackup": {
+    "script": "",
+    "types": [
+      "incidencia",
+      "legajo",
+      "cursos",
+      "documentos",
+      "recibos",
+      "notificaciones",
+      "firma",
+      "control-horario",
+      "proyecto",
+      "e-panel",
+      "node-ts-boilerplate"
+    ]
+  },
+  "session": {
+    "enabled": true,
+    "securityEnv": "",
+    "jwtKey": "JWT_SECRET",
+    "db": "node-ts-boilerplate",
+    "frontUrl": "http://localhost:4200",
+    "accessTtlSec": 3600,
+    "refreshTtlSec": 86400
+  },
+  "git": {
+    "baseBranch": "desarrollo"
+  },
+  "checks": {
+    "sharedSecret": {
+      "key": "INTERNAL_SERVICE_SECRET",
+      "repos": [
+        "panel",
+        "legajo",
+        "cursos",
+        "file-manager"
+      ]
+    },
+    "firmaCaDir": "firma/src/modules/certificados/CA"
+  },
+  "testData": [
+    {
+      "db": "legajo",
+      "collection": "legajodigitals",
+      "field": "name"
+    },
+    {
+      "db": "legajo",
+      "collection": "tipolegajodigitals",
+      "field": "name"
+    },
+    {
+      "db": "documentos",
+      "collection": "documentos",
+      "field": "name"
+    },
+    {
+      "db": "documentos",
+      "collection": "carpetas",
+      "field": "name"
+    }
+  ],
+  "envProfiles": {
+    "file-manager": {
+      "file": ".env",
+      "container": "files",
+      "minio": [
+        "AWS_ACCESS_KEY_ID=minioadmin",
+        "AWS_SECRET_ACCESS_KEY=minioadmin",
+        "AWS_S3_BUCKET_NAME=esueldos-s3",
+        "AWS_ENDPOINT=http://minio:9000",
+        "AWS_S3_PUBLIC_URL=http://localhost:9000",
+        "AWS_S3_FORCE_PATH_STYLE=true",
+        "USE_MINIO=true"
+      ],
+      "remote": [
+        "AWS_S3_PUBLIC_URL!=http://localhost:9000",
+        "AWS_S3_FORCE_PATH_STYLE!=true",
+        "USE_MINIO=false"
+      ]
+    },
+    "firma": {
+      "file": ".env",
+      "container": "firma",
+      "minio": [
+        "AWS_ACCESS_KEY_ID=minioadmin",
+        "AWS_SECRET_ACCESS_KEY=minioadmin",
+        "AWS_REGION=us-east-1",
+        "AWS_S3_BUCKET_NAME=esueldos-s3",
+        "AWS_ENDPOINT=http://minio:9000",
+        "AWS_S3_PUBLIC_URL=http://localhost:9000",
+        "AWS_S3_FORCE_PATH_STYLE=true",
+        "USE_MINIO=true"
+      ],
+      "remote": []
+    },
+    "documentos": {
+      "file": ".env",
+      "container": "documentos",
+      "minio": [
+        "AWS_ACCESS_KEY_ID=minioadmin",
+        "AWS_SECRET_ACCESS_KEY=minioadmin",
+        "AWS_S3_BUCKET_NAME=esueldos-s3",
+        "AWS_ENDPOINT=http://minio:9000",
+        "AWS_S3_PUBLIC_URL=http://localhost:9000",
+        "AWS_S3_FORCE_PATH_STYLE=true",
+        "USE_MINIO=true"
+      ],
+      "remote": [
+        "AWS_ACCESS_KEY_ID!=minioadmin",
+        "AWS_SECRET_ACCESS_KEY!=minioadmin",
+        "AWS_S3_BUCKET_NAME!=esueldos-s3",
+        "AWS_S3_PUBLIC_URL!=http://localhost:9000",
+        "AWS_S3_FORCE_PATH_STYLE!=true",
+        "USE_MINIO=false"
+      ]
+    }
   },
   "startup": {
     "stage1": [

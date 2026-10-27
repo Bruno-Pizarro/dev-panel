@@ -1,6 +1,19 @@
 # Dev Panel — guía para agentes
 
-Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos: levantar el stack de Docker en orden, ver pruebas y planes por ticket, daily, perfiles de `.env`, snapshots de Mongo. Plan completo y fases: [docs/PLAN.md](docs/PLAN.md). Prototipo previo: `_EXTRA/dev-panel` (no se modifica).
+Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y fases: [docs/PLAN.md](docs/PLAN.md). Convención de `ticket.json`: [docs/TICKET_JSON.md](docs/TICKET_JSON.md). Prototipo previo: `_EXTRA/dev-panel` (no se modifica).
+
+## Qué hace (vistas)
+| Vista | Qué hace |
+|---|---|
+| Inicio | Estado de Docker/contenedores y **chequeos de entorno** (Mongo, obligatorios, tsc trabado, secreto compartido, CA de firma) |
+| Servicios | Contenedores, puertos, estado de `tsc`, logs en vivo (SSE), reinicio con confirmación |
+| Levantado | Chips de servicios opcionales + presets (compartidos en `config.json`, personales en `data/`); levanta en orden: MinIO → RabbitMQ y Mongo (espera el log de "listo") → obligatorios y elegidos. Valida los nombres contra el compose antes de tocar nada |
+| Datos | Snapshots de colecciones (chips), restauración con verificación de conteo, reseteo de contraseña por mail en todas las bases, backup remoto (envuelve `backup_improved4.sh`), limpieza de datos de prueba por ticket |
+| Sesiones de prueba | Entrar como un usuario del entorno local (firma un token con el `JWT_SECRET` de `security`; el panel recuerda y puede cerrar lo que creó) |
+| Repos y .env | Ramas por repo (solo lectura) y perfiles de `.env` MinIO local ⇄ remoto (comenta/descomenta, con diff y respaldo) |
+| Pruebas / Planificación | Lector de `_EXTRA`: informes MD, capturas con visor, MRs, code review, plan, diagrama Mermaid y referencia visual |
+| Daily | Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA` |
+| Configuración | Edita `config.json` (rutas, orden de levantado, repos) |
 
 ## Reglas fijas
 - **Siempre `yarn`** (v1.22). Nunca `npm` ni `npx`, ni en scripts, ni en docs, ni en comandos que le pidas al usuario.
@@ -28,6 +41,7 @@ Primer arranque: el panel abre un **asistente** que detecta Docker, las rutas y 
 | `yarn typecheck` | `tsc --noEmit` en server y web |
 | `yarn lint` | ESLint en server y web |
 | `yarn test` | Vitest en server y web |
+| `yarn verify` | typecheck + lint + test + build (correrlo antes de commitear) |
 
 Para un solo paquete: `yarn workspace @dev-panel/server test`, `yarn workspace @dev-panel/web build`.
 
@@ -41,11 +55,21 @@ config.json  configuración local de la máquina (ignorado en git)
 ```
 Vistas pendientes (marcadas F1…F3 en el menú) se construyen por fases según `docs/PLAN.md`.
 
+## Servidor MCP (para que Claude use el panel)
+`server/src/mcp.ts` es un servidor MCP por stdio que **le habla al panel ya corriendo** (`yarn start`). Se registra una vez por máquina:
+```bash
+yarn build
+claude mcp add dev-panel -- node /ruta/a/dev-panel/server/dist/mcp.js
+```
+Usar `node` directo (no `yarn`): yarn imprime banners por stdout y rompe el protocolo. Herramientas: `checks`, `containers`, `startup_plan`, `startup_run`, `startup_state`, `tickets`, `ticket_detail`, `repos`, `env_status`, `daily_draft`, `snapshots`, `testdata`. **A propósito no expone nada destructivo** (restaurar datos, resetear contraseñas, sesiones, limpiar datos, reiniciar contenedores, cambiar `.env`, detener): eso queda en la interfaz, con confirmación. Lo comprueba un test (`mcpTools.test.ts`); no agregar herramientas destructivas.
+
 ## Seguridad (no relajar)
 - Solo escucha en `127.0.0.1`; valida `Host` y `Origin`; toda escritura exige la cabecera `X-Dev-Panel: 1` (`web/src/lib/api.ts` ya la pone).
 - Los comandos externos se ejecutan con `execFile` (sin shell, `server/src/docker.ts`). Los nombres de servicio/contenedor se validan con lista blanca (`config.ts`).
 - Lo destructivo pide confirmación en la UI **y** en el servidor. No operar sobre las bases `admin`, `config`, `local`.
 - No modificar el `docker-compose.yml` compartido: el panel solo lo invoca.
+- `server/src/services/session.ts` firma tokens con un secreto del entorno local: mantener `session.enabled` apagable y nunca devolver el secreto ni escribirlo en logs.
+- Los `.env` solo se tocan desde `routes/env.ts` (cambia el prefijo `# ` de las líneas del perfil, con respaldo en `data/env-backups/`).
 
 ## Cómo probar un cambio
 1. `yarn typecheck && yarn lint && yarn test`.
