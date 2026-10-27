@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import type { DevPanelConfig } from '../config.js';
 
 /** `ticket.json`: lo escriben las skills al cerrar cada etapa; todo es opcional para tolerar carpetas viejas. */
 export const ticketMetaSchema = z
@@ -126,20 +127,27 @@ const buildDetail = (extraRoot: string, dir: string): TicketDetail => {
 
 const summarize = ({ meta: _meta, files: _files, ...summary }: TicketDetail): TicketSummary => summary;
 
-const ticketDirs = (extraRoot: string): string[] => {
+/** Carpetas que no son tickets: las configuradas y, si está dentro de la base de conocimiento, la carpeta del Daily. */
+export const ignoredDirs = (config: DevPanelConfig): string[] => {
+  const daily = resolve(config.paths.daily);
+  const insideExtra = resolve(daily, '..') === resolve(config.paths.extra) ? [basename(daily)] : [];
+  return [...new Set([...config.paths.ignoreDirs, ...insideExtra])];
+};
+
+const ticketDirs = (extraRoot: string, ignore: string[] = []): string[] => {
   if (!existsSync(extraRoot)) return [];
   return readdirSync(extraRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !IGNORED_DIRS.has(entry.name) && /^[\w][\w .-]*$/.test(entry.name))
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !IGNORED_DIRS.has(entry.name) && !ignore.includes(entry.name) && /^[\w][\w .-]*$/.test(entry.name))
     .map((entry) => entry.name);
 };
 
-export const listTickets = (extraRoot: string): TicketSummary[] =>
-  ticketDirs(extraRoot)
+export const listTickets = (extraRoot: string, ignore: string[] = []): TicketSummary[] =>
+  ticketDirs(extraRoot, ignore)
     .map((dir) => summarize(buildDetail(extraRoot, dir)))
     .sort((a, b) => b.lastUpdated - a.lastUpdated);
 
-export const getTicket = (extraRoot: string, dir: string): TicketDetail | null =>
-  ticketDirs(extraRoot).includes(dir) ? buildDetail(extraRoot, dir) : null;
+export const getTicket = (extraRoot: string, dir: string, ignore: string[] = []): TicketDetail | null =>
+  ticketDirs(extraRoot, ignore).includes(dir) ? buildDetail(extraRoot, dir) : null;
 
 export type ResolvedFile = { ok: true; absolute: string; ext: string } | { ok: false; status: 400 | 404; error: string };
 
@@ -147,8 +155,8 @@ export type ResolvedFile = { ok: true; absolute: string; ext: string } | { ok: f
  * Resuelve un archivo de una carpeta de ticket. Solo md, mmd, imágenes y ticket.json; la ruta real
  * (tras resolver symlinks) debe seguir dentro de la carpeta del ticket.
  */
-export const resolveTicketFile = (extraRoot: string, dir: string, path: string, kind: 'text' | 'image'): ResolvedFile => {
-  if (!ticketDirs(extraRoot).includes(dir)) return { ok: false, status: 404, error: 'Ticket no encontrado' };
+export const resolveTicketFile = (extraRoot: string, dir: string, path: string, kind: 'text' | 'image', ignore: string[] = []): ResolvedFile => {
+  if (!ticketDirs(extraRoot, ignore).includes(dir)) return { ok: false, status: 404, error: 'Ticket no encontrado' };
   if (!path || path.includes('\0') || path.startsWith('/') || path.split(/[\\/]/).includes('..')) return { ok: false, status: 400, error: 'Ruta inválida' };
   const ext = extname(path).toLowerCase();
   const allowed = kind === 'image' ? IMAGE_EXT.has(ext) : TEXT_EXT.has(ext) || basename(path) === 'ticket.json';
@@ -174,8 +182,8 @@ export const TRASH_DIR = '.papelera';
  * "Elimina" una carpeta de ticket moviéndola a `.papelera/` dentro de la base de conocimiento (se puede recuperar a mano).
  * Exige que se escriba el nombre exacto de la carpeta y que sea una carpeta real de la lista (no un enlace hacia afuera).
  */
-export const trashTicket = (extraRoot: string, dir: string, typedName: string, now = new Date()): { movedTo: string } => {
-  if (!ticketDirs(extraRoot).includes(dir)) throw new TicketDeleteError('Ticket no encontrado', 404);
+export const trashTicket = (extraRoot: string, dir: string, typedName: string, ignore: string[] = [], now = new Date()): { movedTo: string } => {
+  if (!ticketDirs(extraRoot, ignore).includes(dir)) throw new TicketDeleteError('Ticket no encontrado', 404);
   if (typedName !== dir) throw new TicketDeleteError('El nombre escrito no coincide con el de la carpeta');
   const source = resolve(extraRoot, dir);
   if (realpathSync(source) !== source || !statSync(source).isDirectory()) throw new TicketDeleteError('La carpeta es un enlace o no es una carpeta: no se mueve');

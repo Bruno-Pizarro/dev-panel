@@ -4,7 +4,7 @@ import type { DevPanelConfig } from '../config.js';
 import { paths } from '../config.js';
 import { run, type Runner } from '../docker.js';
 import { localDay } from './checklists.js';
-import { getTicket, listTickets } from './tickets.js';
+import { getTicket, ignoredDirs, listTickets } from './tickets.js';
 
 export type ActivityType = 'commit' | 'push' | 'mr' | 'review' | 'analysis' | 'estimation' | 'test';
 
@@ -72,8 +72,9 @@ export const collectTickets = (config: DevPanelConfig, since: Date): ActivityEve
     const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
     return Number.isNaN(date.getTime()) || date < since ? null : date.toISOString();
   };
-  for (const summary of listTickets(config.paths.extra)) {
-    const detail = getTicket(config.paths.extra, summary.dir);
+  const ignore = ignoredDirs(config);
+  for (const summary of listTickets(config.paths.extra, ignore)) {
+    const detail = getTicket(config.paths.extra, summary.dir, ignore);
     if (!detail) continue;
     const ticket = detail.ticket ?? undefined;
     const label = `${ticket ? `#${ticket} ` : ''}${detail.title}`;

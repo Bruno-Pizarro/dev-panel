@@ -37,6 +37,9 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           <PathField label="docker-compose principal" kind="file" value={config.compose.main} status={exists(detect, 'composeMain')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, main: value } })} />
           <PathField label="docker-compose de MinIO" kind="file" value={config.compose.minio} status={exists(detect, 'composeMinio')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, minio: value } })} />
         </div>
+        <div className="mt-5">
+          <TagEditor label="Carpetas que no son tickets" help="No aparecen en Pruebas, Planificación ni en los reportes. La carpeta del Daily se omite siempre." values={config.paths.ignoreDirs} onChange={(ignoreDirs) => setConfig({ ...config, paths: { ...config.paths, ignoreDirs } })} />
+        </div>
       </Card>
 
       <Card title="Orden de levantado" action={<span className="text-sm text-muted">Nombres de servicio del compose</span>}>

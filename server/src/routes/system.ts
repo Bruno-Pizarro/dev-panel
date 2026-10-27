@@ -41,7 +41,7 @@ export const registerSystemRoutes = (app: FastifyInstance): void => {
       docker: { ok: dockerVersion.ok, version: dockerVersion.stdout, error: dockerVersion.ok ? null : dockerVersion.stderr },
       compose: { ok: composeVersion.ok, version: composeVersion.stdout, error: composeVersion.ok ? null : composeVersion.stderr },
       paths: Object.fromEntries(
-        Object.entries({ ...suggested.paths, composeMain: suggested.compose.main, composeMinio: suggested.compose.minio }).map(([key, value]) => [key, { value, exists: existsSync(value) }]),
+        Object.entries({ projects: suggested.paths.projects, extra: suggested.paths.extra, daily: suggested.paths.daily, composeMain: suggested.compose.main, composeMinio: suggested.compose.minio }).map(([key, value]) => [key, { value, exists: existsSync(value) }]),
       ),
       repos: suggested.repos.map((name) => ({ name, exists: existsSync(`${projectsRoot}/${name}`) })),
       containers,

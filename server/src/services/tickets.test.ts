@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
-import { TicketDeleteError, getTicket, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
+import { defaultConfig } from '../config.js';
+import { TicketDeleteError, getTicket, ignoredDirs, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
 
 let extra: string;
 const write = (path: string, content: string | Buffer = 'x') => {
@@ -131,5 +132,29 @@ describe('trashTicket (eliminar con confirmación)', () => {
     expect(() => trashTicket(root, 'no-existe', 'no-existe')).toThrow(/no encontrado/);
     expect(() => trashTicket(root, '40002-enlace', '40002-enlace')).toThrow(/no encontrado/);
     expect(existsSync(join(root, 'afuera'))).toBe(true);
+  });
+});
+
+describe('carpetas omitidas (daily y otras que no son tickets)', () => {
+  it('la carpeta del Daily no aparece en el listado, no se puede abrir ni eliminar', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dp-ign-'));
+    mkdirSync(join(root, '40010-ticket'));
+    mkdirSync(join(root, 'daily'));
+    writeFileSync(join(root, 'daily', '2026-10-27.md'), '# daily');
+    const config = { ...defaultConfig('/x'), paths: { ...defaultConfig('/x').paths, extra: root, daily: join(root, 'daily') } };
+    const ignore = ignoredDirs(config);
+    expect(ignore).toContain('daily');
+    expect(listTickets(root, ignore).map((t) => t.dir)).toEqual(['40010-ticket']);
+    expect(listTickets(root).map((t) => t.dir)).toContain('daily');
+    expect(getTicket(root, 'daily', ignore)).toBeNull();
+    expect(resolveTicketFile(root, 'daily', '2026-10-27.md', 'text', ignore)).toMatchObject({ ok: false, status: 404 });
+    expect(() => trashTicket(root, 'daily', 'daily', ignore)).toThrow(/no encontrado/);
+    expect(existsSync(join(root, 'daily'))).toBe(true);
+  });
+
+  it('también omite la carpeta del Daily aunque tenga otro nombre, y las extra que se configuren', () => {
+    const config = { ...defaultConfig('/x'), paths: { ...defaultConfig('/x').paths, extra: '/base', daily: '/base/resumenes', ignoreDirs: ['dev-panel'] } };
+    expect(ignoredDirs(config).sort()).toEqual(['dev-panel', 'resumenes']);
+    expect(ignoredDirs({ ...config, paths: { ...config.paths, daily: '/otro/lado/daily' } })).toEqual(['dev-panel']);
   });
 });

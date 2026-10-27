@@ -1,5 +1,5 @@
 export interface DevPanelConfig {
-  paths: { projects: string; extra: string; daily: string };
+  paths: { projects: string; extra: string; daily: string; ignoreDirs: string[] };
   compose: { main: string; minio: string };
   mongo: { container: string };
   startup: {

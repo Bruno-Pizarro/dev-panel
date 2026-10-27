@@ -3,7 +3,7 @@ import { run, type Runner } from '../docker.js';
 import { collectGit, collectTickets, type ActivityEvent } from './activity.js';
 import { localDay } from './checklists.js';
 import { fetchIssue } from './redmine.js';
-import { listTickets } from './tickets.js';
+import { ignoredDirs, listTickets } from './tickets.js';
 
 export type WeekChoice = 'current' | 'previous';
 
@@ -138,7 +138,7 @@ export const buildWeeklyReport = async (config: DevPanelConfig, choice: WeekChoi
   const events = [...(await collectGit(config, range.start, runner)), ...collectTickets(config, range.start)].filter(inWeek);
   const tickets = groupByTicket(events);
 
-  const folders = new Map(listTickets(config.paths.extra).filter((item) => item.ticket).map((item) => [item.ticket!, item.title]));
+  const folders = new Map(listTickets(config.paths.extra, ignoredDirs(config)).filter((item) => item.ticket).map((item) => [item.ticket!, item.title]));
   await Promise.all(
     tickets.slice(0, 20).map(async (item) => {
       if (!item.ticket) return;

@@ -45,6 +45,8 @@ export const configSchema = z.object({
     projects: z.string().min(1),
     extra: z.string().min(1),
     daily: z.string().min(1),
+    /** Carpetas de la base de conocimiento que no son tickets (no aparecen en Pruebas, Planificación ni reportes). */
+    ignoreDirs: z.array(z.string().regex(/^[\w][\w .-]*$/)).default(['daily']),
   }),
   compose: z.object({
     main: z.string().min(1),
@@ -153,6 +155,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
     projects: projectsRoot,
     extra: join(projectsRoot, '_EXTRA'),
     daily: join(projectsRoot, '_EXTRA', 'daily'),
+    ignoreDirs: ['daily'],
   },
   compose: {
     main: join(projectsRoot, 'docker-compose.yml'),

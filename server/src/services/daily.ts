@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
-import { listTickets, type TicketSummary } from './tickets.js';
+import { ignoredDirs, listTickets, type TicketSummary } from './tickets.js';
 
 export const DAILY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 export const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -132,6 +132,6 @@ export const formatDraft = (date: string, activity: RepoActivity[], tickets: Tic
 export const buildDraft = async (config: DevPanelConfig, mode: 'today' | 'yesterday' | 'last', now = new Date(), runner: Runner = run): Promise<string> => {
   const since = sinceDate(mode, now, listDaily(config.paths.daily));
   const activity = await collectActivity(config, since, runner);
-  const touched = listTickets(config.paths.extra).filter((ticket) => ticket.lastUpdated >= since.getTime());
+  const touched = listTickets(config.paths.extra, ignoredDirs(config)).filter((ticket) => ticket.lastUpdated >= since.getTime());
   return formatDraft(localDate(now), activity, touched);
 };
