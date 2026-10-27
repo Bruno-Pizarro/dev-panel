@@ -1,8 +1,8 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { defaultConfig } from '../config.js';
+import { defaultConfig, paths } from '../config.js';
 import { RedmineError, clearRedmineCache, fetchIssue, loadCredentials, mapIssue, parseSubject } from './redmine.js';
 
 const SECRET = 'clave-secreta-de-prueba-0123456789abcdef';
@@ -18,7 +18,12 @@ const RAW = {
   journals: [{ user: { name: 'A' }, created_on: '2026-10-26', notes: '' }, ...['uno', 'dos', 'tres', 'cuatro'].map((notes, i) => ({ user: { name: 'B' }, created_on: `2026-10-2${i}`, notes }))],
 };
 
-beforeEach(() => clearRedmineCache());
+beforeEach(() => {
+  clearRedmineCache();
+  // El caché de SP vive en archivo: cada prueba parte vacía.
+  mkdirSync(paths.data, { recursive: true });
+  writeFileSync(join(paths.data, 'sp-cache.json'), '{}');
+});
 
 describe('parseSubject', () => {
   it('separa SP, módulo y título', () => {
