@@ -1,0 +1,79 @@
+{
+  "paths": {
+    "projects": "/path/to/projects",
+    "extra": "/path/to/projects/_EXTRA",
+    "daily": "/path/to/projects/_EXTRA/daily"
+  },
+  "compose": {
+    "main": "/path/to/projects/docker-compose.yml",
+    "minio": "/path/to/projects/file-manager/docker.compose.minio.yml"
+  },
+  "mongo": {
+    "container": "mongo-db"
+  },
+  "startup": {
+    "stage1": [
+      "minio",
+      "minio-mc"
+    ],
+    "stage2": [
+      "rabbitmq",
+      "mongo-e-sueldos"
+    ],
+    "rabbitReady": {
+      "container": "rabbitmq",
+      "logMatch": "completed with 3 plugins",
+      "timeoutSec": 180
+    },
+    "mandatory": [
+      "new-panel",
+      "security",
+      "files",
+      "legajo"
+    ],
+    "optional": [
+      "leia",
+      "firma",
+      "controlhorario",
+      "documentos",
+      "cursos",
+      "recibos",
+      "incidencia",
+      "notificaciones",
+      "proyectos",
+      "liquidacion",
+      "recruiting",
+      "salud-laboral",
+      "help-center",
+      "reconocimientoapi"
+    ],
+    "groups": {
+      "leia": {
+        "withStage2": [
+          "leia-qdrant",
+          "leia-redis"
+        ]
+      }
+    },
+    "presets": [
+      {
+        "name": "Solo obligatorios",
+        "services": []
+      },
+      {
+        "name": "Leia",
+        "services": [
+          "leia"
+        ]
+      }
+    ]
+  },
+  "repos": [
+    "documentos",
+    "file-manager",
+    "firma",
+    "legajo",
+    "front",
+    "security"
+  ]
+}

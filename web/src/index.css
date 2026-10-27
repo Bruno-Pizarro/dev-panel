@@ -1,0 +1,58 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta oscura "media" (no negro puro). Los valores son canales RGB para poder usar opacidad: bg-accent/20. */
+:root {
+  color-scheme: dark;
+  --bg: 15 20 25; /* #0f1419 */
+  --surface: 22 27 34; /* #161b22 */
+  --surface-2: 28 35 48; /* #1c2330 */
+  --surface-3: 36 45 61; /* #242d3d */
+  --line: 42 51 66; /* #2a3342 */
+  --fg: 230 237 243; /* #e6edf3 */
+  --muted: 139 152 169; /* #8b98a9 */
+  --accent: 138 151 255; /* #8a97ff */
+  --accent-strong: 99 102 241; /* #6366f1 */
+  --success: 63 185 128;
+  --warning: 229 169 59;
+  --danger: 240 98 108;
+  --info: 86 182 232;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-bg font-sans text-base text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--surface-3)) transparent; }
+  ::selection { background: rgb(var(--accent) / 0.35); }
+  :focus-visible { @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-bg; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  .prose-panel { @apply text-fg leading-7; }
+  .prose-panel h1 { @apply mb-4 mt-2 text-3xl font-semibold tracking-tight; }
+  .prose-panel h2 { @apply mb-3 mt-8 border-b border-line pb-2 text-2xl font-semibold tracking-tight; }
+  .prose-panel h3 { @apply mb-2 mt-6 text-xl font-semibold; }
+  .prose-panel p { @apply my-3; }
+  .prose-panel a { @apply text-accent underline-offset-4 hover:underline; }
+  .prose-panel ul { @apply my-3 list-disc space-y-1 pl-6; }
+  .prose-panel ol { @apply my-3 list-decimal space-y-1 pl-6; }
+  .prose-panel code { @apply rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-sm text-accent; }
+  .prose-panel pre { @apply my-4 overflow-x-auto rounded-xl border border-line bg-surface p-4; }
+  .prose-panel pre code { @apply bg-transparent p-0 text-fg; }
+  .prose-panel blockquote { @apply my-4 border-l-4 border-accent/60 bg-surface-2 px-4 py-2 text-muted; }
+  .prose-panel table { @apply my-4 w-full border-collapse overflow-hidden rounded-xl border border-line text-left; }
+  .prose-panel th { @apply border-b border-line bg-surface-2 px-3 py-2 font-semibold; }
+  .prose-panel td { @apply border-b border-line px-3 py-2 align-top; }
+  .prose-panel img { @apply my-4 max-w-full rounded-xl border border-line; }
+  .prose-panel hr { @apply my-6 border-line; }
+}

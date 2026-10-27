@@ -1,0 +1,25 @@
+{
+  "name": "dev-panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=18.14"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"yarn workspace @dev-panel/server dev\" \"yarn workspace @dev-panel/web dev\"",
+    "build": "yarn workspace @dev-panel/web build && yarn workspace @dev-panel/server build",
+    "start": "yarn build && yarn workspace @dev-panel/server start",
+    "lint": "yarn workspaces run lint",
+    "typecheck": "yarn workspaces run typecheck",
+    "test": "yarn workspaces run test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.3.3"
+  }
+}
