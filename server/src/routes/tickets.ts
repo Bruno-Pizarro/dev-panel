@@ -1,13 +1,18 @@
 import { createReadStream, readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { IMAGE_TYPES, getTicket, listTickets, resolveTicketFile } from '../services/tickets.js';
+import { getTestState, testStatusOf } from '../services/checklists.js';
 import { requireConfig } from './helpers.js';
 
 export const registerTicketRoutes = (app: FastifyInstance): void => {
   app.get('/api/tickets', async (_request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
-    return { extra: config.paths.extra, tickets: listTickets(config.paths.extra) };
+    const tickets = listTickets(config.paths.extra).map((summary) => {
+      const runs = getTicket(config.paths.extra, summary.dir)?.meta?.pruebas ?? [];
+      return { ...summary, testStatus: testStatusOf(runs, getTestState(summary.dir), config.checklists.test) };
+    });
+    return { extra: config.paths.extra, tickets };
   });
 
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir', async (request, reply) => {

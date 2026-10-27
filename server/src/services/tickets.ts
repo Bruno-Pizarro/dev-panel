@@ -12,9 +12,9 @@ export const ticketMetaSchema = z
     responsable: z.string().optional(),
     rama: z.string().optional(),
     repos: z.array(z.string()).optional(),
-    mrs: z.array(z.object({ repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
+    mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
-    pruebas: z.array(z.object({ fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),
+    pruebas: z.array(z.object({ conclusion: z.string().optional(), fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),
     plan: z.object({ resumen: z.string().optional(), diagrama: z.string().optional(), referenciaVisual: z.string().optional() }).passthrough().optional(),
   })
   .passthrough();

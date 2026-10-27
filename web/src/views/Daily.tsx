@@ -6,7 +6,10 @@ import { Chip } from '../components/Chip';
 import { EmptyState } from '../components/EmptyState';
 import { Markdown } from '../components/Markdown';
 import { PageHeader } from '../components/PageHeader';
+import { ActivityHistory } from '../components/ActivityHistory';
+import { DailyChecklistCard } from '../components/DailyChecklistCard';
 import { Skeleton } from '../components/Skeleton';
+import { Tabs } from '../components/Tabs';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
 import type { DailyList } from '../lib/types';
@@ -24,6 +27,7 @@ export const Daily = () => {
   const [editing, setEditing] = useState(false);
   const [since, setSince] = useState<Since>('today');
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<'daily' | 'historial'>('daily');
 
   const today = list.data?.today ?? null;
   const dates = list.data?.dates ?? [];
@@ -117,6 +121,10 @@ export const Daily = () => {
   return (
     <>
       <PageHeader title="Daily" description={`Resumen del día para dar el update. Se conservan los últimos ${list.data?.maxFiles ?? 5} en ${list.data?.dir ?? ''}.`} />
+      <DailyChecklistCard />
+      <Tabs<'daily' | 'historial'> value={view} onChange={setView} items={[{ id: 'daily', label: 'Daily' }, { id: 'historial', label: 'Historial (5 días)' }]} />
+      {view === 'historial' ? <ActivityHistory /> : (
+        <>
       <div className="mb-5 flex flex-wrap items-center gap-2">
         {[...new Set([today, ...dates])].filter((item): item is string => Boolean(item)).map((item) => (
           <Chip key={item} selected={item === shown} onToggle={() => setDate(item)} hint={item === today ? 'Hoy' : undefined}>{item}{item === today ? ' · hoy' : ''}</Chip>
@@ -150,6 +158,8 @@ export const Daily = () => {
           <Markdown source={content} />
         )}
       </Card>
+        </>
+      )}
     </>
   );
 };

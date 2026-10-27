@@ -159,3 +159,77 @@ export const fetchIssue = async (config: DevPanelConfig, id: string, fetcher: Fe
   cache.set(`${credentials.baseUrl}#${id}`, { at: now, issue });
   return issue;
 };
+
+// ---------------------------------------------------------------- kanban
+export interface BoardStatus {
+  id: number;
+  name: string;
+  closed: boolean;
+}
+export interface Board {
+  scope: 'me' | 'all';
+  days: number;
+  statuses: BoardStatus[];
+  issues: RedmineIssue[];
+  truncated: boolean;
+  fetchedAt: string;
+}
+
+/** Orden de las columnas según el flujo del equipo; los estados que no figuren van al final, en el orden de Redmine. */
+export const COLUMN_ORDER = ['Análisis', 'Req. Definido', 'Estimación', 'Ampliación', 'Desarrollo', 'Commit', 'Revisión', 'Testeado', 'Testing Consultoría', 'Testing Consultoría Externo', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado', 'Rechazado', 'Baja'];
+
+export const orderStatuses = (statuses: BoardStatus[]): BoardStatus[] => {
+  const rank = (status: BoardStatus) => {
+    const index = COLUMN_ORDER.indexOf(status.name);
+    return index === -1 ? COLUMN_ORDER.length + status.id : index;
+  };
+  return [...statuses].sort((a, b) => rank(a) - rank(b));
+};
+
+const PAGE = 100;
+const MAX_PAGES = 5;
+const boardCache = new Map<string, { at: number; board: Board }>();
+export const clearBoardCache = (): void => boardCache.clear();
+
+type JsonFetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+
+/** Tickets con cambios en los últimos `days` días (solo lectura). `me` = asignados a quien dueña la API key. */
+export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {
+  const credentials = loadCredentials(config);
+  if (!credentials) throw new RedmineError('Redmine no está configurado: falta la API key (skill redmine-drive o REDMINE_API_KEY)', 503);
+  const safeDays = Math.min(90, Math.max(1, Math.round(days)));
+  const cacheKey = `${credentials.baseUrl}#${scope}#${safeDays}`;
+  const cached = boardCache.get(cacheKey);
+  if (cached && now - cached.at < CACHE_MS) return cached.board;
+
+  const get = async (path: string): Promise<unknown> => {
+    let response;
+    try {
+      response = await fetcher(`${credentials.baseUrl}${path}`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(20_000) });
+    } catch {
+      throw new RedmineError('No se pudo conectar con Redmine', 502);
+    }
+    if (response.status === 401 || response.status === 403) throw new RedmineError('Redmine rechazó la API key', 403);
+    if (!response.ok) throw new RedmineError(`Redmine respondió ${response.status}`, 502);
+    return response.json();
+  };
+
+  const statusBody = (await get('/issue_statuses.json')) as { issue_statuses?: Array<{ id: number; name: string; is_closed?: boolean }> };
+  const statuses = (statusBody.issue_statuses ?? []).map((status) => ({ id: status.id, name: status.name, closed: status.is_closed === true }));
+  const closedNames = new Set(statuses.filter((status) => status.closed).map((status) => status.name));
+
+  const since = new Date(now - safeDays * 86_400_000).toISOString().slice(0, 10);
+  const issues: RedmineIssue[] = [];
+  let truncated = false;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const query = new URLSearchParams({ status_id: '*', updated_on: `>=${since}`, sort: 'updated_on:desc', limit: String(PAGE), offset: String(page * PAGE) });
+    if (scope === 'me') query.set('assigned_to_id', 'me');
+    const body = (await get(`/issues.json?${query.toString()}`)) as { issues?: RawIssue[]; total_count?: number };
+    issues.push(...(body.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl, closedNames)));
+    if (issues.length >= (body.total_count ?? 0)) break;
+    if (page === MAX_PAGES - 1) truncated = true;
+  }
+  const board: Board = { scope, days: safeDays, statuses: orderStatuses(statuses), issues, truncated, fetchedAt: new Date(now).toISOString() };
+  boardCache.set(cacheKey, { at: now, board });
+  return board;
+};

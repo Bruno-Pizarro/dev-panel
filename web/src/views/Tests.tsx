@@ -9,6 +9,7 @@ import { Gallery } from '../components/Gallery';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
+import { TestRuns } from '../components/TestRuns';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
@@ -24,19 +25,7 @@ const Summary = ({ detail }: { detail: TicketDetail }) => {
   if (empty) return <EmptyState icon={<ClipboardCheck className="size-6" />} title="Sin resumen estructurado">Hay {detail.docs} documentos y {detail.images} capturas en las otras pestañas. El resumen aparece cuando existe <span className="font-mono">ticket.json</span>.</EmptyState>;
   return (
     <div className="space-y-6">
-      {meta?.pruebas && meta.pruebas.length > 0 && (
-        <Card title="Pruebas realizadas">
-          <ul className="divide-y divide-line">
-            {[...meta.pruebas].reverse().map((test, index) => (
-              <li key={index} className="flex flex-wrap items-start gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0">
-                <span className="w-28 shrink-0 font-mono text-sm text-muted">{test.fecha ?? '—'}</span>
-                {test.resultado && <Badge tone="info">{test.resultado}</Badge>}
-                <span className="min-w-0 flex-1">{test.resumen}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} />}
       {meta?.mrs && meta.mrs.length > 0 && (
         <Card title="Merge requests">
           <table className="w-full text-left text-sm">
@@ -99,7 +88,7 @@ export const Tests = () => {
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} />
       <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-0 lg:max-h-[calc(100vh-11rem)] lg:self-start">
-          {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" />}
+          {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
         </div>
         <div className="min-w-0">
           {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}

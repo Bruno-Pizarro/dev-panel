@@ -1,18 +1,31 @@
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useStoredState } from '../lib/hooks';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../lib/cn';
 import { timeAgo } from '../lib/tickets';
-import type { TicketSummary } from '../lib/types';
+import { CONCLUSIONS, conclusionInfo } from '../lib/conclusion';
+import type { Conclusion, TicketSummary } from '../lib/types';
+import { Chip } from './Chip';
 import { Badge, toneOf } from './Badge';
 
 /** Lista lateral de carpetas de la base de conocimiento, con búsqueda por número, título o rama. */
-export const TicketList = ({ tickets, basePath }: { tickets: TicketSummary[]; basePath: string }) => {
+export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tickets: TicketSummary[]; basePath: string; withTestFilters?: boolean }) => {
   const [query, setQuery] = useState('');
+  // Por defecto no se muestran los aprobados: lo que importa es lo que falta resolver.
+  const [shown, setShown] = useStoredState<Conclusion[]>('devpanel.tests.shown', ['requiere-cambios', 'sin-conclusion']);
+  const [pendingOnly, setPendingOnly] = useStoredState<boolean>('devpanel.tests.pending', false);
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
-    return tickets.filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
-  }, [tickets, query]);
+    return tickets.filter((ticket) => {
+      if (withTestFilters && ticket.testStatus) {
+        if (!shown.includes(ticket.testStatus.conclusion)) return false;
+        if (pendingOnly && ticket.testStatus.checklistDone >= ticket.testStatus.checklistTotal) return false;
+      }
+      return true;
+    }).filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
+  }, [tickets, query, shown, pendingOnly, withTestFilters]);
+  const hidden = withTestFilters ? tickets.length - tickets.filter((ticket) => !ticket.testStatus || shown.includes(ticket.testStatus.conclusion)).length : 0;
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
@@ -20,6 +33,15 @@ export const TicketList = ({ tickets, basePath }: { tickets: TicketSummary[]; ba
         <Search className="size-4 text-muted" aria-hidden />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ticket, título o rama…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
       </label>
+      {withTestFilters && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {CONCLUSIONS.map((item) => <Chip key={item.id} selected={shown.includes(item.id)} onToggle={() => setShown(shown.includes(item.id) ? shown.filter((value) => value !== item.id) : [...shown, item.id])}>{item.label}</Chip>)}
+            <Chip selected={pendingOnly} onToggle={() => setPendingOnly(!pendingOnly)} hint="Solo los que tienen pasos del checklist sin tildar">Checklist pendiente</Chip>
+          </div>
+          {hidden > 0 && <p className="text-sm text-muted">{hidden} ocultos por el filtro (por defecto no se muestran los aprobados).</p>}
+        </div>
+      )}
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {visible.map((ticket) => (
           <li key={ticket.dir}>
@@ -31,6 +53,8 @@ export const TicketList = ({ tickets, basePath }: { tickets: TicketSummary[]; ba
               <div className="mt-1 font-medium leading-snug">{ticket.title}</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {ticket.estado && <Badge tone={toneOf(ticket.estado)}>{ticket.estado}</Badge>}
+                {withTestFilters && ticket.testStatus && <Badge tone={conclusionInfo(ticket.testStatus.conclusion).tone}>{conclusionInfo(ticket.testStatus.conclusion).label}</Badge>}
+                {withTestFilters && ticket.testStatus && ticket.testStatus.checklistTotal > 0 && ticket.testStatus.runs > 0 && <Badge tone={ticket.testStatus.checklistDone === ticket.testStatus.checklistTotal ? 'success' : 'warning'}>checklist {ticket.testStatus.checklistDone}/{ticket.testStatus.checklistTotal}</Badge>}
                 {ticket.lastTest?.resultado && <Badge tone="info">{ticket.lastTest.resultado}</Badge>}
                 {ticket.review && <Badge tone={toneOf(ticket.review)}>review: {ticket.review}</Badge>}
                 {ticket.images > 0 && <Badge>{ticket.images} capturas</Badge>}

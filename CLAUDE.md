@@ -11,8 +11,9 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 | Datos | Snapshots de colecciones (chips), restauración con verificación de conteo, reseteo de contraseña por mail en todas las bases, backup remoto (envuelve `backup_improved4.sh`), limpieza de datos de prueba por ticket |
 | Sesiones de prueba | Entrar como un usuario del entorno local (firma un token con el `JWT_SECRET` de `security`; el panel recuerda y puede cerrar lo que creó) |
 | Repos y .env | Ramas por repo (solo lectura) y perfiles de `.env` MinIO local ⇄ remoto (comenta/descomenta, con diff y respaldo) |
-| Pruebas / Planificación | Lector de `_EXTRA`: informes MD, capturas con visor, MRs, code review, plan, diagrama Mermaid y referencia visual |
-| Daily | Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA` |
+| Pruebas / Planificación | Lector de `_EXTRA` (Pruebas filtra por estado, por defecto sin aprobados, y cada tanda tiene su checklist): informes MD, capturas con visor, MRs, code review, plan, diagrama Mermaid y referencia visual |
+| Daily | Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA`; checklist de todos los días (entrada, salida, horas); pestaña **Historial** (5 días, solo lectura: commits, push, MRs, reviews, análisis, estimaciones, pruebas; lo más viejo se borra solo) |
+| Kanban | Tickets de Redmine con cambios en los últimos 7/30/60 días por columna de estado, con SP, horas, asignado y última actualización (solo lectura) |
 | Configuración | Edita `config.json` (rutas con selector nativo del sistema, orden de levantado, repos) |
 
 Planificación y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). La API key se lee de la skill `redmine-drive` (`~/.claude/skills/redmine-drive/config.json`) o de `REDMINE_API_KEY`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.

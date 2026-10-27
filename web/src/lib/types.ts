@@ -93,7 +93,7 @@ export interface TicketMeta {
   repos?: string[];
   mrs?: TicketMr[];
   codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
-  pruebas?: Array<{ fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
+  pruebas?: Array<{ conclusion?: string; fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
   plan?: { resumen?: string; diagrama?: string; referenciaVisual?: string };
 }
 export interface TicketSummary {
@@ -110,6 +110,7 @@ export interface TicketSummary {
   hasMeta: boolean;
   lastTest: { fecha: string | null; resultado: string | null } | null;
   review: string | null;
+  testStatus?: TestStatus;
 }
 export interface TicketDetail extends TicketSummary {
   meta: TicketMeta | null;
@@ -258,4 +259,43 @@ export interface ClaudeLogin {
   status: 'idle' | 'starting' | 'waiting-code' | 'done' | 'error';
   url: string | null;
   message: string | null;
+}
+
+export type Conclusion = 'aprobado' | 'requiere-cambios' | 'sin-conclusion';
+export interface TestStatus {
+  runs: number;
+  conclusion: Conclusion;
+  checklistDone: number;
+  checklistTotal: number;
+}
+export interface TestRunState {
+  items: Record<string, boolean>;
+  conclusion: Conclusion | null;
+  updatedAt: string | null;
+}
+export interface ActivityEvent {
+  id: string;
+  type: 'commit' | 'push' | 'mr' | 'review' | 'analysis' | 'estimation' | 'test';
+  at: string;
+  title: string;
+  repo?: string;
+  ticket?: string;
+  detail?: string;
+}
+export interface DailyChecklist {
+  date: string;
+  items: Array<{ id: string; label: string; done: boolean }>;
+}
+export interface BoardStatus {
+  id: number;
+  name: string;
+  closed: boolean;
+}
+export interface Board {
+  scope: 'me' | 'all';
+  days: number;
+  statuses: BoardStatus[];
+  issues: RedmineIssue[];
+  truncated: boolean;
+  fetchedAt: string;
 }

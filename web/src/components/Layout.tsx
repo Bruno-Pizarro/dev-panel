@@ -10,7 +10,7 @@ export const Layout = () => {
   const health = useHealth();
   const { pathname } = useLocation();
   // Las vistas de lectura (pruebas y planificación) usan todo el ancho disponible.
-  const wide = pathname.startsWith('/pruebas') || pathname.startsWith('/planificacion');
+  const wide = ['/pruebas', '/planificacion', '/kanban'].some((prefix) => pathname.startsWith(prefix));
   return (
     <div className="flex h-full">
       <Sidebar />

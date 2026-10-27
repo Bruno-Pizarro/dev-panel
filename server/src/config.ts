@@ -89,6 +89,13 @@ export const configSchema = z.object({
     .default({}),
   /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
   claude: z.object({ binary: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('claude') }).default({}),
+  /** Pasos que se tildan en cada tanda de pruebas, y tareas que se repiten todos los días. */
+  checklists: z
+    .object({
+      test: z.array(z.string().min(1).max(60)).default(['Actualizar el ticket en Redmine', 'Subir los comentarios']),
+      daily: z.array(z.string().min(1).max(60)).default(['Marcar entrada', 'Marcar salida', 'Cargar horas']),
+    })
+    .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -145,6 +152,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, configFile: '', baseUrl: '' },
   claude: { binary: 'claude' },
+  checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

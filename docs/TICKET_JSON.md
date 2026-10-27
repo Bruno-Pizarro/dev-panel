@@ -19,9 +19,9 @@ Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener u
   "responsable": "Nombre",
   "rama": "feature/33526-pendientes-firma",
   "repos": ["front", "legajo", "documentos"],
-  "mrs": [{ "repo": "front", "iid": 123, "url": "https://git.icono-cloud.com/...", "autor": "usuario", "estado": "abierto" }],
+  "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.icono-cloud.com/...", "autor": "usuario", "estado": "abierto" }],
   "codeReview": [{ "fecha": "2026-10-27", "veredicto": "aprobado | con cambios | rechazado", "resumen": "una línea", "hallazgos": 2 }],
-  "pruebas": [{ "fecha": "2026-10-27", "resultado": "31/31", "resumen": "qué se probó", "archivo": "33526_EJECUCION_v1.0.md", "capturas": ["pruebas/capturas/b1.png"] }],
+  "pruebas": [{ "fecha": "2026-10-27", "conclusion": "aprobado | requiere-cambios | sin-conclusion", "resultado": "31/31", "resumen": "qué se probó", "archivo": "33526_EJECUCION_v1.0.md", "capturas": ["pruebas/capturas/b1.png"] }],
   "plan": { "resumen": "plan_abreviado.md", "diagrama": "flujo.mmd", "referenciaVisual": "referencia.png" }
 }
 ```
@@ -37,3 +37,7 @@ Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener u
 
 ## Diagrama de flujo
 Formato Mermaid en un archivo `.mmd` (por ejemplo `flowchart TD`). El panel lo dibuja con el tema oscuro. Mantenerlo corto: el flujo básico para entender la funcionalidad, no el detalle de implementación.
+
+## Campos que usa el historial y el checklist de pruebas
+- `mrs[].fecha` y `codeReview[].fecha` / `pruebas[].fecha` (`AAAA-MM-DD`) alimentan el **historial de 5 días** del Daily. Sin fecha el evento no aparece.
+- `pruebas[].conclusion` es el estado de esa tanda según la skill. El panel lo muestra, y lo que se marque en el panel (aprobado / requiere cambios / sin conclusión) tiene prioridad. Cada tanda tiene su propio checklist ("actualizar ticket", "subir comentarios"), que vive en el panel, no en este archivo.
