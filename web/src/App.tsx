@@ -38,7 +38,7 @@ export const App = () => {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home config={config} />} />
-        <Route path="servicios" element={<Services />} />
+        <Route path="servicios" element={<Services config={config} />} />
         <Route path="levantado" element={<Startup config={config} />} />
         <Route path="pruebas" element={<Tests />} />
         <Route path="pruebas/:dir" element={<Tests />} />

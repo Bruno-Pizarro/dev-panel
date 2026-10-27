@@ -111,7 +111,7 @@ export const Daily = () => {
       >
         {empty ? (
           <EmptyState icon={<FilePlus2 className="size-6" />} title="Todavía no hay daily para este día">
-            {shown === today ? 'Generá un borrador desde tus commits y tus carpetas de _EXTRA, y completalo.' : 'No se guardó un daily en esta fecha.'}
+            {shown === today ? 'Generá un borrador desde tus commits y tu base de conocimiento, y completalo.' : 'No se guardó un daily en esta fecha.'}
           </EmptyState>
         ) : editing ? (
           <textarea value={content} onChange={(event) => setContent(event.target.value)} spellCheck={false} className="h-[60vh] w-full resize-y rounded-xl border border-line bg-bg p-4 font-mono text-sm leading-6 outline-none focus:border-accent/60" />

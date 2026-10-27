@@ -15,6 +15,7 @@ export const CheckList = ({ checks }: { checks: Check[] }) => (
           <div className="min-w-0">
             <div className="font-medium">{check.title}</div>
             <div className="text-sm text-muted">{check.detail}</div>
+            {check.hint && <p className="mt-1.5 rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted"><strong className="text-fg">Qué significa y qué hacer:</strong> {check.hint}</p>}
           </div>
         </li>
       );

@@ -39,6 +39,8 @@ export interface ContainerInfo {
   state: string;
   status: string;
   ports: string;
+  startedAt: string | null;
+  rank: number;
 }
 
 export type TscState = 'ok' | 'errors' | 'stuck' | 'unknown';
@@ -162,13 +164,18 @@ export interface RepoStatus {
   branch: string | null;
   base: { name: string; ahead: number; behind: number } | null;
   dirty: Array<{ status: string; path: string }>;
-  last: { hash: string; subject: string; when: string } | null;
+  last: { hash: string; subject: string; when: string; author: string } | null;
+  upstream: { name: string; ahead: number; behind: number } | null;
+  commits: Array<{ hash: string; subject: string; when: string; author: string }>;
+  stashes: number;
+  ticket: string | null;
 }
 export interface Check {
   id: string;
   title: string;
   status: 'ok' | 'warn' | 'error';
   detail: string;
+  hint?: string;
 }
 export interface SessionUser {
   id: string;

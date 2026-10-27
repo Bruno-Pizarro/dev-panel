@@ -84,6 +84,8 @@ describe('git', () => {
   });
   it('lee git status --porcelain', () => {
     expect(parsePorcelain(' M src/a.ts\n?? nuevo.md\n')).toEqual([{ status: 'M', path: 'src/a.ts' }, { status: '??', path: 'nuevo.md' }]);
+    // la primera línea llega sin su espacio inicial (stdout recortado)
+    expect(parsePorcelain('M .env\n M x.ts')).toEqual([{ status: 'M', path: '.env' }, { status: 'M', path: 'x.ts' }]);
   });
 });
 

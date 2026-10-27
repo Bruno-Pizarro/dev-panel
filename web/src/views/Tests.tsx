@@ -100,7 +100,7 @@ export const Tests = () => {
           {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" />}
         </div>
         <div className="min-w-0">
-          {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de _EXTRA.</EmptyState>}
+          {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
         </div>
       </div>
     </>

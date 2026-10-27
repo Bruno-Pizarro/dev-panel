@@ -302,11 +302,11 @@ const TestDataTab = () => {
 };
 
 export const Data = () => {
-  const [tab, setTab] = useState<Tab>('snapshots');
+  const [tab, setTab] = useState<Tab>('password');
   return (
     <>
       <PageHeader title="Datos" description="Snapshots locales, contraseña de usuarios y backups remotos." />
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'snapshots', label: 'Snapshots' }, { id: 'password', label: 'Contraseña' }, { id: 'remote', label: 'Backup remoto' }, { id: 'testdata', label: 'Datos de prueba' }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'password', label: 'Contraseña' }, { id: 'remote', label: 'Backup remoto' }, { id: 'testdata', label: 'Datos de prueba' }, { id: 'snapshots', label: 'Snapshots' }]} />
       {tab === 'snapshots' && <SnapshotsTab />}
       {tab === 'password' && <PasswordTab />}
       {tab === 'remote' && <RemoteTab />}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
+import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
 
@@ -29,12 +30,12 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
     <div className="space-y-6">
       <Card title="Rutas">
         <div className="grid gap-5 md:grid-cols-2">
-          <Field label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />
-          <Field label="Carpeta _EXTRA" help="Fuente de pruebas, análisis y planes." value={config.paths.extra} status={exists(detect, 'extra')} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, extra: value } })} />
-          <Field label="Carpeta del Daily" help="Se conservan los últimos 5 archivos." value={config.paths.daily} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, daily: value } })} />
+          <PathField label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />
+          <PathField label="Base de conocimiento" help="Carpeta que la web usa como fuente: ahí lee las pruebas, los análisis y los planes de cada ticket." value={config.paths.extra} status={exists(detect, 'extra')} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, extra: value } })} />
+          <PathField label="Carpeta del Daily" help="Se conservan los últimos 5 archivos." value={config.paths.daily} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, daily: value } })} />
           <Field label="Contenedor de Mongo" value={config.mongo.container} onChange={(value) => setConfig({ ...config, mongo: { container: value } })} />
-          <Field label="docker-compose principal" value={config.compose.main} status={exists(detect, 'composeMain')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, main: value } })} />
-          <Field label="docker-compose de MinIO" value={config.compose.minio} status={exists(detect, 'composeMinio')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, minio: value } })} />
+          <PathField label="docker-compose principal" kind="file" value={config.compose.main} status={exists(detect, 'composeMain')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, main: value } })} />
+          <PathField label="docker-compose de MinIO" kind="file" value={config.compose.minio} status={exists(detect, 'composeMinio')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, minio: value } })} />
         </div>
       </Card>
 

@@ -34,7 +34,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
             </Card>
             <Card title="Configuración">
               <StatusDot status={data.missingServices.length === 0 ? 'ok' : 'warn'} label={data.missingServices.length === 0 ? 'Servicios coherentes con el compose' : `Sin encontrar en el compose: ${data.missingServices.join(', ')}`} />
-              <p className="mt-2 text-sm text-muted">_EXTRA: <span className="font-mono">{config.paths.extra}</span></p>
+              <p className="mt-2 text-sm text-muted">Base de conocimiento: <span className="font-mono">{config.paths.extra}</span></p>
             </Card>
           </div>
 

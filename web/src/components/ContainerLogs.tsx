@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { LogView, type LogLine } from './LogView';
 import { Modal } from './Modal';
 
-const MAX_LINES = 2000;
-const levelOf = (text: string): LogLine['level'] => (/\b(error|fatal|exception)\b/i.test(text) ? 'error' : /\bwarn(ing)?\b/i.test(text) ? 'warn' : 'info');
+const MAX_LINES = 3000;
 
-/** Logs en vivo de un contenedor: se conecta por SSE mientras el modal esté abierto. */
+/** Las líneas con colores ANSI ya traen su estilo; para las demás se resaltan errores y advertencias. */
+const levelOf = (text: string): LogLine['level'] =>
+  text.includes('\u001b[') ? undefined : /\[(error|critical|fatal)\]|\b(ERROR|FATAL|Exception)\b/.test(text) ? 'error' : /\[warn(ing)?\]|\bWARN(ING)?\b/.test(text) ? 'warn' : undefined;
+
+/** Logs en vivo de un contenedor a pantalla completa, con los colores originales de su consola. */
 export const ContainerLogs = ({ name, onClose }: { name: string | null; onClose: () => void }) => {
   const [lines, setLines] = useState<LogLine[]>([]);
 
@@ -21,8 +24,8 @@ export const ContainerLogs = ({ name, onClose }: { name: string | null; onClose:
   }, [name]);
 
   return (
-    <Modal open={name !== null} title={`Logs · ${name ?? ''}`} onClose={onClose} size="xl">
-      <LogView lines={lines} className="h-[60vh]" />
+    <Modal open={name !== null} title={`Logs · ${name ?? ''}`} onClose={onClose} size="screen">
+      <LogView lines={lines} className="min-h-0 flex-1" />
     </Modal>
   );
 };

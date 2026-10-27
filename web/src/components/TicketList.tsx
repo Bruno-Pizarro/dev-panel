@@ -6,7 +6,7 @@ import { timeAgo } from '../lib/tickets';
 import type { TicketSummary } from '../lib/types';
 import { Badge, toneOf } from './Badge';
 
-/** Lista lateral de carpetas de _EXTRA, con búsqueda por número, título o rama. */
+/** Lista lateral de carpetas de la base de conocimiento, con búsqueda por número, título o rama. */
 export const TicketList = ({ tickets, basePath }: { tickets: TicketSummary[]; basePath: string }) => {
   const [query, setQuery] = useState('');
   const visible = useMemo(() => {

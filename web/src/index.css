@@ -32,6 +32,8 @@
   * { scrollbar-width: thin; scrollbar-color: rgb(var(--surface-3)) transparent; }
   ::selection { background: rgb(var(--accent) / 0.35); }
   :focus-visible { @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-bg; }
+  /* Los campos ya cambian el borde (de ellos o de su contenedor) al enfocarse: sin un segundo anillo interno. */
+  input:focus-visible, textarea:focus-visible, select:focus-visible { box-shadow: none; --tw-ring-shadow: 0 0 #0000; --tw-ring-offset-shadow: 0 0 #0000; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }

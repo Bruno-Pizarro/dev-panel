@@ -13,9 +13,21 @@ export interface Check {
   title: string;
   status: CheckStatus;
   detail: string;
+  /** Qué significa y qué hacer. */
+  hint?: string;
 }
 
-const check = (id: string, title: string, status: CheckStatus, detail: string): Check => ({ id, title, status, detail });
+const HINTS: Record<string, string> = {
+  docker: 'El motor de Docker no responde. Abrí Docker Desktop o iniciá el servicio (en WSL: sudo service docker start).',
+  mongo: 'No se pudo leer el Mongo local. Revisá que el contenedor de Mongo esté corriendo (vista Levantado) y el nombre en Configuración.',
+  required: 'Faltan servicios que siempre deben estar arriba (MinIO, RabbitMQ, Mongo, panel, security, files, legajo). Usá la vista Levantado.',
+  unhealthy: 'Docker marcó el contenedor como "unhealthy": su proceso está vivo pero el chequeo de salud que define (un comando que se ejecuta cada tanto) falla. Mirá sus logs en Servicios y probá reiniciarlo; si vuelve a fallar, revisá lo que ese servicio necesita (puerto, disco, dependencia).',
+  tsc: 'tsc --watch está trabado (típico al cambiar de rama: archivos que ya no existen) o tiene errores de compilación. Reiniciá el contenedor desde Servicios; si hay errores, corregilos en el código.',
+  'shared-secret': 'Este valor debe ser idéntico en todos los servicios que se hablan entre sí. Si falta o difiere, las llamadas internas fallan con 401/403. Se compara por hash: nunca se muestra el valor.',
+  'firma-ca': 'El servicio de firma necesita la CA (rootCA.pem y rootCA.key) para generar y validar certificados. Sin ella, o vencida, no arranca. Se genera con openssl y no se sube a git.',
+  paths: 'Alguna ruta de la configuración no existe en esta máquina. Corregila en Configuración.',
+};
+const check = (id: string, title: string, status: CheckStatus, detail: string): Check => ({ id, title, status, detail, ...(status !== 'ok' && HINTS[id] ? { hint: HINTS[id] } : {}) });
 const hashOf = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 8);
 
 /** Compara una variable compartida entre repos por hash: nunca expone el valor. */

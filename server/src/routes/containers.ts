@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { loadConfig } from '../config.js';
 import { NAME_PATTERN, listContainers, readLogs, readTscStatus, restartContainer, type TscStatus } from '../services/containers.js';
 
 const tailSchema = z.coerce.number().int().min(1).max(5000).default(300);
@@ -14,7 +15,15 @@ const existingContainer = async (name: string, reply: FastifyReply): Promise<str
 };
 
 export const registerContainerRoutes = (app: FastifyInstance): void => {
-  app.get('/api/containers', async () => ({ containers: await listContainers() }));
+  /** Contenedores con su posición en el orden de levantado (MinIO, infraestructura, obligatorios, opcionales). */
+  app.get('/api/containers', async () => {
+    const containers = await listContainers();
+    const state = loadConfig();
+    const order = state.configured
+      ? [...state.config.startup.stage1, ...state.config.startup.stage2, ...Object.values(state.config.startup.groups).flatMap((group) => group.withStage2), ...state.config.startup.mandatory, ...state.config.startup.optional]
+      : [];
+    return { containers: containers.map((container) => ({ ...container, rank: container.service && order.includes(container.service) ? order.indexOf(container.service) : order.length })) };
+  });
 
   /** Estado de `tsc` de los contenedores en ejecución (lento, por eso va aparte del listado). */
   app.get('/api/containers/tsc', async () => {

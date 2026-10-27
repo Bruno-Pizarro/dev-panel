@@ -12,6 +12,7 @@ import { registerDataRoutes } from './routes/data.js';
 import { registerDailyRoutes } from './routes/daily.js';
 import { registerEnvRoutes } from './routes/env.js';
 import { registerToolRoutes } from './routes/tools.js';
+import { registerFsRoutes } from './routes/fs.js';
 
 export interface AppOptions {
   port: number;
@@ -30,6 +31,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerDailyRoutes(app);
   registerEnvRoutes(app);
   registerToolRoutes(app);
+  registerFsRoutes(app);
 
   if (serveWeb && existsSync(paths.web)) {
     await app.register(fastifyStatic, { root: paths.web });

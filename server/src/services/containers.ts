@@ -8,6 +8,10 @@ export interface ContainerInfo {
   state: string;
   status: string;
   ports: string;
+  /** Último arranque (ISO); null si nunca arrancó. */
+  startedAt: string | null;
+  /** Posición en el orden de levantado (la completa la ruta con la configuración). */
+  rank?: number;
 }
 
 export type TscState = 'ok' | 'errors' | 'stuck' | 'unknown';
@@ -28,14 +32,23 @@ export const listContainers = async (runner: Runner = run): Promise<ContainerInf
     'ps', '-a', '--format', '{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}\t{{.Label "com.docker.compose.service"}}',
   ]);
   if (!result.ok) return [];
-  return result.stdout
+  const containers: ContainerInfo[] = result.stdout
     .split('\n')
     .filter(Boolean)
     .map((line) => {
       const [name = '', state = '', status = '', ports = '', image = '', service = ''] = line.split('\t');
-      return { name, state, status, ports, image, service: service || null };
+      return { name, state, status, ports, image, service: service || null, startedAt: null };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  if (containers.length) {
+    const inspect = await dockerRun(runner)(['inspect', '--format', '{{.Name}}\t{{.State.StartedAt}}', ...containers.map((container) => container.name)], 30_000);
+    const started = new Map(inspect.stdout.split('\n').map((line) => line.split('\t') as [string, string]));
+    for (const container of containers) {
+      const value = started.get(`/${container.name}`);
+      container.startedAt = value && !value.startsWith('0001-') ? value : null;
+    }
+  }
+  return containers;
 };
 
 /**

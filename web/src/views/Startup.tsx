@@ -12,6 +12,7 @@ import { cn } from '../lib/cn';
 import { useServerEvent, useStoredState } from '../lib/hooks';
 import type { DevPanelConfig, Preset, RunState, StepState, StepStatus } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { pillStyle, serviceColor } from '../lib/colors';
 
 const stepIcon: Record<StepStatus, { icon: typeof Check; cls: string }> = {
   pending: { icon: CircleDashed, cls: 'text-muted' },
@@ -35,7 +36,7 @@ const Timeline = ({ steps }: { steps: StepState[] }) => (
             <div className={cn('font-medium', step.status === 'pending' && 'text-muted')}>{step.label}</div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {step.services.map((service) => (
-                <span key={service} className="rounded-md bg-surface-3 px-2 py-0.5 font-mono text-sm text-muted">{service}</span>
+                <span key={service} className="rounded-md border px-2 py-0.5 font-mono text-sm" style={pillStyle(serviceColor(service))}>{service}</span>
               ))}
             </div>
             {step.message && <p className={cn('mt-1.5 text-sm', step.status === 'error' ? 'text-danger' : 'text-muted')}>{step.message}</p>}
@@ -130,7 +131,7 @@ export const Startup = ({ config }: { config: DevPanelConfig }) => {
 
               <div>
                 <div className="mb-2 font-medium">Siempre se levantan</div>
-                <div className="flex flex-wrap gap-2">{startup.mandatory.map((name) => <Chip key={name} locked selected>{name}</Chip>)}</div>
+                <div className="flex flex-wrap gap-2">{startup.mandatory.map((name) => <Chip key={name} locked selected color={serviceColor(name)}>{name}</Chip>)}</div>
               </div>
 
               <div>
@@ -140,7 +141,7 @@ export const Startup = ({ config }: { config: DevPanelConfig }) => {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {startup.optional.map((name) => (
-                    <Chip key={name} selected={valid.includes(name)} onToggle={() => toggle(name)} hint={startup.groups[name] ? `También levanta ${startup.groups[name]!.withStage2.join(', ')}` : undefined}>{name}</Chip>
+                    <Chip key={name} color={serviceColor(name)} selected={valid.includes(name)} onToggle={() => toggle(name)} hint={startup.groups[name] ? `También levanta ${startup.groups[name]!.withStage2.join(', ')}` : undefined}>{name}</Chip>
                   ))}
                 </div>
               </div>

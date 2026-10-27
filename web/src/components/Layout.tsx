@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
+import { cn } from '../lib/cn';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
 import { StatusDot } from './StatusDot';
@@ -6,6 +7,9 @@ import { useHealth } from '../lib/useHealth';
 
 export const Layout = () => {
   const health = useHealth();
+  const { pathname } = useLocation();
+  // Las vistas de lectura (pruebas y planificación) usan todo el ancho disponible.
+  const wide = pathname.startsWith('/pruebas') || pathname.startsWith('/planificacion');
   return (
     <div className="flex h-full">
       <Sidebar />
@@ -15,7 +19,7 @@ export const Layout = () => {
           <StatusDot status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-          <div className="mx-auto max-w-6xl animate-fade-in">
+          <div className={cn('mx-auto animate-fade-in', wide ? 'max-w-none' : 'max-w-6xl')}>
             <Outlet />
           </div>
         </main>
