@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { cn } from '../lib/cn';
 import { Button } from './Button';
 import { Portal } from './Portal';
+import { Skeleton } from './Skeleton';
 
 interface View {
   x: number;
@@ -154,7 +155,7 @@ export const Mermaid = ({ code }: { code: string }) => {
   }, [full]);
 
   if (error) return <pre className="overflow-auto rounded-xl border border-danger/40 bg-danger/10 p-4 font-mono text-sm text-danger">No se pudo dibujar el diagrama: {error}</pre>;
-  if (!svg) return <div className="h-48 animate-pulse rounded-xl bg-surface-2" aria-hidden />;
+  if (!svg) return <Skeleton className="h-48 rounded-xl" />;
 
   return (
     <>
