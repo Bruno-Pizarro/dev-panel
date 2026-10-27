@@ -63,6 +63,12 @@ describe('historial de actividad (5 días)', () => {
 });
 
 describe('checklists', () => {
+  // El estado vive en archivos de la carpeta temporal de tests: cada prueba parte limpia.
+  beforeEach(() => {
+    mkdirSync(paths.data, { recursive: true });
+    for (const name of ['daily-checklist.json', 'test-checklists.json']) writeFileSync(join(paths.data, name), '{}');
+  });
+
   it('el checklist diario se tilda por día y no se mezcla con otros días', () => {
     const labels = ['Marcar entrada', 'Marcar salida', 'Cargar horas'];
     expect(getDailyChecklist(labels, '2026-10-27').items.every((i) => !i.done)).toBe(true);
