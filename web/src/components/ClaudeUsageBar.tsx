@@ -14,7 +14,7 @@ export const ClaudeUsageBar = () => {
   const usage = data.data?.usage;
   if (!account) return null;
   return (
-    <Link to="/claude" className="flex items-center gap-4 rounded-xl border border-line bg-surface-2 px-3.5 py-1.5 transition-colors hover:border-accent/40" title={usage ? `Último dato ${ago(usage.ageSeconds)}` : 'Todavía no hay datos de uso: falta el colector del statusLine'}>
+    <Link to="/claude" className="flex items-center gap-4 rounded-xl border border-line bg-surface-2 px-3.5 py-1.5 transition-colors hover:border-accent/40" title={usage ? `Último dato ${ago(usage.ageSeconds)} (${usage.source === 'cache' ? 'caché de Claude Code' : 'statusLine'})` : 'Todavía no hay datos de uso: abrí “Account & usage” en Claude Code'}>
       <span className="flex items-center gap-2 text-sm font-medium">
         <span className="size-2.5 rounded-full" style={{ backgroundColor: tint(account.color, 0.95) }} aria-hidden />
         <span className="max-w-32 truncate">{account.label}</span>

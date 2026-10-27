@@ -162,12 +162,12 @@ export const ClaudeAccounts = () => {
     <>
       <PageHeader title="Cuentas de Claude" description="Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba." actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button>} />
       <p className="mb-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-        El panel <strong className="text-fg">nunca lee ni guarda tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso lo recibe del <span className="font-mono">statusLine</span> oficial. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
+        El panel <strong className="text-fg">nunca lee ni guarda tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso lo toma del caché de límites que Claude Code guarda en <span className="font-mono">.claude.json</span> (el mismo que muestra “Account &amp; usage”; solo se lee ese bloque) o, si es más reciente, del <span className="font-mono">statusLine</span>. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
       </p>
 
       {data.data && (
-        <Card title="Colector de uso (statusLine)" className="mb-5">
-          <p className="mb-3 text-sm text-muted">Para ver los porcentajes de sesión y semana, agregá esto al <span className="font-mono">settings.json</span> de cada cuenta (<span className="font-mono">~/.claude/settings.json</span> o el de su carpeta). Claude Code le pasa al script los datos de la sesión (sin credenciales) y el panel los muestra. Solo Pro y Max, y aparecen después de la primera respuesta de cada sesión.</p>
+        <Card title="Colector del statusLine (opcional, para la terminal)" className="mb-5">
+          <p className="mb-3 text-sm text-muted">Los porcentajes ya se leen del caché de Claude Code. Este colector solo suma datos más frescos cuando usás la CLI en terminal (la extensión de VS Code no lo ejecuta). Si lo querés, agregá esto al <span className="font-mono">settings.json</span> de cada cuenta (<span className="font-mono">~/.claude/settings.json</span> o el de su carpeta). Claude Code le pasa al script los datos de la sesión (sin credenciales) y el panel los muestra. Solo Pro y Max, y aparecen después de la primera respuesta de cada sesión.</p>
           <CopyLine label="Fragmento para settings.json" text={data.data.collector.settings} />
         </Card>
       )}
@@ -204,7 +204,7 @@ export const ClaudeAccounts = () => {
                       <UsageBar label="Sesión de 5 h" window={account.usage?.fiveHour ?? null} />
                       <UsageBar label="Semana" window={account.usage?.sevenDay ?? null} />
                       <p className="text-sm text-muted">
-                        {account.usage ? <>Último dato {ago(account.usage.ageSeconds)}{account.usage.model ? ` · ${account.usage.model}` : ''}{account.usage.costUsd !== null ? ` · ${account.usage.costUsd.toFixed(2)} USD estimados en esa sesión` : ''}.</> : 'Sin datos de uso: se llenan cuando corre una sesión de Claude Code con esta cuenta y el colector del statusLine instalado.'}
+                        {account.usage ? <>Último dato {ago(account.usage.ageSeconds)} · fuente: {account.usage.source === 'cache' ? 'caché de Claude Code (no oficial)' : 'statusLine (oficial)'}{account.usage.model ? ` · ${account.usage.model}` : ''}{account.usage.costUsd !== null ? ` · ${account.usage.costUsd.toFixed(2)} USD estimados en esa sesión` : ''}.</> : 'Sin datos de uso: Claude Code los guarda cuando abrís “Account & usage” o corre una sesión con esta cuenta.'}
                       </p>
                     </div>
                     <div className="space-y-3">

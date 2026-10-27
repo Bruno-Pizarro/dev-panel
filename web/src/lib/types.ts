@@ -235,6 +235,7 @@ export interface ClaudeUsageWindow {
   resetsAt: number;
 }
 export interface ClaudeUsage {
+  source: 'statusline' | 'cache';
   capturedAt: string;
   ageSeconds: number;
   model: string | null;

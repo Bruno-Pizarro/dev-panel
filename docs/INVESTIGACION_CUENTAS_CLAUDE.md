@@ -32,6 +32,11 @@ Fecha: 27/10/2026. Objetivo: poder tener varias cuentas de Claude, ver su uso de
 - Cada sesión escribe entradas `cost-state` con `totalCostUSD`, duraciones, líneas agregadas/quitadas y `modelUsage` por modelo (tokens y costo). Es la forma más directa de sacar costo por sesión, pero no está documentada.
 - La documentación advierte que el formato de los transcripts "es interno y cambia entre versiones": cualquier lector debe tolerar cambios y validarse contra `/usage`.
 
+## 3 bis. Resultado de la prueba (27/10/2026)
+- **El `statusLine` NO se ejecuta en la extensión de VS Code**: configurado y con la ventana reiniciada, el colector nunca corrió (verificado manualmente que el script funciona). Sirve solo para la CLI en terminal.
+- **Hallazgo: Claude Code guarda un caché de límites en `~/.claude.json`** (clave `cachedUsageUtilization`) con `fetchedAtMs`, `five_hour` y `seven_day` (`utilization` en %, `resets_at` ISO) y un desglose de la semana. Es lo mismo que alimenta "Account & usage" (la doc habla de un "last-known usage" de hasta 60 min). Para cuentas con `CLAUDE_CONFIG_DIR`, el archivo es `<carpeta>/.claude.json`. El SDK describe esas ventanas como "plan rate-limit utilization windows from the claude.ai usage endpoint".
+- **Decisión:** la fuente principal pasa a ser ese caché (se lee **solo ese bloque**, nunca el resto del archivo, que tiene datos de cuenta) y el `statusLine` queda como complemento para terminal. **Es un formato no documentado**: puede cambiar; el panel lo tolera (si falta o cambia, muestra "sin datos") y marca la fuente en pantalla.
+
 ## 4. Propuesta de diseño (segura)
 **Principios:** el panel nunca lee, copia ni guarda tokens; no usa endpoints no documentados; todo lo que escribe en la configuración de Claude lo hace con confirmación y con respaldo.
 

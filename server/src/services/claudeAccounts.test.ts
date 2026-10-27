@@ -1,8 +1,9 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { paths } from '../config.js';
-import { ClaudeError, addAccount, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
+import { ClaudeError, addAccount, readCachedUsage, stateFileOf, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
 
 const reset = () => {
   mkdirSync(paths.data, { recursive: true });
@@ -104,5 +105,38 @@ describe('comandos de arranque', () => {
     expect(snippets.vscodeCode).toContain('code .');
     expect(snippets.vscodeSetting).toContain('/home/x/.claude-trabajo');
     expect(launchSnippets({ id: 'default', label: 'a', color: '1 2 3', configDir: '/home/x/.claude' }).alias).toBeNull();
+  });
+});
+
+describe('caché de límites de Claude Code (.claude.json)', () => {
+  const now = Date.parse('2026-10-27T18:00:00Z');
+  const home = mkdtempSync(join(tmpdir(), 'dp-home-'));
+  const account = { id: 'default', label: 'Actual', color: '1 2 3', configDir: join(home, '.claude') };
+  const write = (content: unknown, file = join(home, '.claude.json')) => writeFileSync(file, JSON.stringify(content));
+
+  it('lee solo el bloque de uso y lo convierte al formato del panel', () => {
+    write({
+      oauthAccount: { emailAddress: 'secreto@x.com' },
+      cachedUsageUtilization: { fetchedAtMs: now - 60_000, accountUuid: 'no-se-devuelve', utilization: { five_hour: { utilization: 54, resets_at: '2026-10-27T21:10:00Z' }, seven_day: { utilization: 94, resets_at: '2026-10-30T20:00:00Z' } } },
+    });
+    const snapshot = readCachedUsage(account, now, home)!;
+    expect(snapshot).toMatchObject({ source: 'cache', ageSeconds: 60, fiveHour: { usedPercentage: 54 }, sevenDay: { usedPercentage: 94 } });
+    expect(snapshot.fiveHour!.resetsAt).toBe(Date.parse('2026-10-27T21:10:00Z') / 1000);
+    expect(JSON.stringify(snapshot)).not.toMatch(/secreto|no-se-devuelve/);
+  });
+
+  it('tolera archivo ausente, dañado o sin el bloque, y descarta ventanas vencidas', () => {
+    expect(readCachedUsage({ ...account, id: 'otra', configDir: join(home, 'no-existe') }, now, home)).toBeNull();
+    writeFileSync(join(home, '.claude.json'), '{ roto');
+    expect(readCachedUsage(account, now, home)).toBeNull();
+    write({ otraCosa: 1 });
+    expect(readCachedUsage(account, now, home)).toBeNull();
+    write({ cachedUsageUtilization: { fetchedAtMs: now, utilization: { five_hour: { utilization: 99, resets_at: '2026-10-27T17:00:00Z' }, seven_day: { utilization: 10, resets_at: '2026-10-30T00:00:00Z' } } } });
+    expect(readCachedUsage(account, now, home)).toMatchObject({ fiveHour: null, sevenDay: { usedPercentage: 10 } });
+  });
+
+  it('la cuenta actual usa ~/.claude.json y las demás, el .claude.json de su carpeta', () => {
+    expect(stateFileOf(account, '/home/x')).toBe('/home/x/.claude.json');
+    expect(stateFileOf({ ...account, id: 'trabajo', configDir: '/home/x/.claude-trabajo' }, '/home/x')).toBe('/home/x/.claude-trabajo/.claude.json');
   });
 });

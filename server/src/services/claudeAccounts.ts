@@ -204,6 +204,8 @@ export interface UsageWindow {
   resetsAt: number;
 }
 export interface UsageSnapshot {
+  /** De dónde sale el dato: el statusLine (oficial) o el caché local que Claude Code guarda en .claude.json (no documentado). */
+  source: 'statusline' | 'cache';
   capturedAt: string;
   ageSeconds: number;
   model: string | null;
@@ -225,6 +227,7 @@ export const toSnapshot = (raw: Record<string, unknown>, now = Date.now()): Usag
   if (Number.isNaN(captured)) return null;
   const limits = (raw['rateLimits'] ?? null) as { five_hour?: unknown; seven_day?: unknown } | null;
   return {
+    source: 'statusline',
     capturedAt: new Date(captured).toISOString(),
     ageSeconds: Math.max(0, Math.round((now - captured) / 1000)),
     model: typeof raw['model'] === 'string' ? raw['model'] : null,
@@ -235,18 +238,44 @@ export const toSnapshot = (raw: Record<string, unknown>, now = Date.now()): Usag
   };
 };
 
-/** Último dato de cada cuenta, emparejado por la carpeta de configuración que registró el colector. */
-export const readUsage = (accounts: ClaudeAccount[], now = Date.now()): Record<string, UsageSnapshot | null> => {
-  const dir = join(paths.data, 'claude-usage');
+/** Archivo de estado global de Claude Code de una cuenta: ~/.claude.json para la actual, <carpeta>/.claude.json para las demás. */
+export const stateFileOf = (account: ClaudeAccount, home: string = homedir()): string => (account.id === DEFAULT_ID ? join(home, '.claude.json') : join(account.configDir, '.claude.json'));
+
+/**
+ * Caché de límites que Claude Code mantiene en `.claude.json` (`cachedUsageUtilization`): es lo mismo que muestra
+ * "Account & usage" en la extensión. Formato no documentado: se lee SOLO ese bloque y se descarta cualquier otro dato del archivo.
+ */
+export const readCachedUsage = (account: ClaudeAccount, now = Date.now(), home: string = homedir()): UsageSnapshot | null => {
+  try {
+    const file = stateFileOf(account, home);
+    if (!existsSync(file)) return null;
+    const cached = (JSON.parse(readFileSync(file, 'utf8')) as { cachedUsageUtilization?: { fetchedAtMs?: unknown; utilization?: Record<string, unknown> } }).cachedUsageUtilization;
+    if (!cached || typeof cached.fetchedAtMs !== 'number' || !cached.utilization) return null;
+    const windowFrom = (value: unknown): unknown => {
+      const data = value as { utilization?: unknown; resets_at?: unknown } | null;
+      return data && typeof data.utilization === 'number' && typeof data.resets_at === 'string' ? { used_percentage: data.utilization, resets_at: Date.parse(data.resets_at) / 1000 } : null;
+    };
+    const snapshot = toSnapshot({ capturedAt: new Date(cached.fetchedAtMs).toISOString(), rateLimits: { five_hour: windowFrom(cached.utilization['five_hour']), seven_day: windowFrom(cached.utilization['seven_day']) } }, now);
+    return snapshot ? { ...snapshot, source: 'cache' } : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Último dato de cada cuenta: el más reciente entre el colector del statusLine (emparejado por carpeta) y el caché de Claude Code. */
+export const readUsage = (accounts: ClaudeAccount[], now = Date.now(), home: string = homedir()): Record<string, UsageSnapshot | null> => {
   const result: Record<string, UsageSnapshot | null> = Object.fromEntries(accounts.map((account) => [account.id, null]));
+  const consider = (id: string, snapshot: UsageSnapshot | null) => {
+    if (snapshot && (!result[id] || snapshot.ageSeconds < result[id]!.ageSeconds)) result[id] = snapshot;
+  };
+  for (const account of accounts) consider(account.id, readCachedUsage(account, now, home));
+  const dir = join(paths.data, 'claude-usage');
   if (!existsSync(dir)) return result;
   for (const name of readdirSync(dir).filter((file) => file.endsWith('.json') && !file.startsWith('_'))) {
     try {
       const raw = JSON.parse(readFileSync(join(dir, name), 'utf8')) as Record<string, unknown>;
       const account = accounts.find((item) => resolve(item.configDir) === resolve(String(raw['configDir'] ?? '')));
-      if (!account) continue;
-      const snapshot = toSnapshot(raw, now);
-      if (snapshot && (!result[account.id] || snapshot.ageSeconds < result[account.id]!.ageSeconds)) result[account.id] = snapshot;
+      if (account) consider(account.id, toSnapshot(raw, now));
     } catch {
       /* archivo a medias o dañado: se ignora */
     }
