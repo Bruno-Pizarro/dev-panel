@@ -16,12 +16,14 @@ const MAX_SCALE = 6;
 const clamp = (value: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
 
 /** Lienzo con zoom y arrastre: el diagrama nunca se recorta, siempre se puede mover y acercar. */
-const PanZoom = ({ svg, tall }: { svg: string; tall: boolean }) => {
+const PanZoom = ({ svg, tall, onFull }: { svg: string; tall: boolean; onFull?: () => void }) => {
   const frame = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; view: View } | null>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
   const [dragging, setDragging] = useState(false);
+  // Mientras el usuario no mueva ni haga zoom, el diagrama se re-ajusta solo cuando cambia el tamaño del marco (menú lateral, ventana).
+  const touched = useRef(false);
 
   /** Tamaño natural del SVG (viewBox o atributos): el CSS no lo achica. */
   const naturalSize = useCallback(() => {
@@ -55,7 +57,18 @@ const PanZoom = ({ svg, tall }: { svg: string; tall: boolean }) => {
     fit();
   }, [svg, tall, fit, naturalSize]);
 
+  useEffect(() => {
+    const element = frame.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      if (!touched.current) fit();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fit]);
+
   const zoomAt = (factor: number, cx?: number, cy?: number) => {
+    touched.current = true;
     const area = frame.current?.getBoundingClientRect();
     if (!area) return;
     const px = cx ?? area.width / 2;
@@ -86,6 +99,7 @@ const PanZoom = ({ svg, tall }: { svg: string; tall: boolean }) => {
         ref={frame}
         className={cn('absolute inset-0 touch-none select-none', dragging ? 'cursor-grabbing' : 'cursor-grab')}
         onPointerDown={(event) => {
+          touched.current = true;
           (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
           drag.current = { x: event.clientX, y: event.clientY, view };
           setDragging(true);
@@ -97,7 +111,7 @@ const PanZoom = ({ svg, tall }: { svg: string; tall: boolean }) => {
         }}
         onPointerUp={() => ((drag.current = null), setDragging(false))}
         onPointerCancel={() => ((drag.current = null), setDragging(false))}
-        onDoubleClick={fit}
+        onDoubleClick={() => ((touched.current = false), fit())}
       >
         <div ref={content} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }} className="absolute left-0 top-0" dangerouslySetInnerHTML={{ __html: svg }} />
       </div>
@@ -105,7 +119,8 @@ const PanZoom = ({ svg, tall }: { svg: string; tall: boolean }) => {
         <Button variant="ghost" className="size-9 !px-0" aria-label="Alejar" onClick={() => zoomAt(1 / 1.25)} icon={<Minus className="size-4" />} />
         <span className="w-14 text-center font-mono text-sm text-muted">{Math.round(view.scale * 100)}%</span>
         <Button variant="ghost" className="size-9 !px-0" aria-label="Acercar" onClick={() => zoomAt(1.25)} icon={<Plus className="size-4" />} />
-        <Button variant="ghost" className="size-9 !px-0" aria-label="Ajustar a la pantalla" title="Ajustar (doble clic en el diagrama)" onClick={fit} icon={<ScanSearch className="size-4" />} />
+        <Button variant="ghost" className="size-9 !px-0" aria-label="Ajustar a la pantalla" title="Ajustar (doble clic en el diagrama)" onClick={() => ((touched.current = false), fit())} icon={<ScanSearch className="size-4" />} />
+        {onFull && <Button variant="ghost" className="size-9 !px-0" aria-label="Pantalla completa" title="Pantalla completa" onClick={onFull} icon={<Expand className="size-4" />} />}
       </div>
       <p className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-surface-2/90 px-2.5 py-1 text-sm text-muted">Arrastrá para mover · rueda para zoom · doble clic para ajustar</p>
     </div>
@@ -159,10 +174,7 @@ export const Mermaid = ({ code }: { code: string }) => {
 
   return (
     <>
-      <div className="relative">
-        <PanZoom key={svg} svg={svg} tall={false} />
-        <Button className="absolute right-3 top-3 h-9" icon={<Expand className="size-4" />} onClick={() => setFull(true)}>Pantalla completa</Button>
-      </div>
+      <PanZoom key={svg} svg={svg} tall={false} onFull={() => setFull(true)} />
       {full && (
         <Portal>
           <div className="fixed inset-0 z-50 flex flex-col bg-bg/95 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Diagrama a pantalla completa">

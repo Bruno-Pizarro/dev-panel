@@ -10,6 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { RedmineCard } from '../components/RedmineCard';
+import { TicketFrame } from '../components/TicketFrame';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { api } from '../lib/api';
@@ -38,9 +39,7 @@ const Detail = ({ dir }: { dir: string }) => {
   const groups = classifyDocs(data.files.docs);
 
   return (
-    <>
-      <TicketHeader detail={data} />
-      <RedmineCard ticket={data.ticket} />
+    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
       {tab === 'plan' &&
         (plan ? (
@@ -66,7 +65,7 @@ const Detail = ({ dir }: { dir: string }) => {
           <DocViewer key={dir} dir={dir} files={groups.flatMap((group) => group.files)} initial={plan} />
         </div>
       )}
-    </>
+    </TicketFrame>
   );
 };
 

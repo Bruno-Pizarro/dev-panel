@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 
@@ -160,4 +160,28 @@ export const resolveTicketFile = (extraRoot: string, dir: string, path: string, 
   if (!real.startsWith(realpathSync(root) + sep)) return { ok: false, status: 400, error: 'Ruta fuera de la carpeta del ticket' };
   if (kind === 'text' && statSync(real).size > MAX_TEXT_BYTES) return { ok: false, status: 400, error: 'Archivo demasiado grande' };
   return { ok: true, absolute: real, ext };
+};
+
+export class TicketDeleteError extends Error {
+  constructor(message: string, readonly status = 400) {
+    super(message);
+  }
+}
+
+export const TRASH_DIR = '.papelera';
+
+/**
+ * "Elimina" una carpeta de ticket moviéndola a `.papelera/` dentro de la base de conocimiento (se puede recuperar a mano).
+ * Exige que se escriba el nombre exacto de la carpeta y que sea una carpeta real de la lista (no un enlace hacia afuera).
+ */
+export const trashTicket = (extraRoot: string, dir: string, typedName: string, now = new Date()): { movedTo: string } => {
+  if (!ticketDirs(extraRoot).includes(dir)) throw new TicketDeleteError('Ticket no encontrado', 404);
+  if (typedName !== dir) throw new TicketDeleteError('El nombre escrito no coincide con el de la carpeta');
+  const source = resolve(extraRoot, dir);
+  if (realpathSync(source) !== source || !statSync(source).isDirectory()) throw new TicketDeleteError('La carpeta es un enlace o no es una carpeta: no se mueve');
+  const trash = join(extraRoot, TRASH_DIR);
+  mkdirSync(trash, { recursive: true });
+  const target = join(trash, `${dir}__${now.toISOString().replace(/[:.]/g, '-')}`);
+  renameSync(source, target);
+  return { movedTo: relative(extraRoot, target) };
 };

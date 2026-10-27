@@ -10,9 +10,9 @@ const colors: Record<Status, string> = {
   idle: 'bg-muted/50',
 };
 
-export const StatusDot = ({ status, label }: { status: Status; label?: string }) => (
-  <span className="inline-flex items-center gap-2 whitespace-nowrap" role="status">
-    <span className={cn('size-2.5 rounded-full', colors[status])} aria-hidden />
-    {label && <span className="text-sm text-muted">{label}</span>}
+export const StatusDot = ({ status, label, labelClassName }: { status: Status; label?: string; labelClassName?: string }) => (
+  <span className="inline-flex items-start gap-2" role="status" title={label}>
+    <span className={cn('mt-[0.4rem] size-2.5 shrink-0 rounded-full', colors[status])} aria-hidden />
+    {label && <span className={cn('min-w-0 text-sm text-muted', labelClassName)}>{label}</span>}
   </span>
 );

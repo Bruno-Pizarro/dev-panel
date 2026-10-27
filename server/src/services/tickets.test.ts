@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, symlinkSync, utimesSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { getTicket, listTickets, parseDirName, resolveTicketFile } from './tickets.js';
+import { existsSync } from 'node:fs';
+import { TicketDeleteError, getTicket, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
 
 let extra: string;
 const write = (path: string, content: string | Buffer = 'x') => {
@@ -99,5 +100,36 @@ describe('resolveTicketFile (seguridad)', () => {
   it('carpeta inexistente o archivo inexistente → 404', () => {
     expect(resolveTicketFile(extra, 'otra', 'x.md', 'text')).toMatchObject({ ok: false, status: 404 });
     expect(resolveText('nada.md')).toMatchObject({ ok: false, status: 404 });
+  });
+});
+
+describe('trashTicket (eliminar con confirmación)', () => {
+  const make = () => {
+    const root = mkdtempSync(join(tmpdir(), 'dp-trash-'));
+    mkdirSync(join(root, '40001-prueba'));
+    writeFileSync(join(root, '40001-prueba', 'informe.md'), 'x');
+    mkdirSync(join(root, 'afuera'));
+    symlinkSync(join(root, 'afuera'), join(root, '40002-enlace'));
+    return root;
+  };
+
+  it('mueve la carpeta a .papelera solo si se escribe el nombre exacto', () => {
+    const root = make();
+    expect(() => trashTicket(root, '40001-prueba', '40001')).toThrow(/no coincide/);
+    expect(existsSync(join(root, '40001-prueba'))).toBe(true);
+    const result = trashTicket(root, '40001-prueba', '40001-prueba');
+    expect(existsSync(join(root, '40001-prueba'))).toBe(false);
+    expect(result.movedTo.startsWith('.papelera/40001-prueba__')).toBe(true);
+    expect(existsSync(join(root, result.movedTo, 'informe.md'))).toBe(true);
+    // y la carpeta ya no aparece en la lista
+    expect(listTickets(root).map((t) => t.dir)).not.toContain('40001-prueba');
+  });
+
+  it('rechaza nombres que no son carpetas del listado, recorrido de directorios y enlaces', () => {
+    const root = make();
+    expect(() => trashTicket(root, '../etc', '../etc')).toThrow(TicketDeleteError);
+    expect(() => trashTicket(root, 'no-existe', 'no-existe')).toThrow(/no encontrado/);
+    expect(() => trashTicket(root, '40002-enlace', '40002-enlace')).toThrow(/no encontrado/);
+    expect(existsSync(join(root, 'afuera'))).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { createReadStream, readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
-import { IMAGE_TYPES, getTicket, listTickets, resolveTicketFile } from '../services/tickets.js';
+import { z } from 'zod';
+import { IMAGE_TYPES, TicketDeleteError, getTicket, listTickets, resolveTicketFile, trashTicket } from '../services/tickets.js';
 import { getTestState, testStatusOf } from '../services/checklists.js';
 import { requireConfig } from './helpers.js';
 
@@ -20,6 +21,20 @@ export const registerTicketRoutes = (app: FastifyInstance): void => {
     if (!config) return reply;
     const ticket = getTicket(config.paths.extra, request.params.dir);
     return ticket ?? reply.code(404).send({ error: 'Ticket no encontrado' });
+  });
+
+  /** Mueve la carpeta a `.papelera/`; hay que mandar el nombre de la carpeta escrito a mano. */
+  app.delete<{ Params: { dir: string } }>('/api/tickets/:dir', async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const body = z.object({ confirmName: z.string() }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Falta escribir el nombre de la carpeta' });
+    try {
+      return trashTicket(config.paths.extra, request.params.dir, body.data.confirmName);
+    } catch (error) {
+      if (error instanceof TicketDeleteError) return reply.code(error.status).send({ error: error.message });
+      throw error;
+    }
   });
 
   app.get<{ Params: { dir: string }; Querystring: { path?: string } }>('/api/tickets/:dir/file', async (request, reply) => {

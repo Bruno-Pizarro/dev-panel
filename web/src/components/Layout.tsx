@@ -27,7 +27,7 @@ export const Layout = () => {
           </div>
           <div className="flex shrink-0 items-center gap-5">
             <ClaudeUsageBar />
-          <StatusDot status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
+          <StatusDot labelClassName="hidden whitespace-nowrap xl:inline" status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
