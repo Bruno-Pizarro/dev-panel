@@ -85,11 +85,11 @@ export const Tests = () => {
   return (
     <>
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} />
-      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="lg:sticky lg:top-0 lg:max-h-[calc(100vh-11rem)] lg:self-start">
+      <div className="grid gap-6 md:h-[calc(100vh-14rem)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="min-h-0 md:h-full">
           {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 md:h-full md:overflow-y-auto md:pr-2">
           {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
         </div>
       </div>

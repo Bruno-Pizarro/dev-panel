@@ -1,6 +1,7 @@
 import { Expand, Minimize2, Minus, Plus, ScanSearch } from 'lucide-react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn';
+import { repairMermaid } from '../lib/mermaidRepair';
 import { Button } from './Button';
 import { Portal } from './Portal';
 import { Skeleton } from './Skeleton';
@@ -133,6 +134,7 @@ export const Mermaid = ({ code }: { code: string }) => {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [full, setFull] = useState(false);
+  const [repaired, setRepaired] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -154,6 +156,17 @@ export const Mermaid = ({ code }: { code: string }) => {
         const result = await mermaid.render(id, code);
         if (active) (setSvg(result.svg), setError(null));
       } catch (reason) {
+        // Un error típico de los .md: comillas dentro de una etiqueta. Se reintenta con las etiquetas reparadas.
+        const fixed = repairMermaid(code);
+        if (fixed !== code) {
+          try {
+            const result = await mermaid.render(`${id}r`, fixed);
+            if (active) (setSvg(result.svg), setError(null), setRepaired(true));
+            return;
+          } catch {
+            /* sigue el error original */
+          }
+        }
         if (active) setError((reason as Error).message);
       }
     });
@@ -169,11 +182,20 @@ export const Mermaid = ({ code }: { code: string }) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [full]);
 
-  if (error) return <pre className="overflow-auto rounded-xl border border-danger/40 bg-danger/10 p-4 font-mono text-sm text-danger">No se pudo dibujar el diagrama: {error}</pre>;
+  if (error) {
+    return (
+      <div className="rounded-xl border border-danger/40 bg-danger/10 p-4">
+        <p className="font-medium text-danger">El diagrama tiene un error de sintaxis en el propio Markdown, por eso no se dibuja.</p>
+        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-sm text-danger">{error}</pre>
+        <details className="mt-3"><summary className="cursor-pointer text-sm text-muted hover:text-fg">Ver el código del diagrama</summary><pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-line bg-bg p-3 font-mono text-sm">{code}</pre></details>
+      </div>
+    );
+  }
   if (!svg) return <Skeleton className="h-48 rounded-xl" />;
 
   return (
     <>
+      {repaired && <p className="mb-2 text-sm text-warning">Se corrigieron comillas dentro de etiquetas para poder dibujarlo; conviene arreglarlas en el Markdown (usá <span className="font-mono">#quot;</span> o comillas simples).</p>}
       <PanZoom key={svg} svg={svg} tall={false} onFull={() => setFull(true)} />
       {full && (
         <Portal>

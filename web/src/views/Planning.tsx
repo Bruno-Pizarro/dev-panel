@@ -75,11 +75,11 @@ export const Planning = () => {
   return (
     <>
       <PageHeader title="Planificación" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." />
-      <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="lg:sticky lg:top-0 lg:max-h-[calc(100vh-11rem)] lg:self-start">
+      <div className="grid gap-6 md:h-[calc(100vh-14rem)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="min-h-0 md:h-full">
           {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/planificacion" />}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 md:h-full md:overflow-y-auto md:pr-2">
           {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<Layers className="size-6" />} title="Elegí un desarrollo">Acá vas a entender una funcionalidad sin leer todo el análisis: ticket, rama, plan abreviado, diagrama y cómo debería verse.</EmptyState>}
         </div>
       </div>

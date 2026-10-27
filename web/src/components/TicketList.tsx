@@ -28,7 +28,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
   const hidden = withTestFilters ? tickets.length - tickets.filter((ticket) => !ticket.testStatus || shown.includes(ticket.testStatus.conclusion)).length : 0;
 
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-surface px-3 focus-within:border-accent/60">
         <Search className="size-4 text-muted" aria-hidden />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ticket, título o rama…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
