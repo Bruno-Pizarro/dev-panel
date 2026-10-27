@@ -13,6 +13,7 @@ import { registerDailyRoutes } from './routes/daily.js';
 import { registerEnvRoutes } from './routes/env.js';
 import { registerToolRoutes } from './routes/tools.js';
 import { registerFsRoutes } from './routes/fs.js';
+import { registerRedmineRoutes } from './routes/redmine.js';
 
 export interface AppOptions {
   port: number;
@@ -32,6 +33,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerEnvRoutes(app);
   registerToolRoutes(app);
   registerFsRoutes(app);
+  registerRedmineRoutes(app);
 
   if (serveWeb && existsSync(paths.web)) {
     await app.register(fastifyStatic, { root: paths.web });

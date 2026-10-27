@@ -9,6 +9,7 @@ import { Gallery } from '../components/Gallery';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
+import { RedmineCard } from '../components/RedmineCard';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { api } from '../lib/api';
@@ -81,6 +82,7 @@ const Detail = ({ dir }: { dir: string }) => {
   return (
     <>
       <TicketHeader detail={data} />
+      <RedmineCard ticket={data.ticket} />
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
       {tab === 'resumen' && <Summary detail={data} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}

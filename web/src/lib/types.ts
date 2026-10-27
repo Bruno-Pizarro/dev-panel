@@ -203,3 +203,29 @@ export interface TestDataRow {
   field: string;
   count: number;
 }
+
+export interface RedmineIssue {
+  id: number;
+  url: string;
+  subject: string;
+  title: string;
+  storyPoints: number | null;
+  module: string | null;
+  status: string;
+  statusClosed: boolean | null;
+  tracker: string;
+  priority: string;
+  project: string;
+  author: string | null;
+  assignedTo: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  doneRatio: number;
+  estimatedHours: number | null;
+  spentHours: number | null;
+  createdOn: string;
+  updatedOn: string;
+  closedOn: string | null;
+  relations: number;
+  lastNotes: Array<{ user: string; date: string; notes: string }>;
+}

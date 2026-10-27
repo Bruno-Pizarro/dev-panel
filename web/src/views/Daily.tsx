@@ -1,4 +1,4 @@
-import { CalendarDays, Copy, Eye, FilePlus2, Pencil, Save, Sparkles } from 'lucide-react';
+import { Bot, CalendarDays, Copy, Eye, FilePlus2, Pencil, Save, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -72,6 +72,36 @@ export const Daily = () => {
     }
   };
 
+  /** Arma el pedido para que Claude redacte el daily: instrucciones + los datos reales de git y de la base de conocimiento. */
+  const copyForClaude = async () => {
+    setBusy(true);
+    try {
+      const source = content.trim() ? content : (await api.post<{ markdown: string }>('/api/daily/draft', { since })).markdown;
+      const prompt = [
+        `Redactá el daily de hoy (${shown}) para dar mi update mañana en la reunión.`,
+        '',
+        'Pedido:',
+        '- Resumí en pocas líneas en qué se estuvo trabajando y cuánto se avanzó (por ticket).',
+        '- Listá lo más relevante que se modificó o agregó en el código, por repo, sin enumerar cada archivo.',
+        '- Cerrá con pendientes y bloqueos, si los hay.',
+        '- Tono directo, en español, pensado para decirlo en voz alta en un minuto o dos.',
+        '- Respondé únicamente con el Markdown final, con el mismo formato del borrador, para pegarlo en el panel.',
+        '',
+        'Datos del día (generados desde git y la base de conocimiento; completá o corregí lo que haga falta):',
+        '',
+        '```markdown',
+        source.trim(),
+        '```',
+      ].join('\n');
+      await navigator.clipboard.writeText(prompt);
+      toast('success', 'Pedido copiado. Pegalo en la extensión de Claude y después pegá su respuesta acá (Editar).');
+    } catch (error) {
+      toast('error', (error as Error).message || 'No se pudo copiar.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(content);
@@ -101,6 +131,7 @@ export const Daily = () => {
               <>
                 {(['today', 'yesterday', 'last'] as const).map((value) => <Chip key={value} selected={since === value} onToggle={() => setSince(value)}>{sinceLabels[value]}</Chip>)}
                 <Button icon={<Sparkles className="size-4" />} loading={busy} onClick={generate}>Generar borrador</Button>
+                <Button icon={<Bot className="size-4" />} loading={busy} onClick={copyForClaude} title="Copia un pedido con los datos del día para pegarlo en la extensión de Claude">Copiar pedido para Claude</Button>
               </>
             )}
             {!empty && <Button icon={editing ? <Eye className="size-4" /> : <Pencil className="size-4" />} onClick={() => setEditing(!editing)}>{editing ? 'Ver' : 'Editar'}</Button>}

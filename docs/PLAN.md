@@ -200,3 +200,18 @@ Solo `127.0.0.1`; validación de `Host`; cabecera `X-Dev-Panel: 1` en toda escri
 ## 12. Pendiente
 - Confirmar el diff exacto de `.env` por repo cuando lo pase el usuario (T3.2).
 - Definir el texto de los cambios a las skills antes de la Fase 2 (T2.4).
+
+## 13. Backlog anotado (27/10/2026)
+
+### Kanban propio sobre la API de Redmine (pedido del usuario)
+Tablero de cards por columna de estado para ver de un vistazo cómo está el trabajo, con datos en vivo de Redmine (solo lectura al inicio).
+- **Fuente:** `GET /issues.json` con la API key de la skill `redmine-drive` (ya la lee `server/src/services/redmine.ts`; nunca se copia ni se muestra). Filtros por proyecto, asignado, sprint (versión) y tracker.
+- **Columnas:** los estados reales del flujo del equipo, en este orden: Análisis · Req. Definido · Estimación · Desarrollo · Commit · Revisión · Testeado · Testing Consultoría · Testing Aprobado Consultoría · Terminado · Entregado (más Ampliación, Rechazado y Baja en un grupo aparte). Orden y visibilidad configurables.
+- **Card:** número y título limpio, módulo, **SP** (se leen del prefijo `[5 SP]` del título), horas estimadas y gastadas con barra, asignado, **última actualización** ("hace 2 días", en rojo si pasa de un umbral), prioridad, tracker, vínculo a Redmine y, si existe la carpeta en la base de conocimiento, atajos a sus Pruebas y su Planificación.
+- **Totales por columna:** cantidad de cards, suma de SP y de horas.
+- **Interacción:** buscador, filtro por asignado/sprint, orden dentro de la columna (última actualización, SP, prioridad), vista compacta. Sin arrastrar para cambiar de estado en la primera versión (mover cards escribiría en Redmine: se evaluará aparte, con confirmación).
+- **Rendimiento:** una consulta paginada por tablero con caché corta (60 s) y botón de actualizar; ya se usa el mismo caché que el detalle del ticket.
+- **Fuera de alcance inicial:** crear o editar tickets, comentar.
+
+### Cuentas y uso de Claude
+Investigación en curso: ver `docs/INVESTIGACION_CUENTAS_CLAUDE.md`.

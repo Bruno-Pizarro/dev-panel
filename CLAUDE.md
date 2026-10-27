@@ -13,7 +13,9 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 | Repos y .env | Ramas por repo (solo lectura) y perfiles de `.env` MinIO local ⇄ remoto (comenta/descomenta, con diff y respaldo) |
 | Pruebas / Planificación | Lector de `_EXTRA`: informes MD, capturas con visor, MRs, code review, plan, diagrama Mermaid y referencia visual |
 | Daily | Un archivo por día (`AAAA-MM-DD.md`), historial de 5; borrador desde git y `_EXTRA` |
-| Configuración | Edita `config.json` (rutas, orden de levantado, repos) |
+| Configuración | Edita `config.json` (rutas con selector nativo del sistema, orden de levantado, repos) |
+
+Planificación y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). La API key se lee de la skill `redmine-drive` (`~/.claude/skills/redmine-drive/config.json`) o de `REDMINE_API_KEY`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
 
 ## Reglas fijas
 - **Siempre `yarn`** (v1.22). Nunca `npm` ni `npx`, ni en scripts, ni en docs, ni en comandos que le pidas al usuario.

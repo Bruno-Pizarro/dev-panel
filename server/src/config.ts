@@ -77,6 +77,16 @@ export const configSchema = z.object({
       refreshTtlSec: z.number().int().min(60).max(7 * 86_400).default(86_400),
     })
     .default({}),
+  /** Redmine (solo lectura): la API key se lee de la skill redmine-drive o de REDMINE_API_KEY; nunca se guarda acá. */
+  redmine: z
+    .object({
+      enabled: z.boolean().default(true),
+      /** Vacío = `~/.claude/skills/redmine-drive/config.json`. */
+      configFile: z.string().default(''),
+      /** Vacío = el `redmine_url` de ese archivo. */
+      baseUrl: z.string().default(''),
+    })
+    .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -131,6 +141,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
+  redmine: { enabled: true, configFile: '', baseUrl: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

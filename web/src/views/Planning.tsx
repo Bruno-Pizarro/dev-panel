@@ -9,6 +9,7 @@ import { Mermaid } from '../components/Mermaid';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
+import { RedmineCard } from '../components/RedmineCard';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { api } from '../lib/api';
@@ -39,6 +40,7 @@ const Detail = ({ dir }: { dir: string }) => {
   return (
     <>
       <TicketHeader detail={data} />
+      <RedmineCard ticket={data.ticket} />
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
       {tab === 'plan' &&
         (plan ? (
