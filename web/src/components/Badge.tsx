@@ -13,7 +13,7 @@ const tones: Record<Tone, string> = {
 };
 
 export const Badge = ({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) => (
-  <span className={cn('inline-flex h-7 items-center rounded-full px-2.5 text-sm font-medium', tones[tone])}>{children}</span>
+  <span className={cn('inline-flex h-7 items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium', tones[tone])}>{children}</span>
 );
 
 /** Color según el texto del estado o del veredicto (aprobado, con cambios, revisión…). */

@@ -11,7 +11,7 @@ const colors: Record<Status, string> = {
 };
 
 export const StatusDot = ({ status, label }: { status: Status; label?: string }) => (
-  <span className="inline-flex items-center gap-2" role="status">
+  <span className="inline-flex items-center gap-2 whitespace-nowrap" role="status">
     <span className={cn('size-2.5 rounded-full', colors[status])} aria-hidden />
     {label && <span className="text-sm text-muted">{label}</span>}
   </span>

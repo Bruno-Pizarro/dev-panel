@@ -17,7 +17,7 @@ export const Layout = () => {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">
           <CommandPalette />
-          <div className="flex items-center gap-5">
+          <div className="flex shrink-0 items-center gap-5">
             <ClaudeUsageBar />
           <StatusDot status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
           </div>

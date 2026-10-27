@@ -163,8 +163,8 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
                 return (
                   <tr key={container.name} className="transition-colors hover:bg-surface-2/60" style={{ boxShadow: `inset 3px 0 0 ${tint(color, container.state === 'running' ? 0.9 : 0.35)}` }}>
                     <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="rounded-lg border px-2.5 py-1 font-medium" style={pillStyle(color, true)}>{container.name}</span>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <span className="whitespace-nowrap rounded-lg border px-2.5 py-1 font-medium" style={pillStyle(color, true)}>{container.name}</span>
                         <Badge tone={group.tone}>{group.label}</Badge>
                       </div>
                       {container.service && container.service !== container.name && <div className="mt-1 font-mono text-sm text-muted">servicio de compose: {container.service}</div>}
