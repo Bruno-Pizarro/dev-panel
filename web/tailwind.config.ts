@@ -43,7 +43,7 @@ export default {
         shimmer: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
         'pulse-dot': { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.35' } },
       },
-      animation: { 'skeleton-in': 'skeleton-in 300ms ease-out 350ms both', shimmer: 'shimmer 3.5s linear infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
+      animation: { 'skeleton-in': 'skeleton-in 300ms ease-out 350ms both', shimmer: 'shimmer 4s linear infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
     },
   },
   plugins: [],
