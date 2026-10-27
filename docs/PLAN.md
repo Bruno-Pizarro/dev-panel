@@ -140,6 +140,17 @@ Solo `127.0.0.1`; validación de `Host`; cabecera `X-Dev-Panel: 1` en toda escri
   - *Remoto:* el bloque MinIO queda comentado y `USE_MINIO=false` activo.
   - El perfil de cada repo (`documentos`, `file-manager`, `firma`) lista las claves del bloque en `config.json`; el panel detecta el estado actual leyendo qué líneas están comentadas, muestra el diff (valores sensibles enmascarados), respalda el `.env` en `data/` y aplica **solo** el cambio del prefijo `# ` en esas líneas.
   - Los `.env` de hoy no son idénticos (en `documentos` hay dos bloques `AWS_*`; en `file-manager` hay líneas comentadas repetidas), así que el editor opera sobre el bloque marcado por el perfil y, si encuentra una clave repetida o ambigua, no aplica e informa.
+  - **Perfiles por repo (según los `.env` que pasó el usuario, sin valores sensibles):**
+
+    | Repo | Estado "MinIO local" | Estado "Remoto" | Línea especial |
+    |---|---|---|---|
+    | `file-manager` | las 8 claves `AWS_*`/`USE_MINIO=true` activas | las 8 comentadas | además alterna `USE_MINIO=false` (activo en remoto, comentado en local) |
+    | `firma` | las 8 claves activas | las 8 comentadas | no tiene línea `USE_MINIO=false` |
+    | `documentos` | **pendiente de confirmar** (ver abajo) | las 8 claves comentadas (las credenciales las inyecta el compose) | no tiene línea `USE_MINIO=false` |
+
+    Las 8 claves son: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_ENDPOINT`, `AWS_S3_PUBLIC_URL`, `AWS_S3_FORCE_PATH_STYLE` y `USE_MINIO`.
+  - **Caso ambiguo en `documentos`:** un `.env` suyo tiene a la vez un bloque remoto activo (con `USE_MINIO=false`) y un bloque MinIO activo debajo, es decir claves duplicadas; qué valor gana depende de cómo se lea el archivo. El editor no resuelve duplicados por su cuenta: en ese caso muestra el conflicto y propone comentar el bloque que no corresponde al perfil elegido. Hay que confirmar con el usuario que ese es el comportamiento deseado.
+  - Los valores de credenciales **nunca** se copian al repo ni a los logs; el perfil solo guarda nombres de clave y estado (comentada/activa).
   - Después de aplicar ofrece reiniciar el contenedor del repo para que tome el cambio.
 - T3.3 **Backups con chips:** árbol base → colección con conteos y buscador; snapshot y restauración con verificación de conteo (migra el prototipo); backup remoto envolviendo `backup_improved4.sh`, con la clave del SFTP movida a `.env` propio.
 - T3.4 Contraseña por mail en **todas** las bases con `users` (migra el prototipo).
