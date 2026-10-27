@@ -1,4 +1,4 @@
-import { Boxes, LogIn, CalendarDays, ClipboardCheck, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Bot, Boxes, LogIn, CalendarDays, ClipboardCheck, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   path: string;
@@ -34,7 +34,8 @@ export const navGroups: NavGroup[] = [
       { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: null },
     ],
   },
-  { label: 'Sistema', items: [{ path: '/configuracion', label: 'Configuración', description: 'Rutas, servicios y presets', icon: Settings, phase: null }] },
+  { label: 'Sistema', items: [
+      { path: '/claude', label: 'Cuentas de Claude', description: 'Cuentas, inicio de sesión y uso', icon: Bot, phase: null },{ path: '/configuracion', label: 'Configuración', description: 'Rutas, servicios y presets', icon: Settings, phase: null }] },
 ];
 
 export const allNavItems = navGroups.flatMap((group) => group.items);

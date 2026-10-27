@@ -229,3 +229,32 @@ export interface RedmineIssue {
   relations: number;
   lastNotes: Array<{ user: string; date: string; notes: string }>;
 }
+
+export interface ClaudeUsageWindow {
+  usedPercentage: number;
+  resetsAt: number;
+}
+export interface ClaudeUsage {
+  capturedAt: string;
+  ageSeconds: number;
+  model: string | null;
+  costUsd: number | null;
+  contextUsedPercentage: number | null;
+  fiveHour: ClaudeUsageWindow | null;
+  sevenDay: ClaudeUsageWindow | null;
+}
+export interface ClaudeAccount {
+  id: string;
+  label: string;
+  color: string;
+  configDir: string;
+  status: { loggedIn: boolean; email: string | null; orgName: string | null; plan: string | null; method: string | null };
+  usage: ClaudeUsage | null;
+  snippets: { terminal: string; alias: string | null; vscodeCode: string; vscodeSetting: string | null };
+}
+export interface ClaudeLogin {
+  accountId: string | null;
+  status: 'idle' | 'starting' | 'waiting-code' | 'done' | 'error';
+  url: string | null;
+  message: string | null;
+}

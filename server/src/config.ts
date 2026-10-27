@@ -87,6 +87,8 @@ export const configSchema = z.object({
       baseUrl: z.string().default(''),
     })
     .default({}),
+  /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
+  claude: z.object({ binary: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('claude') }).default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -142,6 +144,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, configFile: '', baseUrl: '' },
+  claude: { binary: 'claude' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,
