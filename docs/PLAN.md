@@ -10,7 +10,9 @@ Fecha del plan: 27/10/2026.
 | Frontend | React 18 + Vite 5 + TypeScript + Tailwind 3.4 (versiones compatibles con Node 18.14 del entorno actual) |
 | Backend | Node + TypeScript con Fastify 4; sirve la API y el frontend compilado; eventos en vivo por SSE |
 | Docker | Se invoca la CLI (`docker`, `docker compose`) con `execFile`, sin shell. Un único compose general compartido (`/root/projects/docker-compose.yml`) más `file-manager/docker.compose.minio.yml` |
-| Arranque | `npm start` (compila si hace falta y sirve en `127.0.0.1`) |
+| Gestor de paquetes | **Yarn (1.22) siempre**: dependencias, scripts y documentación. Prohibido `npm`/`npx` en scripts, README y CLAUDE.md |
+| Arranque | `yarn start` (compila si hace falta y sirve en `127.0.0.1`) |
+| Documentación para agentes | `CLAUDE.md` en la raíz, para que cualquier agente entienda y configure el repo en cualquier máquina (§4) |
 | Estética | Modo oscuro, pensado para programadores, prioridad permanente (ver §6) |
 | Repo | `/root/projects/dev-panel` (este), con su propio git |
 | Chat | Fuera de alcance: se usa la extensión de Claude en VS Code a pantalla completa |
@@ -18,7 +20,7 @@ Fecha del plan: 27/10/2026.
 | Configuración | Todo configurable por `config.json` para poder compartir la herramienta (§3) |
 
 ## 2. Funcionalidades (alcance)
-1. **Daily:** muestra el MD del día; se genera un borrador desde git y se edita en el panel.
+1. **Daily:** muestra el MD del día (historial de 5 archivos rotativos); se genera un borrador desde git y se edita en el panel.
 2. **Levantado en orden:** chips de servicios opcionales y ejecución por etapas con estado en vivo.
 3. **Pruebas:** lista de carpetas de `_EXTRA` con MD, capturas, ticket, MRs y veredictos de code-review.
 4. **Planificación y análisis:** ticket, rama propuesta, plan abreviado, diagrama de flujo y captura de referencia.
@@ -58,7 +60,9 @@ Notas: los nombres de `stage1`, `stage2`, `mandatory` y `optional` son nombres d
 ## 4. Estructura del repo
 ```
 dev-panel/
-  package.json            # workspaces: server, web
+  package.json            # workspaces de yarn: server, web
+  CLAUDE.md               # guía para agentes: qué es, cómo se instala, cómo se prueba, reglas
+  yarn.lock
   config.example.json
   server/                 # Fastify + TS
     src/{index.ts, config.ts, docker.ts, sse.ts, routes/*, services/*}
@@ -107,7 +111,8 @@ Solo `127.0.0.1`; validación de `Host`; cabecera `X-Dev-Panel: 1` en toda escri
 - T0.2 Servidor Fastify con validación de Host, header anti-CSRF, SSE y carga de `config.json` con esquema (zod).
 - T0.3 Frontend: layout (sidebar, cabecera, paleta de comandos), tema oscuro, componentes base (Chip, Card, Button, LogView, StatusDot, Toast, Markdown, Modal).
 - T0.4 Asistente de primer arranque: detecta `docker`, `docker compose`, rutas y contenedores; escribe `config.json`.
-- **Listo cuando:** `npm install && npm start` abre el panel vacío con tema, y el asistente genera la configuración.
+- T0.5 `CLAUDE.md`: propósito, comandos (`yarn install`, `yarn dev`, `yarn start`, `yarn build`, `yarn lint`, `yarn test`), estructura, convenciones (código en inglés, textos de UI en español, tamaño de fuente mínimo 14 px, solo yarn), reglas de seguridad, cómo configurar `config.json` en una máquina nueva y qué NO tocar (compose compartido, `.env` de los repos sin pasar por el editor).
+- **Listo cuando:** `yarn install && yarn start` abre el panel vacío con tema, y el asistente genera la configuración.
 
 ### Fase 1 — Servicios y levantado en orden (1–1,5 días) **[prioridad]**
 - T1.1 Vista Servicios: contenedores con estado, puertos, `tsc` (leído desde el último arranque con `--since`), logs en vivo (SSE), reinicio con confirmación. Migra el prototipo.
@@ -129,8 +134,13 @@ Solo `127.0.0.1`; validación de `Host`; cabecera `X-Dev-Panel: 1` en toda escri
 - **Listo cuando:** abrir `33526` muestra su análisis, sus pruebas con capturas y sus MRs sin tocar archivos a mano.
 
 ### Fase 3 — Daily, entorno y datos (1,5 días)
-- T3.1 **Daily:** carpeta configurable; visor/editor del MD del día; botón "Generar borrador" que junta commits y `git diff --stat` por repo desde el último daily, tickets tocados (por `ticket.json`) y pruebas realizadas; el archivo es temporal (se rota al día siguiente, con opción de archivar).
-- T3.2 **Editor de `.env`:** perfiles por repo definidos en `config.json` (ej. "MinIO local" / "S3 remoto"); muestra el diff con valores sensibles enmascarados; respalda el `.env` antes de aplicar; no toca el resto del archivo ni se commitea.
+- T3.1 **Daily:** carpeta configurable; visor/editor del MD del día; botón "Generar borrador" que junta commits y `git diff --stat` por repo desde el último daily, tickets tocados (por `ticket.json`) y pruebas realizadas; un archivo por día (`AAAA-MM-DD.md`) en la carpeta configurada; se conservan **5 archivos**: al crear uno nuevo con 5 existentes se borra el más viejo. El panel muestra el de hoy y permite navegar el historial.
+- T3.2 **Editor de `.env` (MinIO local ⇄ remoto):** el cambio es **comentar o descomentar** un bloque de líneas, sin tocar los valores:
+  - *Local (MinIO):* `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET_NAME`, `AWS_ENDPOINT`, `AWS_S3_PUBLIC_URL`, `AWS_S3_FORCE_PATH_STYLE` y `USE_MINIO=true` quedan **activas**, y el `USE_MINIO=false` de "deshabilitar en prod" queda **comentado**.
+  - *Remoto:* el bloque MinIO queda comentado y `USE_MINIO=false` activo.
+  - El perfil de cada repo (`documentos`, `file-manager`, `firma`) lista las claves del bloque en `config.json`; el panel detecta el estado actual leyendo qué líneas están comentadas, muestra el diff (valores sensibles enmascarados), respalda el `.env` en `data/` y aplica **solo** el cambio del prefijo `# ` en esas líneas.
+  - Los `.env` de hoy no son idénticos (en `documentos` hay dos bloques `AWS_*`; en `file-manager` hay líneas comentadas repetidas), así que el editor opera sobre el bloque marcado por el perfil y, si encuentra una clave repetida o ambigua, no aplica e informa.
+  - Después de aplicar ofrece reiniciar el contenedor del repo para que tome el cambio.
 - T3.3 **Backups con chips:** árbol base → colección con conteos y buscador; snapshot y restauración con verificación de conteo (migra el prototipo); backup remoto envolviendo `backup_improved4.sh`, con la clave del SFTP movida a `.env` propio.
 - T3.4 Contraseña por mail en **todas** las bases con `users` (migra el prototipo).
 - **Listo cuando:** el daily se genera con un clic, el `.env` de firma/documentos/file-manager se cambia entre perfiles con respaldo, y un snapshot se elige sin escribir nombres.
@@ -167,8 +177,13 @@ Solo `127.0.0.1`; validación de `Host`; cabecera `X-Dev-Panel: 1` en toda escri
 7. **Backup remoto sin probar:** queda detrás de "Simular" hasta validarlo a mano.
 8. **Compartir con compañeros:** rutas distintas por usuario; por eso todo sale de `config.json`.
 
-## 11. Preguntas para cerrar antes de la Fase 0
-1. ¿El daily se guarda en `_EXTRA/daily/AAAA-MM-DD.md` (uno por día, el panel muestra el de hoy) o un único `daily.md` que se pisa a diario?
-2. ¿Los presets de chips de levantado se guardan en el panel (por usuario) o en `config.json` compartido?
-3. ¿Qué perfiles de `.env` necesitás exactamente (variables que cambian al apuntar a MinIO local)? Con un ejemplo de `firma` y `documentos` armo el esquema.
-4. ¿Las skills de Claude que cierran análisis, pruebas y code-review pueden ajustarse para escribir `ticket.json`, o lo escribo a mano al cerrar cada etapa?
+## 11. Decisiones cerradas (27/10/2026)
+1. **Daily:** un archivo por día, 5 de historial rotativo (se borra el más viejo al crear el sexto).
+2. **Presets de levantado:** compartidos en `config.json` (de fábrica: solo obligatorios y "Leia") **más** personales en `data/`.
+3. **`.env`:** perfil "MinIO local / remoto" por comentar-descomentar (ver T3.2). Las diferencias exactas entre los 3 repos las pasa el usuario después; el esquema ya las soporta.
+4. **`ticket.json`:** se ajustan las skills (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`) para escribirlo y actualizarlo al cerrar cada etapa.
+5. **Yarn** para todo y `CLAUDE.md` obligatorio en la raíz.
+
+## 12. Pendiente
+- Confirmar el diff exacto de `.env` por repo cuando lo pase el usuario (T3.2).
+- Definir el texto de los cambios a las skills antes de la Fase 2 (T2.4).
