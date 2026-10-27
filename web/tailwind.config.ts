@@ -39,10 +39,11 @@ export default {
       boxShadow: { pop: '0 12px 40px -12px rgb(0 0 0 / 0.6)' },
       keyframes: {
         'fade-in': { from: { opacity: '0', transform: 'translateY(4px)' }, to: { opacity: '1', transform: 'none' } },
+        'skeleton-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         shimmer: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
         'pulse-dot': { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.35' } },
       },
-      animation: { shimmer: 'shimmer 3s linear infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
+      animation: { 'skeleton-in': 'skeleton-in 300ms ease-out 350ms both', shimmer: 'shimmer 3.5s linear infinite', 'fade-in': 'fade-in 160ms ease-out both', 'pulse-dot': 'pulse-dot 1.4s ease-in-out infinite' },
     },
   },
   plugins: [],
