@@ -21,8 +21,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { path: '/servicios', label: 'Servicios', description: 'Contenedores, logs y reinicio', icon: Boxes, phase: null },
       { path: '/levantado', label: 'Levantado', description: 'Levantar el stack en el orden correcto', icon: Rocket, phase: null },
-      { path: '/datos', label: 'Datos', description: 'Snapshots y backups con chips', icon: Database, phase: 3 },
-      { path: '/entorno', label: 'Repos y .env', description: 'Perfiles de .env y chequeos', icon: FileCog, phase: 3 },
+      { path: '/datos', label: 'Datos', description: 'Snapshots y backups con chips', icon: Database, phase: null },
+      { path: '/entorno', label: 'Repos y .env', description: 'Perfiles de .env y chequeos', icon: FileCog, phase: null },
     ],
   },
   {
@@ -30,7 +30,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { path: '/pruebas', label: 'Pruebas', description: 'Pruebas realizadas por ticket', icon: ClipboardCheck, phase: null },
       { path: '/planificacion', label: 'Planificación', description: 'Análisis, plan y diagramas', icon: Layers, phase: null },
-      { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: 3 },
+      { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: null },
     ],
   },
   { label: 'Sistema', items: [{ path: '/configuracion', label: 'Configuración', description: 'Rutas, servicios y presets', icon: Settings, phase: null }] },

@@ -63,3 +63,37 @@ export const useStoredState = <T,>(key: string, initial: T): [T, (value: T) => v
   );
   return [value, update];
 };
+
+export interface JobState {
+  id: string | null;
+  lines: string[];
+  done: boolean;
+  ok: boolean | null;
+}
+
+/** Sigue un trabajo largo del servidor (snapshot, restauración, contraseña…) línea por línea por SSE. */
+export const useJob = (): { job: JobState; follow: (id: string) => void; reset: () => void } => {
+  const [job, setJob] = useState<JobState>({ id: null, lines: [], done: false, ok: null });
+  const sourceRef = useRef<EventSource | null>(null);
+
+  useEffect(() => () => sourceRef.current?.close(), []);
+
+  const follow = useCallback((id: string) => {
+    sourceRef.current?.close();
+    setJob({ id, lines: [], done: false, ok: null });
+    const source = new EventSource(`/api/jobs/${id}/stream`);
+    sourceRef.current = source;
+    source.addEventListener('line', (event) => setJob((current) => ({ ...current, lines: [...current.lines, JSON.parse((event as MessageEvent<string>).data) as string] })));
+    source.addEventListener('done', (event) => {
+      setJob((current) => ({ ...current, done: true, ok: (JSON.parse((event as MessageEvent<string>).data) as { ok: boolean }).ok }));
+      source.close();
+    });
+    source.onerror = () => source.close();
+  }, []);
+
+  const reset = useCallback(() => {
+    sourceRef.current?.close();
+    setJob({ id: null, lines: [], done: false, ok: null });
+  }, []);
+  return { job, follow, reset };
+};

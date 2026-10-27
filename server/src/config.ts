@@ -5,6 +5,35 @@ import { z } from 'zod';
 
 const serviceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, 'Nombre de servicio inválido');
 
+export const envProfileSchema = z.object({
+  file: z.string().regex(/^[A-Za-z0-9._-]+$/).default('.env'),
+  /** Contenedor a reiniciar para que tome el cambio (opcional). */
+  container: serviceName.nullable().default(null),
+  /** Líneas ("CLAVE", "CLAVE=valor" o "CLAVE!=valor") activas en el perfil MinIO local y comentadas en el remoto. */
+  minio: z.array(z.string().min(1)),
+  /** Líneas activas en el perfil remoto y comentadas en el local. */
+  remote: z.array(z.string().min(1)).default([]),
+});
+export type EnvProfile = z.infer<typeof envProfileSchema>;
+
+/** Bloque de MinIO local tal como aparece (comentado o no) en los .env del equipo. */
+const MINIO_LINES = [
+  'AWS_ACCESS_KEY_ID=minioadmin', 'AWS_SECRET_ACCESS_KEY=minioadmin', 'AWS_REGION=us-east-1', 'AWS_S3_BUCKET_NAME=esueldos-s3',
+  'AWS_ENDPOINT=http://minio:9000', 'AWS_S3_PUBLIC_URL=http://localhost:9000', 'AWS_S3_FORCE_PATH_STYLE=true', 'USE_MINIO=true',
+];
+/** En `documentos` y `file-manager` el bloque remoto repite las claves con otros valores: "!=" las distingue sin guardar credenciales. */
+const REMOTE_LINES = [
+  'AWS_ACCESS_KEY_ID!=minioadmin', 'AWS_SECRET_ACCESS_KEY!=minioadmin', 'AWS_S3_BUCKET_NAME!=esueldos-s3',
+  'AWS_S3_PUBLIC_URL!=http://localhost:9000', 'AWS_S3_FORCE_PATH_STYLE!=true', 'USE_MINIO=false',
+];
+const DEFAULT_ENV_PROFILES: Record<string, EnvProfile> = {
+  // AWS_REGION vale lo mismo en ambos bloques: se deja fuera porque no cambia nada y aparece dos veces.
+  'file-manager': { file: '.env', container: 'files', minio: MINIO_LINES.filter((line) => !line.startsWith('AWS_REGION')), remote: ['AWS_S3_PUBLIC_URL!=http://localhost:9000', 'AWS_S3_FORCE_PATH_STYLE!=true', 'USE_MINIO=false'] },
+  firma: { file: '.env', container: 'firma', minio: MINIO_LINES, remote: [] },
+  documentos: { file: '.env', container: 'documentos', minio: MINIO_LINES.filter((line) => !line.startsWith('AWS_REGION')), remote: REMOTE_LINES },
+};
+const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
+
 export const configSchema = z.object({
   paths: z.object({
     projects: z.string().min(1),
@@ -15,7 +44,22 @@ export const configSchema = z.object({
     main: z.string().min(1),
     minio: z.string().min(1),
   }),
-  mongo: z.object({ container: serviceName }),
+  mongo: z.object({
+    container: serviceName,
+    /** Bases que el panel nunca toca. */
+    deniedDbs: z.array(z.string()).default(['admin', 'config', 'local']),
+    /** Usuario cuyo hash de contraseña se copia a otros mails (superadmin del entorno local). */
+    superadmin: z.object({ email: z.string().min(3), db: z.string().min(1) }).default({ email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' }),
+  }),
+  remoteBackup: z
+    .object({
+      /** Vacío = `<projects>/zscripts/backup_improved4.sh`. */
+      script: z.string().default(''),
+      types: z.array(z.string().regex(/^[A-Za-z0-9._-]+$/)).default(DEFAULT_BACKUP_TYPES),
+    })
+    .default({}),
+  /** Perfiles de .env: qué líneas se comentan/descomentan al pasar de MinIO local a remoto. */
+  envProfiles: z.record(serviceName, envProfileSchema).default(DEFAULT_ENV_PROFILES),
   startup: z.object({
     stage1: z.array(serviceName),
     stage2: z.array(serviceName),
@@ -54,7 +98,9 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
     main: join(projectsRoot, 'docker-compose.yml'),
     minio: join(projectsRoot, 'file-manager', 'docker.compose.minio.yml'),
   },
-  mongo: { container: 'mongo-db' },
+  mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
+  remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
+  envProfiles: DEFAULT_ENV_PROFILES,
   startup: {
     stage1: ['minio', 'mc'], // nombres de servicio en file-manager/docker.compose.minio.yml (contenedores: minio y minio-mc)
     stage2: ['rabbitmq', 'mongo-e-sueldos'],

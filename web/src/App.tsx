@@ -6,6 +6,9 @@ import { allNavItems } from './lib/nav';
 import type { ConfigResponse } from './lib/types';
 import { useAsync } from './lib/useAsync';
 import { ComingSoon } from './views/ComingSoon';
+import { Daily } from './views/Daily';
+import { Data } from './views/Data';
+import { EnvRepos } from './views/EnvRepos';
 import { Home } from './views/Home';
 import { Planning } from './views/Planning';
 import { Services } from './views/Services';
@@ -40,9 +43,12 @@ export const App = () => {
         <Route path="pruebas/:dir" element={<Tests />} />
         <Route path="planificacion" element={<Planning />} />
         <Route path="planificacion/:dir" element={<Planning />} />
+        <Route path="datos" element={<Data />} />
+        <Route path="entorno" element={<EnvRepos />} />
+        <Route path="daily" element={<Daily />} />
         <Route path="configuracion" element={<Settings config={config} onSaved={state.reload} />} />
         {allNavItems
-          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion'].includes(item.path))
+          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/entorno', '/daily'].includes(item.path))
           .map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ComingSoon item={item} />} />
           ))}

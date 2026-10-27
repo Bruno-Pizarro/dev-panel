@@ -113,3 +113,45 @@ export interface TicketDetail extends TicketSummary {
   meta: TicketMeta | null;
   files: { docs: string[]; diagrams: string[]; images: string[] };
 }
+
+export interface ManagedLine {
+  line: number;
+  key: string;
+  active: boolean;
+  text: string;
+  group: 'minio' | 'remote';
+}
+export interface EnvRepo {
+  repo: string;
+  file: string;
+  container: string | null;
+  exists: boolean;
+  state: 'local' | 'remote' | 'mixed' | 'unknown';
+  managed: ManagedLine[];
+  missing: string[];
+  conflicts: string[];
+}
+export interface EnvChange {
+  line: number;
+  from: string;
+  to: string;
+}
+export interface SnapshotItem {
+  db: string;
+  collection: string;
+  count: number;
+  file: string;
+  size: number;
+}
+export interface Snapshot {
+  id: string;
+  label: string;
+  createdAt: string;
+  items: SnapshotItem[];
+}
+export interface DailyList {
+  dir: string;
+  today: string;
+  dates: string[];
+  maxFiles: number;
+}
