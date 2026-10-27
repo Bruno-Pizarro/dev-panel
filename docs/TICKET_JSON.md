@@ -41,3 +41,10 @@ Formato Mermaid en un archivo `.mmd` (por ejemplo `flowchart TD`). El panel lo d
 ## Campos que usa el historial y el checklist de pruebas
 - `mrs[].fecha` y `codeReview[].fecha` / `pruebas[].fecha` (`AAAA-MM-DD`) alimentan el **historial de 5 días** del Daily. Sin fecha el evento no aparece.
 - `pruebas[].conclusion` es el estado de esa tanda según la skill. El panel lo muestra, y lo que se marque en el panel (aprobado / requiere cambios / sin conclusión) tiene prioridad. Cada tanda tiene su propio checklist ("actualizar ticket", "subir comentarios"), que vive en el panel, no en este archivo.
+
+## Reglas para que los diagramas Mermaid dibujen
+Los diagramas de los `.md` y `.mmd` se dibujan en el panel con Mermaid, que es estricto. Tres errores reales que ya aparecieron en `_EXTRA`:
+1. **Comillas dentro de una etiqueta de flowchart:** `Z[Menú sin "Algo"]` falla. Usar `Z["Menú sin #quot;Algo#quot;"]` o comillas simples.
+2. **Punto y coma en un mensaje de secuencia:** `A->>B: recalcula; sigue` falla (el `;` corta la instrucción). Usar coma, "y" o `#59;`.
+3. **Dos veces `:` en una transición de estados:** `A --> B: texto (rol: admin)` falla. Dejar un solo `:` por línea.
+Etiquetas que ya empiezan con comillas (`A["Texto (con paréntesis)"]`) son válidas.
