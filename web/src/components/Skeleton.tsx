@@ -1,11 +1,8 @@
 import { cn } from '../lib/cn';
 
-/**
- * Marcador de carga: aparece recién a los 350 ms (si los datos llegan antes, no se ve nada y se evita el destello)
- * y un brillo lento cruza de lado a lado.
- */
+/** Marcador de carga: bloque quieto con un círculo que gira en el centro (sin brillo ni fundidos). */
 export const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn('relative animate-skeleton-in overflow-hidden rounded-lg bg-surface-2', className)} aria-hidden>
-    <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/[0.05] to-transparent" />
+  <div className={cn('flex items-center justify-center rounded-lg bg-surface-2', className)} role="status" aria-label="Cargando">
+    <span className="size-6 animate-spin rounded-full border-2 border-line border-t-accent" aria-hidden />
   </div>
 );
