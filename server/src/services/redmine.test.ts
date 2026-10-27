@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defaultConfig, paths } from '../config.js';
-import { RedmineError, clearRedmineCache, fetchIssue, loadCredentials, mapIssue, parseSubject } from './redmine.js';
+import { RedmineError, clearRedmineCache, fetchIssue, httpProblem, loadCredentials, mapIssue, parseSubject } from './redmine.js';
 
 const SECRET = 'clave-secreta-de-prueba-0123456789abcdef';
 const dir = mkdtempSync(join(tmpdir(), 'dp-redmine-'));
@@ -78,6 +78,20 @@ describe('fetchIssue', () => {
     await expect(fetchIssue(config, '33526', status(401))).rejects.toMatchObject({ status: 403 });
     const off = { ...config, redmine: { enabled: false, configFile: '', baseUrl: '', doneStatuses: [] } };
     await expect(fetchIssue(off, '33526', okFetcher([]))).rejects.toBeInstanceOf(RedmineError);
+  });
+});
+
+describe('errores de Redmine', () => {
+  const html = { get: (name: string) => (name === 'content-type' ? 'text/html' : null) };
+  const json = { get: (name: string) => (name === 'content-type' ? 'application/json' : null) };
+  it('un 403 con HTML (proxy) o un 5xx no se confunden con una key inválida', async () => {
+    expect((await httpProblem({ status: 403, headers: html }))).toMatchObject({ status: 503 });
+    expect((await httpProblem({ status: 403, headers: html })).message).toMatch(/no de la API key/);
+    expect((await httpProblem({ status: 502, headers: html })).message).toMatch(/no está disponible/);
+  });
+  it('un 401 con JSON sí es una key rechazada, y 404 es ticket inexistente', async () => {
+    expect((await httpProblem({ status: 401, headers: json })).message).toMatch(/rechazó la API key/);
+    expect(await httpProblem({ status: 404, headers: json }, '33526')).toMatchObject({ status: 404 });
   });
 });
 

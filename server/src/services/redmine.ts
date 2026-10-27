@@ -156,6 +156,16 @@ export const applyStoryPoints = async (issues: RedmineIssue[], credentials: Cred
   }
 };
 
+/** Traduce una respuesta que no es 2xx. Solo un 401/403 con JSON es una key rechazada; un 403 con HTML (proxy) o un 5xx es el servidor caído o bloqueando. */
+export const httpProblem = async (response: { status: number; headers?: { get: (name: string) => string | null }; json?: () => Promise<unknown> }, id?: string): Promise<RedmineError> => {
+  const type = response.headers?.get('content-type') ?? '';
+  if (response.status === 404) return new RedmineError(id ? `El ticket #${id} no existe en Redmine` : 'No se encontró en Redmine', 404);
+  if ((response.status === 401 || response.status === 403) && (type.includes('json') || response.headers === undefined)) return new RedmineError('Redmine rechazó la API key o no tiene permiso para ver el ticket', 403);
+  if (response.status === 401 || response.status === 403) return new RedmineError('Redmine bloqueó el pedido (respuesta 403 de su servidor, no de la API key). Puede estar caído o limitando el acceso: probá más tarde', 503);
+  if (response.status >= 500) return new RedmineError(`Redmine no está disponible (error ${response.status}). Probá más tarde`, 503);
+  return new RedmineError(`Redmine respondió ${response.status}`, 502);
+};
+
 export interface Credentials {
   key: string;
   baseUrl: string;
@@ -183,7 +193,7 @@ export const loadCredentials = (config: DevPanelConfig, env: NodeJS.ProcessEnv =
   return key ? { key, baseUrl: (baseUrl || DEFAULT_URL).replace(/\/$/, '') } : null;
 };
 
-type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
 
 const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; issue: RedmineIssue }>();
@@ -203,9 +213,7 @@ export const fetchIssue = async (config: DevPanelConfig, id: string, fetcher: Fe
   } catch {
     throw new RedmineError('No se pudo conectar con Redmine', 502);
   }
-  if (response.status === 404) throw new RedmineError(`El ticket #${id} no existe en Redmine`, 404);
-  if (response.status === 401 || response.status === 403) throw new RedmineError('Redmine rechazó la API key o no tiene permiso para ver el ticket', 403);
-  if (!response.ok) throw new RedmineError(`Redmine respondió ${response.status}`, 502);
+  if (!response.ok) throw await httpProblem(response, id);
   const body = (await response.json()) as { issue?: RawIssue };
   if (!body.issue) throw new RedmineError('Respuesta inesperada de Redmine', 502);
   const issue = mapIssue(body.issue, credentials.baseUrl);
@@ -245,7 +253,7 @@ const MAX_PAGES = 5;
 const boardCache = new Map<string, { at: number; board: Board }>();
 export const clearBoardCache = (): void => boardCache.clear();
 
-type JsonFetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+type JsonFetcher = Fetcher;
 
 /** Tickets con cambios en los últimos `days` días (solo lectura). `me` = asignados a quien dueña la API key. */
 export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {
@@ -263,8 +271,7 @@ export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', da
     } catch {
       throw new RedmineError('No se pudo conectar con Redmine', 502);
     }
-    if (response.status === 401 || response.status === 403) throw new RedmineError('Redmine rechazó la API key', 403);
-    if (!response.ok) throw new RedmineError(`Redmine respondió ${response.status}`, 502);
+    if (!response.ok) throw await httpProblem(response);
     return response.json();
   };
 
@@ -395,7 +402,7 @@ export const fetchSpHistory = async (config: DevPanelConfig, fetcher: JsonFetche
   try {
     const get = async (path: string): Promise<unknown> => {
       const response = await fetcher(`${credentials.baseUrl}${path}`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(20_000) });
-      if (!response.ok) throw new RedmineError(`Redmine respondió ${response.status}`, 502);
+      if (!response.ok) throw await httpProblem(response);
       return response.json();
     };
     const statusBody = (await get('/issue_statuses.json')) as { issue_statuses?: Array<{ id: number; name: string }> };
