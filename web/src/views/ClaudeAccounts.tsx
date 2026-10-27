@@ -162,7 +162,7 @@ export const ClaudeAccounts = () => {
     <>
       <PageHeader title="Cuentas de Claude" description="Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba." actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button>} />
       <p className="mb-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-        El panel <strong className="text-fg">nunca lee ni guarda tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso lo toma del caché de límites que Claude Code guarda en <span className="font-mono">.claude.json</span> (el mismo que muestra “Account &amp; usage”; solo se lee ese bloque) o, si es más reciente, del <span className="font-mono">statusLine</span>. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
+        El panel <strong className="text-fg">no guarda ni muestra tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso lo consulta en vivo al servicio de Anthropic con el token de cada cuenta (endpoint no documentado, solo en memoria, como mucho cada 2 minutos; se apaga con <span className="font-mono">claude.liveUsage: false</span>) y, si no se puede, toma el caché de Claude Code o el <span className="font-mono">statusLine</span>. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
       </p>
 
       {data.data && (
@@ -204,8 +204,9 @@ export const ClaudeAccounts = () => {
                       <UsageBar label="Sesión de 5 h" window={account.usage?.fiveHour ?? null} />
                       <UsageBar label="Semana" window={account.usage?.sevenDay ?? null} />
                       <p className="text-sm text-muted">
-                        {account.usage ? <>Último dato {ago(account.usage.ageSeconds)} · fuente: {account.usage.source === 'cache' ? 'caché de Claude Code (no oficial)' : 'statusLine (oficial)'}{account.usage.model ? ` · ${account.usage.model}` : ''}{account.usage.costUsd !== null ? ` · ${account.usage.costUsd.toFixed(2)} USD estimados en esa sesión` : ''}.</> : 'Sin datos de uso: Claude Code los guarda cuando abrís “Account & usage” o corre una sesión con esta cuenta.'}
+                        {account.usage ? <>Último dato {ago(account.usage.ageSeconds)} · fuente: {{ cache: 'caché de Claude Code (no oficial)', statusline: 'statusLine (oficial)', live: 'consulta en vivo (endpoint no documentado)' }[account.usage.source]}{account.usage.model ? ` · ${account.usage.model}` : ''}{account.usage.costUsd !== null ? ` · ${account.usage.costUsd.toFixed(2)} USD estimados en esa sesión` : ''}.</> : 'Sin datos de uso: Claude Code los guarda cuando abrís “Account & usage” o corre una sesión con esta cuenta.'}
                       </p>
+                      {account.usageProblem && <p className="text-sm text-warning">Consulta en vivo: {account.usageProblem}</p>}
                     </div>
                     <div className="space-y-3">
                       <CopyLine label="Terminal" text={account.snippets.terminal} />

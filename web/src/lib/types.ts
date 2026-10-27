@@ -236,7 +236,7 @@ export interface ClaudeUsageWindow {
   resetsAt: number;
 }
 export interface ClaudeUsage {
-  source: 'statusline' | 'cache';
+  source: 'statusline' | 'cache' | 'live';
   capturedAt: string;
   ageSeconds: number;
   model: string | null;
@@ -252,6 +252,7 @@ export interface ClaudeAccount {
   configDir: string;
   status: { loggedIn: boolean; email: string | null; orgName: string | null; plan: string | null; method: string | null };
   usage: ClaudeUsage | null;
+  usageProblem?: string | null;
   snippets: { terminal: string; alias: string | null; vscodeCode: string; vscodeSetting: string | null };
 }
 export interface ClaudeLogin {

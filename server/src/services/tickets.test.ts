@@ -26,6 +26,9 @@ beforeAll(() => {
   write('suelto.md', 'no es carpeta');
   write('afuera/secreto.md', 'secreto fuera del ticket');
   symlinkSync(join(extra, 'afuera/secreto.md'), join(extra, '32519-pruebas/enlace.md'));
+  // Las carpetas se crean en el mismo instante: se fija cuál es la más reciente para que el orden no dependa del azar.
+  const future = new Date(Date.now() + 3_600_000);
+  utimesSync(join(extra, '33526-pendientes-firma/ticket.json'), future, future);
 });
 
 describe('parseDirName', () => {

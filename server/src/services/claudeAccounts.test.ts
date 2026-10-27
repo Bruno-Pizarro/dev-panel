@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { paths } from '../config.js';
-import { ClaudeError, addAccount, readCachedUsage, stateFileOf, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
+import { defaultConfig, paths } from '../config.js';
+import { ClaudeError, addAccount, clearLiveUsage, liveToSnapshot, refreshLiveUsage, readCachedUsage, stateFileOf, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
 
 const reset = () => {
   mkdirSync(paths.data, { recursive: true });
@@ -138,5 +138,63 @@ describe('caché de límites de Claude Code (.claude.json)', () => {
   it('la cuenta actual usa ~/.claude.json y las demás, el .claude.json de su carpeta', () => {
     expect(stateFileOf(account, '/home/x')).toBe('/home/x/.claude.json');
     expect(stateFileOf({ ...account, id: 'trabajo', configDir: '/home/x/.claude-trabajo' }, '/home/x')).toBe('/home/x/.claude-trabajo/.claude.json');
+  });
+});
+
+describe('uso en vivo', () => {
+  const now = Date.parse('2026-10-27T18:00:00Z');
+  const home = mkdtempSync(join(tmpdir(), 'dp-live-'));
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  const SECRET = 'token-secreto-de-prueba';
+  const account = { id: 'default', label: 'Actual', color: '1 2 3', configDir: join(home, '.claude') };
+  const config = defaultConfig('/x');
+  const body = { five_hour: { utilization: 26, resets_at: '2026-10-27T20:00:00Z' }, seven_day: { utilization: 72, resets_at: '2026-11-01T06:00:00Z' }, extra_usage: { is_enabled: false } };
+  const credentials = (expiresAt: number) => writeFileSync(join(home, '.claude', '.credentials.json'), JSON.stringify({ claudeAiOauth: { accessToken: SECRET, refreshToken: 'no-se-usa', expiresAt } }));
+  const okFetcher = (calls: Array<{ url: string; auth: string | undefined }>) => async (url: string, init: { headers: Record<string, string> }) => (calls.push({ url, auth: init.headers['Authorization'] }), { ok: true, status: 200, json: async () => body });
+
+  it('convierte la respuesta del servicio al formato del panel, sin datos de más', () => {
+    const snapshot = liveToSnapshot(body, now)!;
+    expect(snapshot).toMatchObject({ source: 'live', ageSeconds: 0, fiveHour: { usedPercentage: 26 }, sevenDay: { usedPercentage: 72 } });
+    expect(JSON.stringify(snapshot)).not.toMatch(/extra_usage/);
+    expect(liveToSnapshot({ nada: 1 }, now)).toBeNull();
+  });
+
+  it('manda el token por cabecera, no lo devuelve ni lo guarda, y consulta como mucho cada 2 minutos', async () => {
+    clearLiveUsage();
+    credentials(now + 3_600_000);
+    const calls: Array<{ url: string; auth: string | undefined }> = [];
+    const first = await refreshLiveUsage(config, account, okFetcher(calls), now, home);
+    await refreshLiveUsage(config, account, okFetcher(calls), now + 60_000, home);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.auth).toBe(`Bearer ${SECRET}`);
+    expect(calls[0]!.url).not.toContain(SECRET);
+    expect(JSON.stringify(first)).not.toContain(SECRET);
+    await refreshLiveUsage(config, account, okFetcher(calls), now + 130_000, home);
+    expect(calls).toHaveLength(2);
+  });
+
+  it('con token vencido o sin sesión no llama al servicio y explica por qué; apagado no consulta', async () => {
+    clearLiveUsage();
+    const calls: Array<{ url: string; auth: string | undefined }> = [];
+    credentials(now - 1000);
+    expect((await refreshLiveUsage(config, account, okFetcher(calls), now, home)).problem).toMatch(/venció/);
+    clearLiveUsage();
+    expect((await refreshLiveUsage(config, { ...account, id: 'otra', configDir: join(home, 'no-existe') }, okFetcher(calls), now, home)).problem).toMatch(/Sin sesión/);
+    clearLiveUsage();
+    credentials(now + 3_600_000);
+    const off = { ...config, claude: { ...config.claude, liveUsage: false } };
+    expect((await refreshLiveUsage(off, account, okFetcher(calls), now, home)).problem).toMatch(/desactivada/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('si el servicio rechaza el token o falla, conserva el último dato y avisa', async () => {
+    clearLiveUsage();
+    credentials(now + 3_600_000);
+    const calls: Array<{ url: string; auth: string | undefined }> = [];
+    await refreshLiveUsage(config, account, okFetcher(calls), now, home);
+    const failing = async () => ({ ok: false, status: 401, json: async () => ({}) });
+    const entry = await refreshLiveUsage(config, account, failing, now + 200_000, home);
+    expect(entry.snapshot?.fiveHour?.usedPercentage).toBe(26);
+    expect(entry.problem).toMatch(/rechazó el token/);
   });
 });

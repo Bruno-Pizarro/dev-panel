@@ -205,7 +205,7 @@ export interface UsageWindow {
 }
 export interface UsageSnapshot {
   /** De dónde sale el dato: el statusLine (oficial) o el caché local que Claude Code guarda en .claude.json (no documentado). */
-  source: 'statusline' | 'cache';
+  source: 'statusline' | 'cache' | 'live';
   capturedAt: string;
   ageSeconds: number;
   model: string | null;
@@ -268,7 +268,10 @@ export const readUsage = (accounts: ClaudeAccount[], now = Date.now(), home: str
   const consider = (id: string, snapshot: UsageSnapshot | null) => {
     if (snapshot && (!result[id] || snapshot.ageSeconds < result[id]!.ageSeconds)) result[id] = snapshot;
   };
-  for (const account of accounts) consider(account.id, readCachedUsage(account, now, home));
+  for (const account of accounts) {
+    consider(account.id, readCachedUsage(account, now, home));
+    consider(account.id, liveSnapshotOf(account.id, now));
+  }
   const dir = join(paths.data, 'claude-usage');
   if (!existsSync(dir)) return result;
   for (const name of readdirSync(dir).filter((file) => file.endsWith('.json') && !file.startsWith('_'))) {
@@ -281,6 +284,76 @@ export const readUsage = (accounts: ClaudeAccount[], now = Date.now(), home: str
     }
   }
   return result;
+};
+
+// ---------------------------------------------------------------- uso en vivo (endpoint no documentado, uso personal)
+const LIVE_URL = 'https://api.anthropic.com/api/oauth/usage';
+const LIVE_MIN_INTERVAL_MS = 2 * 60_000;
+type LiveFetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+interface LiveEntry {
+  at: number;
+  snapshot: UsageSnapshot | null;
+  problem: string | null;
+}
+const liveMemo = new Map<string, LiveEntry>();
+export const clearLiveUsage = (): void => liveMemo.clear();
+
+/** Token de acceso de la cuenta: solo se devuelve a quien llama (nunca se guarda). `null` si no hay sesión o ya venció. */
+const readAccessToken = (account: ClaudeAccount, now: number, home: string): { token: string } | { problem: string } => {
+  const file = join(account.id === DEFAULT_ID ? join(home, '.claude') : account.configDir, '.credentials.json');
+  if (!existsSync(file)) return { problem: 'Sin sesión iniciada en esta cuenta' };
+  try {
+    const oauth = (JSON.parse(readFileSync(file, 'utf8')) as { claudeAiOauth?: { accessToken?: unknown; expiresAt?: unknown } }).claudeAiOauth;
+    if (!oauth || typeof oauth.accessToken !== 'string') return { problem: 'Sin sesión iniciada en esta cuenta' };
+    if (typeof oauth.expiresAt === 'number' && oauth.expiresAt < now) return { problem: 'El token venció: abrí Claude Code para que lo renueve' };
+    return { token: oauth.accessToken };
+  } catch {
+    return { problem: 'No se pudo leer la sesión de la cuenta' };
+  }
+};
+
+/** Convierte la respuesta del servicio ({ five_hour: { utilization, resets_at }, seven_day: … }) al formato del panel. */
+export const liveToSnapshot = (body: unknown, now: number): UsageSnapshot | null => {
+  const data = body as { five_hour?: unknown; seven_day?: unknown } | null;
+  if (!data || typeof data !== 'object') return null;
+  const windowFrom = (value: unknown): unknown => {
+    const item = value as { utilization?: unknown; resets_at?: unknown } | null;
+    return item && typeof item.utilization === 'number' && typeof item.resets_at === 'string' ? { used_percentage: item.utilization, resets_at: Date.parse(item.resets_at) / 1000 } : null;
+  };
+  const snapshot = toSnapshot({ capturedAt: new Date(now).toISOString(), rateLimits: { five_hour: windowFrom(data.five_hour), seven_day: windowFrom(data.seven_day) } }, now);
+  return snapshot && (snapshot.fiveHour || snapshot.sevenDay) ? { ...snapshot, source: 'live' } : null;
+};
+
+/**
+ * Consulta el uso en vivo de una cuenta (a lo sumo una vez cada 2 minutos). Solo lectura: no renueva tokens ni escribe
+ * credenciales; guarda en memoria únicamente los porcentajes.
+ */
+export const refreshLiveUsage = async (config: DevPanelConfig, account: ClaudeAccount, fetcher: LiveFetcher = fetch as unknown as LiveFetcher, now = Date.now(), home: string = homedir()): Promise<LiveEntry> => {
+  const memo = liveMemo.get(account.id);
+  if (!config.claude.liveUsage) return { at: now, snapshot: null, problem: 'Consulta en vivo desactivada (claude.liveUsage)' };
+  if (memo && now - memo.at < LIVE_MIN_INTERVAL_MS) return memo;
+  const credentials = readAccessToken(account, now, home);
+  let entry: LiveEntry;
+  if ('problem' in credentials) entry = { at: now, snapshot: null, problem: credentials.problem };
+  else {
+    try {
+      const response = await fetcher(LIVE_URL, { headers: { Authorization: `Bearer ${credentials.token}`, 'anthropic-beta': 'oauth-2025-04-20', Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
+      entry = response.ok
+        ? { at: now, snapshot: liveToSnapshot(await response.json(), now), problem: null }
+        : { at: now, snapshot: memo?.snapshot ?? null, problem: response.status === 401 || response.status === 403 ? 'El servicio rechazó el token: abrí Claude Code para renovarlo' : `El servicio de uso respondió ${response.status}` };
+    } catch {
+      entry = { at: now, snapshot: memo?.snapshot ?? null, problem: 'No se pudo consultar el servicio de uso' };
+    }
+    if (entry.snapshot === null && entry.problem === null) entry.problem = 'Respuesta inesperada del servicio de uso';
+  }
+  liveMemo.set(account.id, entry);
+  return entry;
+};
+
+/** Dato en vivo vigente (ya consultado) de una cuenta, con su antigüedad al momento de leerlo. */
+export const liveSnapshotOf = (accountId: string, now = Date.now()): UsageSnapshot | null => {
+  const entry = liveMemo.get(accountId);
+  return entry?.snapshot ? { ...entry.snapshot, ageSeconds: Math.max(0, Math.round((now - Date.parse(entry.snapshot.capturedAt)) / 1000)) } : null;
 };
 
 /** Comandos listos para copiar: terminal y extensión de VS Code. */
