@@ -56,7 +56,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   },
   mongo: { container: 'mongo-db' },
   startup: {
-    stage1: ['minio', 'minio-mc'],
+    stage1: ['minio', 'mc'], // nombres de servicio en file-manager/docker.compose.minio.yml (contenedores: minio y minio-mc)
     stage2: ['rabbitmq', 'mongo-e-sueldos'],
     rabbitReady: { container: 'rabbitmq', logMatch: 'completed with 3 plugins', timeoutSec: 180 },
     mandatory: ['new-panel', 'security', 'files', 'legajo'],

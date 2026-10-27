@@ -59,7 +59,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
             <Link to="/levantado" className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-accent/50">
               <Rocket className="mb-3 size-6 text-accent" aria-hidden />
               <div className="font-semibold">Levantar el stack</div>
-              <p className="mt-1 text-sm text-muted">MinIO → RabbitMQ y Mongo → servicios, en el orden correcto. Llega en la Fase 1.</p>
+              <p className="mt-1 text-sm text-muted">MinIO › RabbitMQ y Mongo › servicios, en el orden correcto. Llega en la Fase 1.</p>
             </Link>
             <Link to="/pruebas" className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-accent/50">
               <FolderTree className="mb-3 size-6 text-accent" aria-hidden />

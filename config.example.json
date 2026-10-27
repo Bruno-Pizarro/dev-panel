@@ -14,7 +14,7 @@
   "startup": {
     "stage1": [
       "minio",
-      "minio-mc"
+      "mc"
     ],
     "stage2": [
       "rabbitmq",

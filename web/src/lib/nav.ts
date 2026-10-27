@@ -19,8 +19,8 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Entorno',
     items: [
-      { path: '/servicios', label: 'Servicios', description: 'Contenedores, logs y reinicio', icon: Boxes, phase: 1 },
-      { path: '/levantado', label: 'Levantado', description: 'Levantar el stack en el orden correcto', icon: Rocket, phase: 1 },
+      { path: '/servicios', label: 'Servicios', description: 'Contenedores, logs y reinicio', icon: Boxes, phase: null },
+      { path: '/levantado', label: 'Levantado', description: 'Levantar el stack en el orden correcto', icon: Rocket, phase: null },
       { path: '/datos', label: 'Datos', description: 'Snapshots y backups con chips', icon: Database, phase: 3 },
       { path: '/entorno', label: 'Repos y .env', description: 'Perfiles de .env y chequeos', icon: FileCog, phase: 3 },
     ],

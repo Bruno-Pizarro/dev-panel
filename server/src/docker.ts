@@ -14,6 +14,9 @@ export const run = (file: string, args: string[], timeoutMs = 15_000): Promise<C
     });
   });
 
+/** Ejecutor de comandos inyectable: los servicios lo reciben para poder probarse sin Docker real. */
+export type Runner = (file: string, args: string[], timeoutMs?: number) => Promise<CommandResult>;
+
 export const docker = (args: string[], timeoutMs?: number): Promise<CommandResult> => run('docker', args, timeoutMs);
 
 export const listContainerNames = async (): Promise<string[]> => {

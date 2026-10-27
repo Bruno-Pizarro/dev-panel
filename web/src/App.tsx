@@ -7,7 +7,9 @@ import type { ConfigResponse } from './lib/types';
 import { useAsync } from './lib/useAsync';
 import { ComingSoon } from './views/ComingSoon';
 import { Home } from './views/Home';
+import { Services } from './views/Services';
 import { Settings } from './views/Settings';
+import { Startup } from './views/Startup';
 import { Wizard } from './views/Wizard';
 
 export const App = () => {
@@ -30,9 +32,11 @@ export const App = () => {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home config={config} />} />
+        <Route path="servicios" element={<Services />} />
+        <Route path="levantado" element={<Startup config={config} />} />
         <Route path="configuracion" element={<Settings config={config} onSaved={state.reload} />} />
         {allNavItems
-          .filter((item) => item.phase !== null)
+          .filter((item) => item.phase !== null && !['/servicios', '/levantado'].includes(item.path))
           .map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ComingSoon item={item} />} />
           ))}

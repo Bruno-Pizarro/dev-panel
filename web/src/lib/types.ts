@@ -31,3 +31,45 @@ export interface SetupDetect {
   missingServices: string[];
   suggested: DevPanelConfig;
 }
+
+export interface ContainerInfo {
+  name: string;
+  service: string | null;
+  image: string;
+  state: string;
+  status: string;
+  ports: string;
+}
+
+export type TscState = 'ok' | 'errors' | 'stuck' | 'unknown';
+export interface TscStatus {
+  state: TscState;
+  errors: number | null;
+}
+
+export type StageId = 'stage1' | 'stage2' | 'wait' | 'stage3';
+export type StepStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
+export type RunStatus = 'idle' | 'running' | 'done' | 'error' | 'cancelled';
+
+export interface StepState {
+  id: StageId;
+  label: string;
+  services: string[];
+  status: StepStatus;
+  message: string | null;
+}
+
+export interface RunState {
+  id: string;
+  status: RunStatus;
+  startedAt: number | null;
+  finishedAt: number | null;
+  selected: string[];
+  steps: StepState[];
+  log: Array<{ at: number; level: 'info' | 'warn' | 'error' | 'ok'; text: string }>;
+}
+
+export interface Preset {
+  name: string;
+  services: string[];
+}
