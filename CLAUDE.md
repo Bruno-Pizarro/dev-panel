@@ -16,7 +16,7 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 | Kanban | Tickets de Redmine con cambios en los últimos 7/30/60 días por columna de estado, con SP, horas, asignado y última actualización (solo lectura) |
 | Configuración | Edita `config.json` (rutas con selector nativo del sistema, orden de levantado, repos) |
 
-Planificación y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). La API key se lee de la skill `redmine-drive` (`~/.claude/skills/redmine-drive/config.json`) o de `REDMINE_API_KEY`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
+Planificación y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). Los **story points** no vienen en `/issues.json`: los guarda el plugin Agile y se leen de `/issues/<id>/agile_data.json` (se piden una vez por ticket y versión y se guardan en `data/sp-cache.json`; si falla, se usa el `[N SP]` del título). La API key se lee de la skill `redmine-drive` (`~/.claude/skills/redmine-drive/config.json`) o de `REDMINE_API_KEY`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
 
 ## Reglas fijas
 - **Siempre `yarn`** (v1.22). Nunca `npm` ni `npx`, ni en scripts, ni en docs, ni en comandos que le pidas al usuario.

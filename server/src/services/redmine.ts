@@ -104,6 +104,58 @@ export const mapIssue = (raw: RawIssue, baseUrl: string, closedStatuses: Set<str
   };
 };
 
+// ---------------------------------------------------------------- story points (plugin Agile)
+interface SpCacheEntry {
+  updatedOn: string;
+  sp: number | null;
+}
+const spCacheFile = () => join(paths.data, 'sp-cache.json');
+const loadSpCache = (): Record<string, SpCacheEntry> => {
+  try {
+    return existsSync(spCacheFile()) ? (JSON.parse(readFileSync(spCacheFile(), 'utf8')) as Record<string, SpCacheEntry>) : {};
+  } catch {
+    return {};
+  }
+};
+const SP_PARALLEL = 8;
+
+/**
+ * Los story points no vienen en `/issues.json`: los guarda el plugin Agile y salen de `/issues/<id>/agile_data.json`.
+ * Se piden una sola vez por ticket y versión (`updated_on`): mientras el ticket no cambie, se reutiliza lo guardado.
+ * Si el endpoint no existe o falla, queda el valor del título "[N SP]" (si lo hay).
+ */
+export const applyStoryPoints = async (issues: RedmineIssue[], credentials: Credentials, fetcher: JsonFetcher): Promise<void> => {
+  const cache = loadSpCache();
+  const pending = issues.filter((issue) => cache[String(issue.id)]?.updatedOn !== issue.updatedOn);
+  let changed = false;
+  const queue = [...pending];
+  await Promise.all(
+    Array.from({ length: SP_PARALLEL }, async () => {
+      for (let next = queue.shift(); next; next = queue.shift()) {
+        try {
+          const response = await fetcher(`${credentials.baseUrl}/issues/${next.id}/agile_data.json`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(15_000) });
+          if (!response.ok) continue;
+          const body = (await response.json()) as { agile_data?: { story_points?: unknown } };
+          const value = body.agile_data?.story_points;
+          if (body.agile_data === undefined) continue;
+          cache[String(next.id)] = { updatedOn: next.updatedOn, sp: typeof value === 'number' ? value : null };
+          changed = true;
+        } catch {
+          /* sin dato: se usa el del título */
+        }
+      }
+    }),
+  );
+  if (changed) {
+    mkdirSync(paths.data, { recursive: true });
+    writeFileSync(spCacheFile(), JSON.stringify(cache), { mode: 0o600 });
+  }
+  for (const issue of issues) {
+    const entry = cache[String(issue.id)];
+    if (entry && entry.sp !== null) issue.storyPoints = entry.sp;
+  }
+};
+
 export interface Credentials {
   key: string;
   baseUrl: string;
@@ -157,6 +209,7 @@ export const fetchIssue = async (config: DevPanelConfig, id: string, fetcher: Fe
   const body = (await response.json()) as { issue?: RawIssue };
   if (!body.issue) throw new RedmineError('Respuesta inesperada de Redmine', 502);
   const issue = mapIssue(body.issue, credentials.baseUrl);
+  await applyStoryPoints([issue], credentials, fetcher as unknown as JsonFetcher);
   cache.set(`${credentials.baseUrl}#${id}`, { at: now, issue });
   return issue;
 };
@@ -230,6 +283,7 @@ export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', da
     if (issues.length >= (body.total_count ?? 0)) break;
     if (page === MAX_PAGES - 1) truncated = true;
   }
+  await applyStoryPoints(issues, credentials, fetcher);
   const board: Board = { scope, days: safeDays, statuses: orderStatuses(statuses), issues, truncated, fetchedAt: new Date(now).toISOString() };
   boardCache.set(cacheKey, { at: now, board });
   return board;
@@ -350,6 +404,9 @@ export const fetchSpHistory = async (config: DevPanelConfig, fetcher: JsonFetche
     const query = new URLSearchParams({ assigned_to_id: 'me', status_id: '*', updated_on: `>=${since}`, limit: '100', sort: 'updated_on:desc' });
     const list = (await get(`/issues.json?${query.toString()}`)) as { issues?: RawIssue[] };
     const issues = list.issues ?? [];
+    const mapped = issues.map((raw) => mapIssue(raw, credentials.baseUrl));
+    await applyStoryPoints(mapped, credentials, fetcher);
+    const spOf = new Map(mapped.map((issue) => [issue.id, issue.storyPoints]));
 
     const deliveries: Delivery[] = [];
     const queue = [...issues];
@@ -359,7 +416,7 @@ export const fetchSpHistory = async (config: DevPanelConfig, fetcher: JsonFetche
           const detail = (await get(`/issues/${next.id}.json?include=journals`)) as { issue?: { journals?: RawJournal[] } };
           const at = firstDelivery(detail.issue?.journals ?? [], doneIds);
           const parsed = parseSubject(next.subject ?? '');
-          if (at) deliveries.push({ id: next.id, title: parsed.title, sp: parsed.storyPoints, at });
+          if (at) deliveries.push({ id: next.id, title: parsed.title, sp: spOf.get(next.id) ?? parsed.storyPoints, at });
         }
       }),
     );

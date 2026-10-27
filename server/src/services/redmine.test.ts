@@ -57,13 +57,13 @@ describe('fetchIssue', () => {
     const fetcher = okFetcher(calls);
     const first = await fetchIssue(config, '33526', fetcher, 1000);
     await fetchIssue(config, '33526', fetcher, 30_000);
-    expect(calls).toHaveLength(1);
+    expect(calls.filter((call) => call.url.includes('/issues/33526.json'))).toHaveLength(1);
     expect(calls[0]!.url).toBe('https://redmine.example.com/issues/33526.json?include=journals,relations');
     expect(calls[0]!.url).not.toContain(SECRET);
     expect(calls[0]!.key).toBe(SECRET);
     expect(JSON.stringify(first)).not.toContain(SECRET);
     await fetchIssue(config, '33526', fetcher, 90_000);
-    expect(calls).toHaveLength(2);
+    expect(calls.filter((call) => call.url.includes('/issues/33526.json'))).toHaveLength(2);
   });
 
   it('valida el número, y traduce 404, 401 y falta de credenciales', async () => {
@@ -73,5 +73,31 @@ describe('fetchIssue', () => {
     await expect(fetchIssue(config, '33526', status(401))).rejects.toMatchObject({ status: 403 });
     const off = { ...config, redmine: { enabled: false, configFile: '', baseUrl: '', doneStatuses: [] } };
     await expect(fetchIssue(off, '33526', okFetcher([]))).rejects.toBeInstanceOf(RedmineError);
+  });
+});
+
+describe('story points del plugin Agile', () => {
+  it('los lee de agile_data (aunque el título no los traiga), los guarda por versión del ticket y no los vuelve a pedir', async () => {
+    const calls: string[] = [];
+    const raw = { ...RAW, id: 33023, subject: '[Módulo : Legajos - Autogestión] Bloqueo de usuarios', updated_on: '2026-10-27T13:46:27Z' };
+    const fetcher = async (url: string) => {
+      calls.push(url);
+      if (url.includes('agile_data')) return { ok: true, status: 200, json: async () => ({ agile_data: { issue_id: 33023, story_points: 8 } }) };
+      return { ok: true, status: 200, json: async () => ({ issue: raw }) };
+    };
+    clearRedmineCache();
+    const first = await fetchIssue(config, '33023', fetcher, 1000);
+    expect(first.storyPoints).toBe(8);
+    clearRedmineCache();
+    const again = await fetchIssue(config, '33023', fetcher, 999_999);
+    expect(again.storyPoints).toBe(8);
+    expect(calls.filter((url) => url.includes('agile_data'))).toHaveLength(1);
+  });
+
+  it('si el endpoint falla, queda el valor del título', async () => {
+    const raw = { ...RAW, id: 99001, updated_on: '2026-10-28T00:00:00Z' };
+    const fetcher = async (url: string) => (url.includes('agile_data') ? { ok: false, status: 404, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ issue: raw }) });
+    clearRedmineCache();
+    expect((await fetchIssue(config, '99001', fetcher, 1000)).storyPoints).toBe(5);
   });
 });
