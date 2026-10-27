@@ -35,7 +35,8 @@ export interface Collection {
 export class MongoClient {
   constructor(private readonly config: DevPanelConfig, private readonly runner: Runner = run) {}
 
-  private async evalJs(db: string, js: string): Promise<string> {
+  /** Ejecuta JS en la shell de mongo del contenedor configurado (uso interno de los servicios del panel). */
+  async evalJs(db: string, js: string): Promise<string> {
     const result = await this.runner('docker', ['exec', this.config.mongo.container, 'mongo', '--quiet', db, '--eval', js], 60_000);
     if (!result.ok) throw new MongoError(result.stderr || 'Error ejecutando mongo', 500);
     return result.stdout.trim();

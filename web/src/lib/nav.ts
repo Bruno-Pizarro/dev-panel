@@ -1,4 +1,4 @@
-import { Boxes, CalendarDays, ClipboardCheck, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Boxes, LogIn, CalendarDays, ClipboardCheck, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   path: string;
@@ -22,6 +22,7 @@ export const navGroups: NavGroup[] = [
       { path: '/servicios', label: 'Servicios', description: 'Contenedores, logs y reinicio', icon: Boxes, phase: null },
       { path: '/levantado', label: 'Levantado', description: 'Levantar el stack en el orden correcto', icon: Rocket, phase: null },
       { path: '/datos', label: 'Datos', description: 'Snapshots y backups con chips', icon: Database, phase: null },
+      { path: '/sesiones', label: 'Sesiones de prueba', description: 'Entrar como un usuario del entorno local', icon: LogIn, phase: null },
       { path: '/entorno', label: 'Repos y .env', description: 'Perfiles de .env y chequeos', icon: FileCog, phase: null },
     ],
   },

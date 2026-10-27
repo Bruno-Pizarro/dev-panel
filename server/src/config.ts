@@ -32,6 +32,12 @@ const DEFAULT_ENV_PROFILES: Record<string, EnvProfile> = {
   firma: { file: '.env', container: 'firma', minio: MINIO_LINES, remote: [] },
   documentos: { file: '.env', container: 'documentos', minio: MINIO_LINES.filter((line) => !line.startsWith('AWS_REGION')), remote: REMOTE_LINES },
 };
+const DEFAULT_TEST_DATA = [
+  { db: 'legajo', collection: 'legajodigitals', field: 'name' },
+  { db: 'legajo', collection: 'tipolegajodigitals', field: 'name' },
+  { db: 'documentos', collection: 'documentos', field: 'name' },
+  { db: 'documentos', collection: 'carpetas', field: 'name' },
+];
 const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
@@ -58,6 +64,30 @@ export const configSchema = z.object({
       types: z.array(z.string().regex(/^[A-Za-z0-9._-]+$/)).default(DEFAULT_BACKUP_TYPES),
     })
     .default({}),
+  /** Sesiones de prueba: el panel firma tokens con el JWT_SECRET de `security` para entrar como un usuario del entorno local. */
+  session: z
+    .object({
+      enabled: z.boolean().default(true),
+      /** Vacío = `<projects>/security/.env`. */
+      securityEnv: z.string().default(''),
+      jwtKey: z.string().default('JWT_SECRET'),
+      db: z.string().default('node-ts-boilerplate'),
+      frontUrl: z.string().url().default('http://localhost:4200'),
+      accessTtlSec: z.number().int().min(60).max(86_400).default(3600),
+      refreshTtlSec: z.number().int().min(60).max(7 * 86_400).default(86_400),
+    })
+    .default({}),
+  git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
+  checks: z
+    .object({
+      /** Variable compartida entre servicios que debe existir y coincidir (se compara el hash, nunca se muestra). */
+      sharedSecret: z.object({ key: z.string().default('INTERNAL_SERVICE_SECRET'), repos: z.array(z.string()).default(['panel', 'legajo', 'cursos', 'file-manager']) }).default({}),
+      /** Carpeta (relativa a `projects`) con rootCA.pem y rootCA.key del servicio de firma. */
+      firmaCaDir: z.string().default('firma/src/modules/certificados/CA'),
+    })
+    .default({}),
+  /** Dónde buscar datos de prueba marcados con el prefijo "[<ticket>]" en el nombre. */
+  testData: z.array(z.object({ db: z.string(), collection: z.string(), field: z.string() })).default(DEFAULT_TEST_DATA),
   /** Perfiles de .env: qué líneas se comentan/descomentan al pasar de MinIO local a remoto. */
   envProfiles: z.record(serviceName, envProfileSchema).default(DEFAULT_ENV_PROFILES),
   startup: z.object({
@@ -100,6 +130,10 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   },
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
+  session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
+  git: { baseBranch: 'desarrollo' },
+  checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
+  testData: DEFAULT_TEST_DATA,
   envProfiles: DEFAULT_ENV_PROFILES,
   startup: {
     stage1: ['minio', 'mc'], // nombres de servicio en file-manager/docker.compose.minio.yml (contenedores: minio y minio-mc)

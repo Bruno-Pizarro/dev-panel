@@ -6,7 +6,6 @@ import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
-import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
@@ -27,6 +26,7 @@ interface Pending {
   changes: EnvChange[];
 }
 
+/** Contenido de la pestaña .env (la página Repos agrega el encabezado y las pestañas). */
 export const EnvRepos = () => {
   const toast = useToast();
   const env = useAsync(() => api.get<{ repos: EnvRepo[] }>('/api/env'));
@@ -64,7 +64,7 @@ export const EnvRepos = () => {
 
   return (
     <>
-      <PageHeader title="Repos y .env" description="Pasá cada repo entre MinIO local y S3 remoto. Solo se comentan o descomentan las líneas del perfil; los valores no se tocan." />
+      <p className="mb-5 text-muted">Pasá cada repo entre MinIO local y S3 remoto. Solo se comentan o descomentan las líneas del perfil; los valores no se tocan.</p>
       {env.loading ? <Skeleton className="h-96" /> : (env.data?.repos ?? []).length === 0 ? (
         <EmptyState icon={<FileCog className="size-6" />} title="Sin perfiles de .env">Definí <span className="font-mono">envProfiles</span> en la configuración.</EmptyState>
       ) : (

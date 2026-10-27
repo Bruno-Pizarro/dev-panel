@@ -1,16 +1,18 @@
 import { CircleAlert, CircleCheck, FolderTree, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
+import { CheckList } from '../components/CheckList';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { StatusDot } from '../components/StatusDot';
 import { api } from '../lib/api';
-import type { DevPanelConfig, SetupDetect } from '../lib/types';
+import type { Check, DevPanelConfig, SetupDetect } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
 export const Home = ({ config }: { config: DevPanelConfig }) => {
   const detect = useAsync(() => api.get<SetupDetect>('/api/setup/detect'));
   const data = detect.data;
+  const checks = useAsync(() => api.get<{ checks: Check[] }>('/api/checks'));
 
   return (
     <>
@@ -36,7 +38,11 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
             </Card>
           </div>
 
-          <Card title="Chequeos rápidos">
+          <Card title="Chequeos de entorno" action={<button type="button" onClick={checks.reload} className="text-sm text-accent hover:underline">Volver a revisar</button>}>
+            {checks.loading ? <Skeleton className="h-40" /> : checks.data ? <CheckList checks={checks.data.checks} /> : <p className="text-danger">{checks.error}</p>}
+          </Card>
+
+          <Card title="Rutas y repos">
             <ul className="space-y-3">
               {Object.entries(data.paths).map(([key, entry]) => (
                 <li key={key} className="flex items-center gap-3">

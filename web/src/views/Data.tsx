@@ -12,10 +12,10 @@ import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useJob } from '../lib/hooks';
-import type { Snapshot } from '../lib/types';
+import type { Snapshot, TestDataRow, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'snapshots' | 'password' | 'remote';
+type Tab = 'snapshots' | 'password' | 'remote' | 'testdata';
 type Databases = Record<string, Array<{ name: string; count: number }>>;
 const key = (db: string, collection: string) => `${db}.${collection}`;
 
@@ -238,15 +238,79 @@ const RemoteTab = () => {
   );
 };
 
+const TestDataTab = () => {
+  const toast = useToast();
+  const { job, follow } = useJob();
+  const tickets = useAsync(() => api.get<{ tickets: TicketSummary[] }>('/api/tickets'));
+  const [ticket, setTicket] = useState('');
+  const [rows, setRows] = useState<TestDataRow[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const suggestions = (tickets.data?.tickets ?? []).filter((item) => item.ticket).slice(0, 8);
+  const total = rows?.reduce((sum, row) => sum + row.count, 0) ?? 0;
+
+  const search = async (value = ticket) => {
+    setBusy(true);
+    try {
+      setTicket(value);
+      setRows((await api.get<{ rows: TestDataRow[] }>(`/api/testdata?ticket=${encodeURIComponent(value)}`)).rows);
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const clean = async () => {
+    setBusy(true);
+    try {
+      follow((await api.post<{ jobId: string }>('/api/testdata/clean', { ticket, confirm: true })).jobId);
+      setConfirming(false);
+      window.setTimeout(() => void search(ticket), 4000);
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <Card title="Datos de prueba por ticket">
+        <p className="mb-4 text-muted">Busca los documentos cuyo nombre empieza con <span className="font-mono text-fg">[número de ticket]</span> en las colecciones configuradas. Al limpiar, primero se exporta lo que se borra.</p>
+        <div className="flex gap-2">
+          <input value={ticket} onChange={(event) => setTicket(event.target.value.replace(/\D/g, ''))} onKeyDown={(event) => event.key === 'Enter' && search()} placeholder="Número de ticket, ej. 33526" className="h-11 min-w-0 flex-1 rounded-lg border border-line bg-bg px-3.5 font-mono text-sm outline-none placeholder:text-muted focus:border-accent/60" />
+          <Button icon={<Search className="size-4" />} loading={busy} disabled={ticket.length < 3} onClick={() => search()}>Buscar</Button>
+        </div>
+        {suggestions.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{suggestions.map((item) => <Chip key={item.dir} onToggle={() => search(item.ticket!)}>#{item.ticket}</Chip>)}</div>}
+        {rows && (
+          <div className="mt-5">
+            <table className="w-full text-left text-sm">
+              <thead className="text-muted"><tr><th className="pb-2 font-medium">Colección</th><th className="pb-2 font-medium">Campo</th><th className="pb-2 text-right font-medium">Documentos</th></tr></thead>
+              <tbody className="divide-y divide-line">{rows.map((row) => <tr key={`${row.db}.${row.collection}`} className={cn(row.count === 0 && 'text-muted')}><td className="py-2 font-mono">{row.db}.{row.collection}</td><td className="py-2 font-mono">{row.field}</td><td className="py-2 text-right">{row.count}</td></tr>)}</tbody>
+            </table>
+            <p className="mt-3 text-sm text-muted">No incluye archivos subidos (PDF en uploads de firma ni objetos en S3/MinIO).</p>
+            <Button className="mt-4" variant="danger" icon={<Trash2 className="size-4" />} disabled={total === 0} onClick={() => setConfirming(true)}>Limpiar {total} documentos</Button>
+          </div>
+        )}
+      </Card>
+      <JobOutput job={job} />
+      <ConfirmModal open={confirming} title="Limpiar datos de prueba" confirmLabel="Exportar y borrar" danger loading={busy} onCancel={() => setConfirming(false)} onConfirm={clean}>
+        Se exportan y se borran {total} documentos marcados con <span className="font-mono text-fg">[{ticket}]</span>. El respaldo queda en la carpeta data del panel.
+      </ConfirmModal>
+    </div>
+  );
+};
+
 export const Data = () => {
   const [tab, setTab] = useState<Tab>('snapshots');
   return (
     <>
       <PageHeader title="Datos" description="Snapshots locales, contraseña de usuarios y backups remotos." />
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'snapshots', label: 'Snapshots' }, { id: 'password', label: 'Contraseña' }, { id: 'remote', label: 'Backup remoto' }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'snapshots', label: 'Snapshots' }, { id: 'password', label: 'Contraseña' }, { id: 'remote', label: 'Backup remoto' }, { id: 'testdata', label: 'Datos de prueba' }]} />
       {tab === 'snapshots' && <SnapshotsTab />}
       {tab === 'password' && <PasswordTab />}
       {tab === 'remote' && <RemoteTab />}
+      {tab === 'testdata' && <TestDataTab />}
     </>
   );
 };

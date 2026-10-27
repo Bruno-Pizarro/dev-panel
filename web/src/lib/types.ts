@@ -155,3 +155,44 @@ export interface DailyList {
   dates: string[];
   maxFiles: number;
 }
+
+export interface RepoStatus {
+  repo: string;
+  exists: boolean;
+  branch: string | null;
+  base: { name: string; ahead: number; behind: number } | null;
+  dirty: Array<{ status: string; path: string }>;
+  last: { hash: string; subject: string; when: string } | null;
+}
+export interface Check {
+  id: string;
+  title: string;
+  status: 'ok' | 'warn' | 'error';
+  detail: string;
+}
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string | null;
+}
+export interface MintedSession {
+  user: SessionUser;
+  accessToken: string;
+  refreshToken: string;
+  frontUrl: string;
+  expiresAt: string;
+}
+export interface ActiveSession {
+  id: string;
+  userId: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface TestDataRow {
+  db: string;
+  collection: string;
+  field: string;
+  count: number;
+}

@@ -8,7 +8,8 @@ import { useAsync } from './lib/useAsync';
 import { ComingSoon } from './views/ComingSoon';
 import { Daily } from './views/Daily';
 import { Data } from './views/Data';
-import { EnvRepos } from './views/EnvRepos';
+import { Repos } from './views/Repos';
+import { Sessions } from './views/Sessions';
 import { Home } from './views/Home';
 import { Planning } from './views/Planning';
 import { Services } from './views/Services';
@@ -44,11 +45,12 @@ export const App = () => {
         <Route path="planificacion" element={<Planning />} />
         <Route path="planificacion/:dir" element={<Planning />} />
         <Route path="datos" element={<Data />} />
-        <Route path="entorno" element={<EnvRepos />} />
+        <Route path="entorno" element={<Repos />} />
+        <Route path="sesiones" element={<Sessions />} />
         <Route path="daily" element={<Daily />} />
         <Route path="configuracion" element={<Settings config={config} onSaved={state.reload} />} />
         {allNavItems
-          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/entorno', '/daily'].includes(item.path))
+          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/entorno', '/daily', '/sesiones'].includes(item.path))
           .map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ComingSoon item={item} />} />
           ))}

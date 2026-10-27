@@ -11,6 +11,7 @@ import { registerTicketRoutes } from './routes/tickets.js';
 import { registerDataRoutes } from './routes/data.js';
 import { registerDailyRoutes } from './routes/daily.js';
 import { registerEnvRoutes } from './routes/env.js';
+import { registerToolRoutes } from './routes/tools.js';
 
 export interface AppOptions {
   port: number;
@@ -28,6 +29,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerDataRoutes(app);
   registerDailyRoutes(app);
   registerEnvRoutes(app);
+  registerToolRoutes(app);
 
   if (serveWeb && existsSync(paths.web)) {
     await app.register(fastifyStatic, { root: paths.web });
