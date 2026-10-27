@@ -73,3 +73,43 @@ export interface Preset {
   name: string;
   services: string[];
 }
+
+export interface TicketMr {
+  repo?: string;
+  iid?: number;
+  url?: string;
+  autor?: string;
+  estado?: string;
+}
+export interface TicketMeta {
+  ticket?: string;
+  titulo?: string;
+  url?: string;
+  estado?: string;
+  responsable?: string;
+  rama?: string;
+  repos?: string[];
+  mrs?: TicketMr[];
+  codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
+  pruebas?: Array<{ fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
+  plan?: { resumen?: string; diagrama?: string; referenciaVisual?: string };
+}
+export interface TicketSummary {
+  dir: string;
+  ticket: string | null;
+  title: string;
+  estado: string | null;
+  rama: string | null;
+  repos: string[];
+  mrs: number;
+  lastUpdated: number;
+  docs: number;
+  images: number;
+  hasMeta: boolean;
+  lastTest: { fecha: string | null; resultado: string | null } | null;
+  review: string | null;
+}
+export interface TicketDetail extends TicketSummary {
+  meta: TicketMeta | null;
+  files: { docs: string[]; diagrams: string[]; images: string[] };
+}

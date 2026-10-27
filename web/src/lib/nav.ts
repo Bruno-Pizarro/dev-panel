@@ -28,8 +28,8 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Trabajo',
     items: [
-      { path: '/pruebas', label: 'Pruebas', description: 'Pruebas realizadas por ticket', icon: ClipboardCheck, phase: 2 },
-      { path: '/planificacion', label: 'Planificación', description: 'Análisis, plan y diagramas', icon: Layers, phase: 2 },
+      { path: '/pruebas', label: 'Pruebas', description: 'Pruebas realizadas por ticket', icon: ClipboardCheck, phase: null },
+      { path: '/planificacion', label: 'Planificación', description: 'Análisis, plan y diagramas', icon: Layers, phase: null },
       { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: 3 },
     ],
   },

@@ -7,6 +7,7 @@ import { registerSse } from './sse.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerContainerRoutes } from './routes/containers.js';
 import { registerStartupRoutes } from './routes/startup.js';
+import { registerTicketRoutes } from './routes/tickets.js';
 
 export interface AppOptions {
   port: number;
@@ -20,6 +21,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerSystemRoutes(app);
   registerContainerRoutes(app);
   registerStartupRoutes(app);
+  registerTicketRoutes(app);
 
   if (serveWeb && existsSync(paths.web)) {
     await app.register(fastifyStatic, { root: paths.web });
