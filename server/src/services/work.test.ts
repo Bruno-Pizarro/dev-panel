@@ -97,7 +97,7 @@ describe('checklists', () => {
 });
 
 describe('kanban de Redmine', () => {
-  const config = { ...defaultConfig('/x'), redmine: { enabled: true, configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
+  const config = { ...defaultConfig('/x'), redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
   const env = process.env['REDMINE_API_KEY'];
   beforeEach(() => {
     process.env['REDMINE_API_KEY'] = 'clave-de-prueba';
@@ -180,7 +180,7 @@ describe('el kanban nunca pide tickets de otros', () => {
   it('siempre filtra por asignado "me", aunque el pedido intente otra cosa, y limita los días a 60', async () => {
     const previous = process.env['REDMINE_API_KEY'];
     process.env['REDMINE_API_KEY'] = 'clave-de-prueba';
-    const config = { ...defaultConfig('/x'), redmine: { enabled: true, configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
+    const config = { ...defaultConfig('/x'), redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
     const urls: string[] = [];
     const fetcher = async (url: string) => {
       urls.push(url);

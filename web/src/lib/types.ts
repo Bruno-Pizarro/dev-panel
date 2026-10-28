@@ -3,6 +3,7 @@ export interface DevPanelConfig {
   paths: { projects: string; extra: string; daily: string; scripts: string; ignoreDirs: string[] };
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
+  redmine: { enabled: boolean; apiKey: string; apiKeySet?: boolean; clearApiKey?: boolean; configFile: string; baseUrl: string; doneStatuses: string[] };
   compose: { main: string; minio: string };
   mongo: { container: string };
   startup: {
@@ -211,6 +212,22 @@ export interface TestDataRow {
   collection: string;
   field: string;
   count: number;
+}
+
+export interface ClaudeSkill {
+  id: string;
+  name: string;
+  description: string;
+  version: string | null;
+  modifiedAt: string;
+  modifiedFile: string;
+  files: number;
+  path: string;
+}
+export interface ClaudeSkillsResponse {
+  account: { id: string; label: string };
+  dir: string;
+  skills: ClaudeSkill[];
 }
 
 export interface RedmineIssue {

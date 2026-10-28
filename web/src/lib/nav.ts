@@ -36,7 +36,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   { label: 'Sistema', items: [
-      { path: '/claude', label: 'Cuentas de Claude', description: 'Cuentas, inicio de sesión y uso', icon: Bot, phase: null },{ path: '/configuracion', label: 'Configuración', description: 'Rutas, servicios y presets', icon: Settings, phase: null }] },
+      { path: '/claude', label: 'Claude', description: 'Cuentas, uso y skills', icon: Bot, phase: null },{ path: '/configuracion', label: 'Configuración', description: 'Rutas, servicios y presets', icon: Settings, phase: null }] },
 ];
 
 export const allNavItems = navGroups.flatMap((group) => group.items);

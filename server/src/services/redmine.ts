@@ -177,10 +177,10 @@ export interface Credentials {
 
 const DEFAULT_URL = 'https://redmine.icono-cloud.com';
 
-/** Busca la API key sin copiarla a ningún lado: variable de entorno o el config.json de la skill redmine-drive. */
+/** Busca la API key sin copiarla a ningún lado: variable de entorno, `redmine.apiKey` del config.json local o el config.json de la skill redmine-drive. */
 export const loadCredentials = (config: DevPanelConfig, env: NodeJS.ProcessEnv = process.env): Credentials | null => {
   if (!config.redmine.enabled) return null;
-  let key = env['REDMINE_API_KEY'] ?? '';
+  let key = env['REDMINE_API_KEY'] || config.redmine.apiKey;
   let baseUrl = config.redmine.baseUrl || env['REDMINE_URL'] || '';
   if (!key || !baseUrl) {
     const file = config.redmine.configFile || join(homedir(), '.claude', 'skills', 'redmine-drive', 'config.json');

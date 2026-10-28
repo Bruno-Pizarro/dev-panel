@@ -11,6 +11,8 @@ import { PageHeader } from '../components/PageHeader';
 import { PathField } from '../components/PathField';
 import { Skeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import { ClaudeSkills } from '../components/ClaudeSkills';
+import { Tabs } from '../components/Tabs';
 import { UsageBar } from '../components/UsageBar';
 import { api } from '../lib/api';
 import { pillStyle, tint } from '../lib/colors';
@@ -148,6 +150,7 @@ export const ClaudeAccounts = () => {
   const [loginFor, setLoginFor] = useState<ClaudeAccount | null>(null);
   const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
   const [reloadingId, setReloadingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'cuentas' | 'skills'>('cuentas');
 
   const reloadUsage = async (account: ClaudeAccount) => {
     setReloadingId(account.id);
@@ -174,7 +177,10 @@ export const ClaudeAccounts = () => {
 
   return (
     <>
-      <PageHeader title="Cuentas de Claude" description="Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba." actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button>} />
+      <PageHeader title="Claude" description={tab === 'cuentas' ? 'Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba.' : 'Las skills instaladas y cuándo se modificó cada una por última vez.'} actions={tab === 'cuentas' ? <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button> : undefined} />
+      <Tabs value={tab} onChange={setTab} items={[{ id: 'cuentas', label: 'Cuentas', count: data.data?.accounts.length }, { id: 'skills', label: 'Skills' }]} />
+      {tab === 'skills' && <ClaudeSkills accounts={(data.data?.accounts ?? []).map((account) => ({ id: account.id, label: account.label }))} />}
+      {tab === 'cuentas' && <>
       <p className="mb-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
         El panel <strong className="text-fg">no guarda ni muestra tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso en vivo se consulta <strong className="text-fg">solo cuando apretás “Recargar”</strong> (endpoint no documentado de Anthropic, con el token de cada cuenta solo en memoria; si responde 429 el panel espera antes de dejarte reintentar; se apaga con <span className="font-mono">claude.liveUsage: false</span>). Mientras no recargues, muestra el último dato guardado o el caché de Claude Code. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
       </p>
@@ -235,6 +241,8 @@ export const ClaudeAccounts = () => {
           })}
         </div>
       )}
+
+      </>}
 
       <AddAccountModal open={adding} onClose={() => setAdding(false)} onAdded={data.refresh} />
       <LoginModal account={loginFor} onClose={() => setLoginFor(null)} onDone={() => { data.refresh(); window.setTimeout(() => setLoginFor(null), 1200); }} />

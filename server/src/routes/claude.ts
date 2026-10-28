@@ -4,6 +4,7 @@ import {
   ClaudeError, LoginManager, addAccount, launchSnippets, loadAccounts, readAuthStatus, readUsage, liveProblemOf, refreshLiveUsage, removeAccount, setActive, type AuthStatus,
 } from '../services/claudeAccounts.js';
 import { join } from 'node:path';
+import { listSkills } from '../services/claudeSkills.js';
 import { paths } from '../config.js';
 import { requireConfig } from './helpers.js';
 
@@ -59,6 +60,14 @@ export const registerClaudeRoutes = (app: FastifyInstance): void => {
     if (!account) return reply.code(404).send({ error: 'Cuenta inexistente' });
     const entry = await refreshLiveUsage(config, account);
     return { problem: entry.problem, usage: readUsage([account])[account.id] ?? null };
+  });
+
+  /** Skills instaladas en la carpeta de configuración de una cuenta (solo lectura; sin `id`, la activa). */
+  app.get<{ Querystring: { id?: string } }>('/api/claude/skills', async (request, reply) => {
+    const data = loadAccounts();
+    const account = data.accounts.find((item) => item.id === (request.query.id ?? data.activeId));
+    if (!account) return reply.code(404).send({ error: 'Cuenta inexistente' });
+    return { account: { id: account.id, label: account.label }, ...listSkills(account) };
   });
 
   app.post('/api/claude/accounts', async (request, reply) => {

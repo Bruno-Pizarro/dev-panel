@@ -9,7 +9,7 @@ const SECRET = 'clave-secreta-de-prueba-0123456789abcdef';
 const dir = mkdtempSync(join(tmpdir(), 'dp-redmine-'));
 const file = join(dir, 'config.json');
 writeFileSync(file, JSON.stringify({ api_key: SECRET, redmine_url: 'https://redmine.example.com/' }));
-const config = { ...defaultConfig('/work'), redmine: { enabled: true, configFile: file, baseUrl: '', doneStatuses: [] } };
+const config = { ...defaultConfig('/work'), redmine: { enabled: true, apiKey: '', configFile: file, baseUrl: '', doneStatuses: [] } };
 
 const RAW = {
   id: 33526, subject: '[5 SP] [Módulo : Legajo Digital] Pestaña "Pendientes de firma" en el Perfil', project: { name: 'TRIUNFO - RRHH' }, tracker: { name: 'Nueva funcionalidad' },
@@ -47,10 +47,16 @@ describe('mapIssue', () => {
 });
 
 describe('credenciales', () => {
+  it('usa redmine.apiKey del config local después de la variable y antes de la skill', () => {
+    const local = { ...config, redmine: { ...config.redmine, apiKey: 'clave-del-config' } };
+    expect(loadCredentials(local, {})).toEqual({ key: 'clave-del-config', baseUrl: 'https://redmine.example.com' });
+    expect(loadCredentials(local, { REDMINE_API_KEY: 'de-la-variable' })?.key).toBe('de-la-variable');
+  });
+
   it('lee la key del archivo de la skill, normaliza la URL y respeta enabled=false', () => {
     expect(loadCredentials(config, {})).toEqual({ key: SECRET, baseUrl: 'https://redmine.example.com' });
     expect(loadCredentials({ ...config, redmine: { ...config.redmine, enabled: false } }, {})).toBeNull();
-    expect(loadCredentials({ ...config, redmine: { enabled: true, configFile: join(dir, 'no-existe.json'), baseUrl: '', doneStatuses: [] } }, {})).toBeNull();
+    expect(loadCredentials({ ...config, redmine: { enabled: true, apiKey: '', configFile: join(dir, 'no-existe.json'), baseUrl: '', doneStatuses: [] } }, {})).toBeNull();
   });
   it('la variable de entorno tiene prioridad', () => {
     expect(loadCredentials(config, { REDMINE_API_KEY: 'otra', REDMINE_URL: 'https://x.test' })).toEqual({ key: 'otra', baseUrl: 'https://x.test' });
@@ -82,7 +88,7 @@ describe('fetchIssue', () => {
     const status = (code: number) => async () => ({ ok: false, status: code, json: async () => ({}) });
     await expect(fetchIssue(config, '33526', status(404))).rejects.toMatchObject({ status: 404 });
     await expect(fetchIssue(config, '33526', status(401))).rejects.toMatchObject({ status: 403 });
-    const off = { ...config, redmine: { enabled: false, configFile: '', baseUrl: '', doneStatuses: [] } };
+    const off = { ...config, redmine: { enabled: false, apiKey: '', configFile: '', baseUrl: '', doneStatuses: [] } };
     await expect(fetchIssue(off, '33526', okFetcher([]))).rejects.toBeInstanceOf(RedmineError);
   });
 });

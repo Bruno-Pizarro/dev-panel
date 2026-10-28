@@ -32,6 +32,24 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
         <Field label="Tu nombre" help="Se muestra debajo de “Dev Panel” en el menú. Si lo dejás vacío, no se muestra nada." mono={false} placeholder="Ej.: Neo" maxLength={60} value={config.userName} onChange={(userName) => setConfig({ ...config, userName })} />
       </Card>
 
+      <Card title="Redmine">
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field
+            label="API key (opcional)"
+            type="password"
+            autoComplete="off"
+            help={config.redmine.apiKeySet ? 'Hay una key guardada en config.json (no se muestra). Escribí otra para reemplazarla.' : 'Si la dejás vacía, se usa la variable REDMINE_API_KEY o la de la skill redmine-drive. Se guarda solo en config.json (fuera de git) y nunca vuelve a la pantalla.'}
+            placeholder={config.redmine.apiKeySet ? '•••••••••••• (guardada)' : 'Pegá tu API key de Redmine'}
+            value={config.redmine.apiKey}
+            onChange={(apiKey) => setConfig({ ...config, redmine: { ...config.redmine, apiKey } })}
+          />
+          <Field label="URL de Redmine" help="Vacío = la de la skill redmine-drive." placeholder="https://redmine.ejemplo.com" value={config.redmine.baseUrl} onChange={(baseUrl) => setConfig({ ...config, redmine: { ...config.redmine, baseUrl } })} />
+        </div>
+        {config.redmine.apiKeySet && (
+          <button type="button" className="mt-3 text-sm text-danger hover:underline" onClick={() => setConfig({ ...config, redmine: { ...config.redmine, apiKey: '', apiKeySet: false, clearApiKey: true } })}>Quitar la key guardada (al guardar)</button>
+        )}
+      </Card>
+
       <Card title="Rutas">
         <div className="grid gap-5 md:grid-cols-2">
           <PathField label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />
