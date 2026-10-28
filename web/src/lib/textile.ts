@@ -14,13 +14,13 @@ const DELETED = span('-');
 /** Formato en línea. Los códigos (`@x@`) y los enlaces se apartan antes para no tocar guiones bajos ni asteriscos de adentro. */
 const inline = (text: string): string => {
   const kept: string[] = [];
-  const keep = (value: string) => `\u0000${kept.push(value) - 1}\u0000`;
+  const keep = (value: string) => `§${kept.push(value) - 1}§`;
   let out = text
     .replace(/@([^@\n]+)@/g, (_all, code: string) => keep(`\`${code}\``))
     .replace(/"([^"\n]+)":(https?:\/\/[^\s<>"]*[^\s<>".,;:!?)])/g, (_all, label: string, url: string) => keep(`[${label}](${url})`))
     .replace(/!(https?:\/\/[^\s!]+)!/g, (_all, url: string) => keep(`![](${url})`));
   out = out.replace(BOLD, '$1**$2**').replace(ITALIC, '$1*$2*').replace(DELETED, '$1~~$2~~');
-  return out.replace(/\u0000(\d+)\u0000/g, (_all, index: string) => kept[Number(index)]!);
+  return out.replace(/§(\d+)§/g, (_all, index: string) => kept[Number(index)]!);
 };
 
 const cells = (line: string): string[] => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
