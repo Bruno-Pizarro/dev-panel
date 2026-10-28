@@ -2,20 +2,22 @@ import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
+import { useReloadOn } from '../lib/hooks';
 import { fileUrl } from '../lib/tickets';
 import { useAsync } from '../lib/useAsync';
 import { Markdown } from './Markdown';
 import { Skeleton } from './Skeleton';
 
-const Reader = ({ dir, file }: { dir: string; file: string }) => {
+const Reader = ({ dir, file, refreshKey }: { dir: string; file: string; refreshKey: number }) => {
   const doc = useAsync(() => api.get<{ content: string }>(fileUrl(dir, file)));
-  if (doc.loading) return <Skeleton className="h-64" />;
+  useReloadOn(refreshKey, doc.reload);
+  if (doc.loading && !doc.data) return <Skeleton className="h-64" />;
   if (doc.error || !doc.data) return <p className="text-danger">No se pudo leer el documento: {doc.error}</p>;
   return <Markdown source={doc.data.content} ticket={{ dir, file }} />;
 };
 
 /** Lista de documentos MD a la izquierda y lector a la derecha. */
-export const DocViewer = ({ dir, files, initial }: { dir: string; files: string[]; initial?: string | null }) => {
+export const DocViewer = ({ dir, files, initial, refreshKey = 0 }: { dir: string; files: string[]; initial?: string | null; refreshKey?: number }) => {
   const [selected, setSelected] = useState<string | null>(initial && files.includes(initial) ? initial : (files[0] ?? null));
   if (!files.length) return <p className="text-muted">Esta carpeta no tiene documentos Markdown.</p>;
   return (
@@ -30,7 +32,7 @@ export const DocViewer = ({ dir, files, initial }: { dir: string; files: string[
           </li>
         ))}
       </ul>
-      <article className="min-w-0 rounded-2xl border border-line bg-surface p-6">{selected && <Reader key={selected} dir={dir} file={selected} />}</article>
+      <article className="min-w-0 rounded-2xl border border-line bg-surface p-6">{selected && <Reader key={selected} dir={dir} file={selected} refreshKey={refreshKey} />}</article>
     </div>
   );
 };

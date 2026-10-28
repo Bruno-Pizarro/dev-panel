@@ -16,19 +16,21 @@ import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
+import { RefreshButton } from '../components/RefreshButton';
 import { api } from '../lib/api';
+import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
 type Tab = 'resumen' | 'manuales' | 'informes' | 'capturas';
 
-const Summary = ({ detail, onListChanged }: { detail: TicketDetail; onListChanged: () => void }) => {
+const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; onListChanged: () => void; refreshKey: number }) => {
   const meta = detail.meta;
   const empty = !meta?.pruebas?.length && !meta?.mrs?.length && !meta?.codeReview?.length;
   if (empty) return <EmptyState icon={<ClipboardCheck className="size-6" />} title="Sin resumen estructurado">Hay {detail.docs} documentos y {detail.images} capturas en las otras pestañas. El resumen aparece cuando existe <span className="font-mono">ticket.json</span>.</EmptyState>;
   return (
     <div className="space-y-6">
-      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} />}
+      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} refreshKey={refreshKey} />}
       {meta?.mrs && meta.mrs.length > 0 && (
         <Card title="Merge requests">
           <table className="w-full text-left text-sm">
@@ -64,19 +66,20 @@ const Summary = ({ detail, onListChanged }: { detail: TicketDetail; onListChange
   );
 };
 
-const Detail = ({ dir, onListChanged }: { dir: string; onListChanged: () => void }) => {
+const Detail = ({ dir, onListChanged, refreshKey }: { dir: string; onListChanged: () => void; refreshKey: number }) => {
   const [tab, setTab] = useState<Tab>('resumen');
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
-  if (detail.loading) return <Skeleton className="h-96" />;
+  useReloadOn(refreshKey, detail.reload);
+  if (detail.loading && !detail.data) return <Skeleton className="h-96" />;
   if (detail.error || !detail.data) return <p className="text-danger">{detail.error}</p>;
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
-      {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} />}
-      {tab === 'manuales' && <ManualTests dir={dir} />}
-      {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}
+      {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} refreshKey={refreshKey} />}
+      {tab === 'manuales' && <ManualTests dir={dir} refreshKey={refreshKey} />}
+      {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} refreshKey={refreshKey} />}
       {tab === 'capturas' && <Gallery dir={dir} images={data.files.images} />}
     </TicketFrame>
   );
@@ -85,15 +88,17 @@ const Detail = ({ dir, onListChanged }: { dir: string; onListChanged: () => void
 export const Tests = () => {
   const { dir } = useParams();
   const list = useAsync(() => api.get<{ tickets: TicketSummary[]; extra: string }>('/api/tickets'));
+  // "Actualizar" recarga el listado y avisa al ticket abierto para que vuelva a leer todo lo suyo.
+  const [refreshKey, setRefreshKey] = useState(0);
   return (
     <div className="md:flex md:h-full md:min-h-0 md:flex-col">
-      <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} />
+      <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} actions={<RefreshButton busy={list.loading} onRefresh={() => (list.reload(), setRefreshKey((value) => value + 1))} />} />
       <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="relative min-h-0 md:h-full">
           {list.loading && !list.data ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
         </div>
         <div className="relative min-w-0 md:h-full md:overflow-y-auto md:pr-2">
-          {dir ? <Detail key={dir} dir={dir} onListChanged={list.reload} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
+          {dir ? <Detail key={dir} dir={dir} onListChanged={list.reload} refreshKey={refreshKey} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
         </div>
       </div>
     </div>

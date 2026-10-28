@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { CONCLUSIONS } from '../lib/conclusion';
 import { cn } from '../lib/cn';
 import type { Conclusion, TestRunState, TicketMeta } from '../lib/types';
+import { useReloadOn } from '../lib/hooks';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Card } from './Card';
@@ -16,10 +17,12 @@ interface StateResponse {
 }
 
 /** Cada tanda de pruebas tiene su propio checklist (actualizar ticket, subir comentarios…) y su conclusión. */
-export const TestRuns = ({ dir, runs, onChanged }: { dir: string; runs: NonNullable<TicketMeta['pruebas']>; onChanged?: () => void }) => {
+export const TestRuns = ({ dir, runs, onChanged, refreshKey = 0 }: { dir: string; runs: NonNullable<TicketMeta['pruebas']>; onChanged?: () => void; refreshKey?: number }) => {
   const toast = useToast();
   const state = useAsync(() => api.get<StateResponse>(`/api/tickets/${encodeURIComponent(dir)}/test-state`));
   const [local, setLocal] = useState<Record<string, TestRunState>>({});
+  // "Actualizar": se descarta lo local y se vuelve a leer lo guardado.
+  useReloadOn(refreshKey, () => (setLocal({}), state.reload()));
   const data = state.data;
   if (!data) return null;
 

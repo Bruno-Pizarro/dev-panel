@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defaultConfig, paths } from '../config.js';
-import { RedmineError, clearRedmineCache, fetchIssue, httpProblem, loadCredentials, mapIssue, parseSubject } from './redmine.js';
+import { RedmineError, clearRedmineCache, fetchIssue, forgetRedmineIssue, httpProblem, loadCredentials, mapIssue, parseSubject } from './redmine.js';
 
 const SECRET = 'clave-secreta-de-prueba-0123456789abcdef';
 const dir = mkdtempSync(join(tmpdir(), 'dp-redmine-'));
@@ -81,6 +81,18 @@ describe('fetchIssue', () => {
     expect(JSON.stringify(first)).not.toContain(SECRET);
     await fetchIssue(config, '33526', fetcher, 90_000);
     expect(calls.filter((call) => call.url.includes('/issues/33526.json'))).toHaveLength(2);
+  });
+
+  it('"Actualizar" olvida lo guardado de un ticket y el siguiente pedido va a Redmine', async () => {
+    const calls: Array<{ url: string; key: string | undefined }> = [];
+    const fetcher = okFetcher(calls);
+    await fetchIssue(config, '33526', fetcher, 1000);
+    await fetchIssue(config, '33526', fetcher, 2000);
+    const issueCalls = () => calls.filter((call) => call.url.includes('/issues/33526.json')).length;
+    expect(issueCalls()).toBe(1);
+    forgetRedmineIssue('33526');
+    await fetchIssue(config, '33526', fetcher, 3000);
+    expect(issueCalls()).toBe(2);
   });
 
   it('valida el número, y traduce 404, 401 y falta de credenciales', async () => {

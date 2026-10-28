@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import type { ManualTests as ManualTestsData } from '../lib/types';
+import { useReloadOn } from '../lib/hooks';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -12,7 +13,7 @@ import { Skeleton } from './Skeleton';
 import { useToast } from './Toast';
 
 /** Checklist de pruebas manuales: los casos vienen de `pruebasManuales` en ticket.json y se pueden sumar propios; lo tildado vive en el panel. */
-export const ManualTests = ({ dir, onChanged }: { dir: string; onChanged?: () => void }) => {
+export const ManualTests = ({ dir, onChanged, refreshKey = 0 }: { dir: string; onChanged?: () => void; refreshKey?: number }) => {
   const toast = useToast();
   const base = `/api/tickets/${encodeURIComponent(dir)}/manual-tests`;
   const state = useAsync(() => api.get<ManualTestsData>(base));
@@ -20,6 +21,7 @@ export const ManualTests = ({ dir, onChanged }: { dir: string; onChanged?: () =>
   const [text, setText] = useState('');
   const [expected, setExpected] = useState('');
   const data = local ?? state.data;
+  useReloadOn(refreshKey, () => (setLocal(null), state.reload()));
 
   const run = async (action: () => Promise<ManualTestsData>) => {
     try {

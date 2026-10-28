@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { RedmineError, fetchBoard, redmineBaseUrl, fetchSpHistory, fetchIssue, loadCredentials } from '../services/redmine.js';
+import { RedmineError, fetchBoard, redmineBaseUrl, fetchSpHistory, fetchIssue, forgetRedmineIssue, loadCredentials } from '../services/redmine.js';
 import { requireConfig } from './helpers.js';
 
 export const registerRedmineRoutes = (app: FastifyInstance): void => {
@@ -36,10 +36,11 @@ export const registerRedmineRoutes = (app: FastifyInstance): void => {
     }
   });
 
-  app.get<{ Params: { id: string } }>('/api/redmine/issues/:id', async (request, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { fresh?: string } }>('/api/redmine/issues/:id', async (request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
     try {
+      if (request.query.fresh === '1') forgetRedmineIssue(request.params.id);
       return await fetchIssue(config, request.params.id);
     } catch (error) {
       if (error instanceof RedmineError) return reply.code(error.status).send({ error: error.message });

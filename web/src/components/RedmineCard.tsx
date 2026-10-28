@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { textileToMarkdown } from '../lib/textile';
+import { useReloadOn } from '../lib/hooks';
 import { timeAgo } from '../lib/tickets';
 import type { RedmineIssue } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -28,12 +29,14 @@ const Fact = ({ icon: Icon, label, children }: { icon: typeof Timer; label: stri
 );
 
 /** Datos en vivo del ticket desde Redmine (solo lectura). Si no hay API key, se oculta sin molestar. */
-export const RedmineCard = ({ ticket }: { ticket: string | null }) => {
+export const RedmineCard = ({ ticket, refreshKey = 0 }: { ticket: string | null; refreshKey?: number }) => {
   const [notesOpen, setNotesOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
-  const issue = useAsync(() => (ticket ? api.get<RedmineIssue>(`/api/redmine/issues/${ticket}`) : Promise.reject(new Error('sin ticket'))));
+  // Tras "Actualizar" se pide con `fresh=1`: el servidor se salta lo que tenía guardado de Redmine.
+  const issue = useAsync(() => (ticket ? api.get<RedmineIssue>(`/api/redmine/issues/${ticket}${refreshKey > 0 ? '?fresh=1' : ''}`) : Promise.reject(new Error('sin ticket'))));
+  useReloadOn(refreshKey, issue.reload);
   if (!ticket) return null;
-  if (issue.loading) return <Skeleton className="mb-6 h-40" />;
+  if (issue.loading && !issue.data) return <Skeleton className="mb-6 h-40" />;
   if (issue.error || !issue.data) {
     return <p className="mb-6 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">Redmine: {issue.error}</p>;
   }
