@@ -2,6 +2,7 @@ import { Expand, Minimize2, Minus, Plus, ScanSearch } from 'lucide-react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn';
 import { repairMermaid } from '../lib/mermaidRepair';
+import { themeColor, useTheme } from '../lib/theme';
 import { Button } from './Button';
 import { Portal } from './Portal';
 import { Skeleton } from './Skeleton';
@@ -135,6 +136,7 @@ export const Mermaid = ({ code }: { code: string }) => {
   const [error, setError] = useState<string | null>(null);
   const [full, setFull] = useState(false);
   const [repaired, setRepaired] = useState(false);
+  const [theme] = useTheme();
 
   useEffect(() => {
     let active = true;
@@ -148,8 +150,8 @@ export const Mermaid = ({ code }: { code: string }) => {
         er: { useMaxWidth: false },
         gantt: { useMaxWidth: false },
         themeVariables: {
-          darkMode: true, background: '#161b22', primaryColor: '#242d3d', primaryTextColor: '#e6edf3', primaryBorderColor: '#8a97ff',
-          lineColor: '#8b98a9', secondaryColor: '#1c2330', tertiaryColor: '#161b22', edgeLabelBackground: '#161b22', textColor: '#e6edf3', fontFamily: 'Inter Variable, sans-serif', fontSize: '15px',
+          darkMode: theme !== 'claro', background: themeColor('surface'), primaryColor: themeColor('surface-3'), primaryTextColor: themeColor('fg'), primaryBorderColor: themeColor('accent'),
+          lineColor: themeColor('muted'), secondaryColor: themeColor('surface-2'), tertiaryColor: themeColor('surface'), edgeLabelBackground: themeColor('surface'), textColor: themeColor('fg'), fontFamily: 'Inter Variable, sans-serif', fontSize: '15px',
         },
       });
       try {
@@ -173,7 +175,7 @@ export const Mermaid = ({ code }: { code: string }) => {
     return () => {
       active = false;
     };
-  }, [code, id]);
+  }, [code, id, theme]);
 
   useEffect(() => {
     if (!full) return;

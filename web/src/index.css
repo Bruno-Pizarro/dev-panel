@@ -23,6 +23,48 @@
   --info: 86 182 232;
 }
 
+/*
+ * Temas: cada uno redefine solo las variables de color (la selección se guarda en el navegador, ver lib/theme.ts).
+ * El tema por defecto ("indigo") es el de :root. `data-mode="light"` marca los claros.
+ */
+[data-theme='ambar'] {
+  --bg: 20 15 12; --surface: 28 21 16; --surface-2: 38 28 20; --surface-3: 51 38 27; --line: 64 48 35;
+  --fg: 245 236 226; --muted: 170 152 135; --accent: 251 146 60; --accent-strong: 234 88 12;
+}
+[data-theme='violeta'] {
+  --bg: 17 13 26; --surface: 24 19 37; --surface-2: 33 26 51; --surface-3: 44 35 68; --line: 56 46 84;
+  --fg: 237 232 248; --muted: 155 145 180; --accent: 192 132 252; --accent-strong: 147 51 234;
+}
+[data-theme='bosque'] {
+  --bg: 11 18 15; --surface: 16 26 22; --surface-2: 22 36 30; --surface-3: 30 48 40; --line: 38 60 50;
+  --fg: 226 240 233; --muted: 130 160 145; --accent: 74 222 128; --accent-strong: 22 163 74;
+}
+[data-theme='oceano'] {
+  --bg: 10 17 24; --surface: 14 25 36; --surface-2: 20 36 52; --surface-3: 28 49 70; --line: 36 62 86;
+  --fg: 225 238 248; --muted: 130 156 180; --accent: 56 189 248; --accent-strong: 2 132 199;
+}
+[data-theme='rosa'] {
+  --bg: 24 13 19; --surface: 34 19 27; --surface-2: 46 26 37; --surface-3: 61 35 49; --line: 78 46 63;
+  --fg: 250 232 240; --muted: 184 148 164; --accent: 244 114 182; --accent-strong: 219 39 119;
+}
+[data-theme='medianoche'] {
+  --bg: 0 0 0; --surface: 10 10 11; --surface-2: 18 18 20; --surface-3: 28 28 31; --line: 40 40 44;
+  --fg: 236 236 238; --muted: 140 140 148; --accent: 125 211 252; --accent-strong: 14 165 233;
+}
+[data-theme='claro'] {
+  color-scheme: light;
+  --bg: 244 246 249; --surface: 255 255 255; --surface-2: 240 243 247; --surface-3: 228 232 239; --line: 212 218 228;
+  --fg: 24 29 38; --muted: 96 108 128; --accent: 79 70 229; --accent-strong: 79 70 229;
+  --success: 18 135 88; --warning: 176 105 8; --danger: 200 45 58; --info: 8 118 178;
+}
+/* Los registros en consola usan colores ANSI pensados para fondo oscuro: en el tema claro siguen oscuros. */
+[data-theme='claro'] .console {
+  color-scheme: dark;
+  --bg: 15 20 25; --surface: 22 27 34; --surface-2: 28 35 48; --surface-3: 36 45 61; --line: 42 51 66;
+  --fg: 230 237 243; --muted: 139 152 169; --accent: 138 151 255;
+  --success: 63 185 128; --warning: 229 169 59; --danger: 240 98 108; --info: 86 182 232;
+}
+
 @layer base {
   html, body, #root { height: 100%; }
   body {

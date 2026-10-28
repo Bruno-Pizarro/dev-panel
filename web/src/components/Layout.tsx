@@ -5,6 +5,7 @@ import { cn } from '../lib/cn';
 import { ClaudeUsageBar } from './ClaudeUsageBar';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
+import { ThemePicker } from './ThemePicker';
 import { StatusDot } from './StatusDot';
 import { useHealth } from '../lib/useHealth';
 
@@ -29,6 +30,7 @@ export const Layout = () => {
           </div>
           <div className="flex shrink-0 items-center gap-5">
             <ClaudeUsageBar />
+            <ThemePicker />
           <StatusDot labelClassName="hidden whitespace-nowrap xl:inline" status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
           </div>
         </header>

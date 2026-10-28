@@ -67,7 +67,7 @@ export const LogView = ({ lines, className }: { lines: LogLine[]; className?: st
 
   return (
     <div className={cn('relative', className)}>
-      <div ref={ref} onScroll={onScroll} className="size-full overflow-auto rounded-xl border border-line bg-bg p-4 font-mono text-sm leading-6" role="log">
+      <div ref={ref} onScroll={onScroll} className="size-full overflow-auto console rounded-xl border border-line bg-bg p-4 font-mono text-sm leading-6" role="log">
         {lines.length === 0 && <span className="text-muted">Sin salida todavía.</span>}
         {lines.map((line, index) => (
           <Line key={index} line={line} />
