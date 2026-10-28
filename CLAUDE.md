@@ -49,6 +49,9 @@ Un agente que configure el repo en una máquina nueva solo necesita `config.json
 | Jornada | `workday.*` en `config.json` | Horarios y enlace de marcación |
 | Preferencias de pantalla (tema, menú colapsado, filtros) | `localStorage` del navegador | No viajan con el repo |
 
+## Skills del pipeline (para que el panel tenga datos)
+Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills `ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`. Esas skills están **fuera de este repo** y por defecto no saben nada del panel: **en una máquina nueva hay que agregarle a cada una la sección "Registro en el Dev Panel"** (el texto exacto y los pasos están en [docs/skills-sdd/](docs/skills-sdd/README.md), ajustando las dos rutas). Sin eso el panel igual lista las carpetas, pero sin pruebas, MRs, plan ni tipo. Las skills no se actualizan solas: al cambiar el texto en `docs/skills-sdd/` hay que recopiarlo (Claude → Skills muestra cuándo se modificó cada una).
+
 ## Comandos
 | Comando | Qué hace |
 |---|---|
