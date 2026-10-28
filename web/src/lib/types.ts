@@ -1,4 +1,5 @@
 export interface DevPanelConfig {
+  userName: string;
   paths: { projects: string; extra: string; daily: string; scripts: string; ignoreDirs: string[] };
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };

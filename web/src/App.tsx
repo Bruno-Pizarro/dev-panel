@@ -38,7 +38,7 @@ export const App = () => {
   const config = state.data.config;
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route element={<Layout userName={config.userName} />}>
         <Route index element={<Home config={config} />} />
         <Route path="servicios" element={<Services config={config} />} />
         <Route path="levantado" element={<Startup config={config} />} />

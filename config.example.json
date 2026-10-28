@@ -1,4 +1,5 @@
 {
+  "userName": "",
   "paths": {
     "projects": "/path/to/projects",
     "extra": "/path/to/projects/_EXTRA",

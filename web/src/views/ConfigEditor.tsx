@@ -28,6 +28,10 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
 
   return (
     <div className="space-y-6">
+      <Card title="Perfil">
+        <Field label="Tu nombre" help="Se muestra debajo de “Dev Panel” en el menú. Si lo dejás vacío, no se muestra nada." mono={false} placeholder="Ej.: Neo" maxLength={60} value={config.userName} onChange={(userName) => setConfig({ ...config, userName })} />
+      </Card>
+
       <Card title="Rutas">
         <div className="grid gap-5 md:grid-cols-2">
           <PathField label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />

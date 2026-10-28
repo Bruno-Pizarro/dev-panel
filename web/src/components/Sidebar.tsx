@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { navGroups } from '../lib/nav';
 import { cn } from '../lib/cn';
 
-export const Sidebar = ({ collapsed }: { collapsed: boolean }) => (
+export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName: string }) => (
   <aside className={cn('flex h-full shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200', collapsed ? 'w-[4.5rem]' : 'w-64')}>
     <div className={cn('flex h-16 items-center gap-3 border-b border-line', collapsed ? 'justify-center px-0' : 'px-5')}>
       <div className="flex size-9 items-center justify-center rounded-lg bg-accent-strong/20 text-accent">
@@ -12,7 +12,7 @@ export const Sidebar = ({ collapsed }: { collapsed: boolean }) => (
       {!collapsed && (
         <div className="leading-tight">
           <div className="font-semibold">Dev Panel</div>
-          <div className="text-sm text-muted">e-sueldos</div>
+          {userName && <div className="max-w-40 truncate text-sm text-muted" title={userName}>{userName}</div>}
         </div>
       )}
     </div>

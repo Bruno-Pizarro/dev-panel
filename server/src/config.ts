@@ -43,6 +43,8 @@ const DEFAULT_REPO_SERVICES = { 'control-horario': 'controlhorario', 'file-manag
 const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
+  /** Nombre que se muestra debajo de "Dev Panel" en el menú; vacío = no se muestra nada. */
+  userName: z.string().trim().max(60).default(''),
   paths: z.object({
     projects: z.string().min(1),
     extra: z.string().min(1),
@@ -183,6 +185,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   redmine: { enabled: true, configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   claude: { binary: 'claude', liveUsage: true },
   workday: { entry: '', exit: '', punchUrl: '' },
+  userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   git: { baseBranch: 'desarrollo' },
