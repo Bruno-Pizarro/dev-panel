@@ -35,6 +35,19 @@ yarn start      # compila todo y sirve el panel completo en http://127.0.0.1:477
 ```
 Primer arranque: el panel abre un **asistente** que detecta Docker, las rutas y los servicios del compose, y escribe `config.json` (fuera de git; ejemplo en `config.example.json`). Se puede cambiar después en la vista Configuración. Variables opcionales: `DEV_PANEL_PORT` (4777), `DEV_PANEL_CONFIG` (ruta de `config.json`), `DEV_PANEL_DATA` (carpeta de datos), `LOG_LEVEL`.
 
+## Configuración y credenciales (de dónde sale cada cosa)
+Un agente que configure el repo en una máquina nueva solo necesita `config.json` (lo crea el asistente del primer arranque o se copia de `config.example.json`) y saber esto:
+| Dato | Origen | Notas |
+|---|---|---|
+| `userName` | `config.json` | Se muestra bajo "Dev Panel" en el menú; vacío = nada |
+| Rutas (`paths.*`), compose, servicios | `config.json` | `paths.scripts` es la carpeta de scripts (backup remoto); `paths.ignoreDirs` excluye carpetas de `_EXTRA` |
+| **API key de Redmine** | variable `REDMINE_API_KEY`, o `api_key` en `~/.claude/skills/redmine-drive/config.json` (o `redmine.configFile`) | Nunca va en `config.json` ni en el repo. URL: `redmine.baseUrl`, `REDMINE_URL` o `redmine_url` de la misma skill. Sin key, el panel oculta lo de Redmine y sigue funcionando |
+| Uso de Claude | token de `<carpeta de la cuenta>/.credentials.json` (solo en memoria) | Cada cuenta es una carpeta (`CLAUDE_CONFIG_DIR`); se agregan desde la vista Cuentas de Claude |
+| Secreto de las sesiones de prueba | `JWT_SECRET` del `.env` de `security` (`session.securityEnv`, `session.jwtKey`) | Solo se lee para firmar tokens locales |
+| GitLab | **no se usa**: el panel no llama a GitLab | MRs y code review llegan por `ticket.json`, que escriben las skills (`ship`, `gitlab-review`) |
+| Jornada | `workday.*` en `config.json` | Horarios y enlace de marcación |
+| Preferencias de pantalla (tema, menú colapsado, filtros) | `localStorage` del navegador | No viajan con el repo |
+
 ## Comandos
 | Comando | Qué hace |
 |---|---|
