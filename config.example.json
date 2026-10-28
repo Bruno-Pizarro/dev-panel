@@ -3,6 +3,7 @@
     "projects": "/path/to/projects",
     "extra": "/path/to/projects/_EXTRA",
     "daily": "/path/to/projects/_EXTRA/daily",
+    "scripts": "/path/to/projects/zscripts",
     "ignoreDirs": [
       "daily"
     ]
@@ -24,7 +25,7 @@
     }
   },
   "remoteBackup": {
-    "script": "",
+    "script": "backup_improved4.sh",
     "types": [
       "incidencia",
       "legajo",

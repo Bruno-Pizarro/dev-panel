@@ -195,7 +195,8 @@ const PasswordTab = () => {
 const RemoteTab = () => {
   const toast = useToast();
   const { job, follow } = useJob();
-  const options = useAsync(() => api.get<{ types: string[] }>('/api/data/remote-backup/options'));
+  const options = useAsync(() => api.get<{ types: string[]; scriptsDir: string; scriptsDirExists: boolean; scripts: string[]; selected: string; selectedExists: boolean }>('/api/data/remote-backup/options'));
+  const [script, setScript] = useState<string | null>(null);
   const [types, setTypes] = useState<Set<string>>(new Set());
   const [restore, setRestore] = useState(false);
   const [dryRun, setDryRun] = useState(true);
@@ -205,7 +206,7 @@ const RemoteTab = () => {
   const start = async () => {
     setBusy(true);
     try {
-      follow((await api.post<{ jobId: string }>('/api/data/remote-backup', { types: [...types], restore, dryRun, confirm: true })).jobId);
+      follow((await api.post<{ jobId: string }>('/api/data/remote-backup', { types: [...types], restore, dryRun, confirm: true, ...(script ? { script } : {}) })).jobId);
       setConfirming(false);
     } catch (error) {
       toast('error', (error as Error).message);
@@ -218,7 +219,16 @@ const RemoteTab = () => {
   return (
     <div className="max-w-3xl space-y-4">
       <Card title="Backup remoto">
-        <p className="mb-4 text-muted">Ejecuta tu <span className="font-mono">backup_improved4.sh</span>: baja los backups por SFTP y, si lo pedís, los restaura en el Mongo local.</p>
+        <p className="mb-3 text-muted">Ejecuta un script de tu carpeta de scripts: baja los backups por SFTP y, si lo pedís, los restaura en el Mongo local.</p>
+        {options.data && (
+          <div className="mb-4 rounded-lg border border-line bg-bg px-3.5 py-2.5 text-sm">
+            <div className="text-muted">Carpeta de scripts: <span className="font-mono text-fg">{options.data.scriptsDir}</span>{!options.data.scriptsDirExists && <span className="ml-2 text-warning">no existe, cambiala en Configuración</span>}</div>
+            {options.data.scripts.length > 0 ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-muted">Script:</span>{options.data.scripts.map((name) => <Chip key={name} selected={(script ?? options.data!.selected) === name} onToggle={() => setScript(name)}>{name}</Chip>)}</div>
+            ) : options.data.scriptsDirExists && <div className="mt-1 text-warning">No hay archivos .sh en esa carpeta.</div>}
+            {options.data.scripts.length > 0 && !options.data.selectedExists && !script && <div className="mt-1 text-warning">El script configurado ({options.data.selected}) no está en la carpeta: elegí uno.</div>}
+          </div>
+        )}
         <div className="mb-4 flex flex-wrap gap-2">
           <Chip selected={types.has('all')} onToggle={() => toggle('all')}>all</Chip>
           {(options.data?.types ?? []).map((type) => <Chip key={type} selected={types.has(type)} onToggle={() => toggle(type)}>{type}</Chip>)}
@@ -305,7 +315,7 @@ export const Data = () => {
   const [tab, setTab] = useState<Tab>('password');
   return (
     <>
-      <PageHeader title="Datos" description="Snapshots locales, contraseña de usuarios y backups remotos." />
+      <PageHeader title="Datos" description="Scripts usuales y datos del entorno local." />
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'password', label: 'Contraseña' }, { id: 'remote', label: 'Backup remoto' }, { id: 'testdata', label: 'Datos de prueba' }, { id: 'snapshots', label: 'Snapshots' }]} />
       {tab === 'snapshots' && <SnapshotsTab />}
       {tab === 'password' && <PasswordTab />}

@@ -48,6 +48,8 @@ export const configSchema = z.object({
     extra: z.string().min(1),
     daily: z.string().min(1),
     /** Carpetas de la base de conocimiento que no son tickets (no aparecen en Pruebas, Planificación ni reportes). */
+    /** Carpeta con los scripts (backup remoto, etc.). Vacío = `<projects>/zscripts`. */
+    scripts: z.string().default(''),
     ignoreDirs: z.array(z.string().regex(/^[\w][\w .-]*$/)).default(['daily']),
   }),
   compose: z.object({
@@ -63,8 +65,8 @@ export const configSchema = z.object({
   }),
   remoteBackup: z
     .object({
-      /** Vacío = `<projects>/zscripts/backup_improved4.sh`. */
-      script: z.string().default(''),
+      /** Nombre del script (dentro de `paths.scripts`) con el que se hace el backup remoto. También acepta una ruta absoluta. */
+      script: z.string().default('backup_improved4.sh'),
       types: z.array(z.string().regex(/^[A-Za-z0-9._-]+$/)).default(DEFAULT_BACKUP_TYPES),
     })
     .default({}),
@@ -168,6 +170,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
     projects: projectsRoot,
     extra: join(projectsRoot, '_EXTRA'),
     daily: join(projectsRoot, '_EXTRA', 'daily'),
+    scripts: join(projectsRoot, 'zscripts'),
     ignoreDirs: ['daily'],
   },
   compose: {
@@ -175,7 +178,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
     minio: join(projectsRoot, 'file-manager', 'docker.compose.minio.yml'),
   },
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
-  remoteBackup: { script: '', types: DEFAULT_BACKUP_TYPES },
+  remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   claude: { binary: 'claude', liveUsage: true },

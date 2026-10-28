@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, isAbsolute, join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { paths } from '../config.js';
 import { run, type Runner } from '../docker.js';
@@ -187,10 +187,47 @@ export const restoreSnapshot = async (config: DevPanelConfig, id: string, only: 
   log('Restauración completa.');
 };
 
+// ---- Scripts: se leen de una carpeta configurable (no viven en este repo) ----
+export const scriptsDir = (config: DevPanelConfig): string => config.paths.scripts || join(config.paths.projects, 'zscripts');
+
+const SCRIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.sh$/;
+
+/** Scripts `.sh` que hay en la carpeta (sin entrar en subcarpetas). */
+export const listScripts = (config: DevPanelConfig): string[] => {
+  const dir = scriptsDir(config);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isFile() && SCRIPT_NAME.test(entry.name)).map((entry) => entry.name).sort();
+};
+
+/** Scripts que sirven para el backup remoto: los que aceptan `--type` (así no se ofrecen otros, como el de contraseña o el de arranque). */
+export const listBackupScripts = (config: DevPanelConfig): string[] =>
+  listScripts(config).filter((name) => {
+    try {
+      return readFileSync(join(scriptsDir(config), name), 'utf8').includes('--type');
+    } catch {
+      return false;
+    }
+  });
+
+/** Ruta del script de backup: un nombre dentro de la carpeta de scripts (o una ruta absoluta, por compatibilidad). */
+export const resolveBackupScript = (config: DevPanelConfig, chosen?: string): string => {
+  const name = chosen || config.remoteBackup.script || 'backup_improved4.sh';
+  if (chosen) {
+    if (!SCRIPT_NAME.test(name) || !listBackupScripts(config).includes(name)) throw new MongoError('Ese script no está en la carpeta de scripts o no es de backup (no acepta --type)');
+    return join(scriptsDir(config), name);
+  }
+  return isAbsolute(name) ? name : join(scriptsDir(config), basename(name));
+};
+
 // ---- Backup remoto: envuelve el script existente ----
-export const runRemoteBackup = (config: DevPanelConfig, options: { types: string[]; restore: boolean; dryRun: boolean }, log: (line: string) => void): Promise<void> =>
+export const runRemoteBackup = (config: DevPanelConfig, options: { types: string[]; restore: boolean; dryRun: boolean; script?: string | undefined }, log: (line: string) => void): Promise<void> =>
   new Promise((resolve, reject) => {
-    const script = config.remoteBackup.script || join(config.paths.projects, 'zscripts', 'backup_improved4.sh');
+    let script: string;
+    try {
+      script = resolveBackupScript(config, options.script);
+    } catch (error) {
+      return reject(error as Error);
+    }
     if (!existsSync(script)) return reject(new Error(`No existe el script: ${script}`));
     const types = options.types.filter((type) => config.remoteBackup.types.includes(type) || type === 'all');
     if (!types.length) return reject(new Error('Elegí al menos un tipo de backup'));

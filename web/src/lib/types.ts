@@ -1,5 +1,6 @@
 export interface DevPanelConfig {
-  paths: { projects: string; extra: string; daily: string; ignoreDirs: string[] };
+  paths: { projects: string; extra: string; daily: string; scripts: string; ignoreDirs: string[] };
+  remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
   compose: { main: string; minio: string };
   mongo: { container: string };

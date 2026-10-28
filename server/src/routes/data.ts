@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { createJob, registerJobRoutes } from '../services/jobs.js';
-import { MongoClient, MongoError, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot, runRemoteBackup } from '../services/mongo.js';
+import { existsSync } from 'node:fs';
+import { MongoClient, MongoError, listBackupScripts, resolveBackupScript, scriptsDir, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot, runRemoteBackup } from '../services/mongo.js';
 import { requireConfig } from './helpers.js';
 
 const itemSchema = z.object({ db: z.string(), collection: z.string() });
@@ -78,13 +79,14 @@ export const registerDataRoutes = (app: FastifyInstance): void => {
   app.get('/api/data/remote-backup/options', async (_request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
-    return { types: config.remoteBackup.types };
+    const selected = resolveBackupScript(config);
+    return { types: config.remoteBackup.types, scriptsDir: scriptsDir(config), scriptsDirExists: existsSync(scriptsDir(config)), scripts: listBackupScripts(config), selected: selected.split('/').pop(), selectedExists: existsSync(selected) };
   });
 
   app.post('/api/data/remote-backup', async (request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
-    const body = z.object({ types: z.array(z.string()).min(1), restore: z.boolean().default(false), dryRun: z.boolean().default(true), confirm: z.boolean().default(false) }).safeParse(request.body);
+    const body = z.object({ script: z.string().optional(), types: z.array(z.string()).min(1), restore: z.boolean().default(false), dryRun: z.boolean().default(true), confirm: z.boolean().default(false) }).safeParse(request.body);
     if (!body.success) return reply.code(400).send({ error: 'Elegí al menos un tipo de backup' });
     if (!body.data.dryRun && !body.data.confirm) return reply.code(400).send({ error: 'Falta la confirmación' });
     const job = createJob('Backup remoto', (log) => runRemoteBackup(config, body.data, log));

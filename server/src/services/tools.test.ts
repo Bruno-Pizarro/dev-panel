@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -140,5 +140,38 @@ describe('datos de prueba por ticket', () => {
     calls.length = 0;
     await expect(cleanTestData(config, '33526', () => undefined, makeRunner(3, 1))).rejects.toThrow(/no se borra nada/);
     expect(calls.some((c) => c.join(' ').includes('deleteMany'))).toBe(false);
+  });
+});
+
+describe('scripts desde una carpeta configurable', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'dp-scripts-'));
+  writeFileSync(join(folder, 'backup_improved4.sh'), '#!/bin/bash\n# uso: --type TIPO');
+  writeFileSync(join(folder, 'otro.sh'), '#!/bin/bash\n# uso: --type TIPO');
+  writeFileSync(join(folder, 'reset_password.sh'), '#!/bin/bash\necho hola');
+  writeFileSync(join(folder, 'notas.txt'), 'x');
+  mkdirSync(join(folder, 'compartidos'));
+  const config = { ...defaultConfig('/x'), paths: { ...defaultConfig('/x').paths, scripts: folder } };
+
+  it('lista solo archivos .sh de la carpeta, sin subcarpetas ni otros tipos', async () => {
+    const { listBackupScripts, listScripts, scriptsDir } = await import('./mongo.js');
+    expect(listScripts(config)).toEqual(['backup_improved4.sh', 'otro.sh', 'reset_password.sh']);
+    expect(listBackupScripts(config)).toEqual(['backup_improved4.sh', 'otro.sh']);
+    expect(scriptsDir(config)).toBe(folder);
+    expect(scriptsDir({ ...config, paths: { ...config.paths, scripts: '' } })).toBe('/x/zscripts');
+  });
+
+  it('resuelve el script configurado dentro de la carpeta y solo acepta elegir uno de la lista', async () => {
+    const { resolveBackupScript } = await import('./mongo.js');
+    expect(resolveBackupScript(config)).toBe(join(folder, 'backup_improved4.sh'));
+    expect(resolveBackupScript(config, 'otro.sh')).toBe(join(folder, 'otro.sh'));
+    expect(() => resolveBackupScript(config, '../etc/passwd.sh')).toThrow(/no está en la carpeta/);
+    expect(() => resolveBackupScript(config, 'notas.txt')).toThrow(/no está en la carpeta/);
+    expect(() => resolveBackupScript(config, 'reset_password.sh')).toThrow(/no es de backup/);
+    expect(() => resolveBackupScript(config, 'no-existe.sh')).toThrow(/no está en la carpeta/);
+  });
+
+  it('una configuración vieja con ruta absoluta sigue funcionando', async () => {
+    const { resolveBackupScript } = await import('./mongo.js');
+    expect(resolveBackupScript({ ...config, remoteBackup: { ...config.remoteBackup, script: '/opt/scripts/mi.sh' } })).toBe('/opt/scripts/mi.sh');
   });
 });
