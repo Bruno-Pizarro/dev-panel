@@ -5,7 +5,7 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 ## Qué hace (vistas)
 | Vista | Qué hace |
 |---|---|
-| Inicio | Estado de Docker/contenedores y **chequeos de entorno** (Mongo, obligatorios, tsc trabado, secreto compartido, CA de firma) |
+| Inicio | Estado de Docker/contenedores, **chequeos de entorno** (Mongo, obligatorios, tsc trabado, secreto compartido, CA de firma) y el checklist diario (el mismo de Daily) |
 | Servicios | Contenedores, puertos, estado de `tsc`, logs en vivo (SSE), reinicio con confirmación |
 | Levantado | Chips de servicios opcionales + presets (compartidos en `config.json`, personales en `data/`); levanta en orden: MinIO → RabbitMQ y Mongo (espera el log de "listo") → obligatorios y elegidos. Valida los nombres contra el compose antes de tocar nada |
 | Datos | (los scripts —backup remoto— se leen de la **carpeta de scripts** configurable `paths.scripts`, no viven en este repo; la contraseña usa lógica propia, no un script) Snapshots de colecciones (chips), restauración con verificación de conteo, reseteo de contraseña por mail en todas las bases, backup remoto (envuelve `backup_improved4.sh`), limpieza de datos de prueba por ticket |
@@ -17,7 +17,25 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 | Kanban | **Solo mis tickets** de Redmine (asignados al dueño de la API key) con cambios en los últimos 7/30/60 días, por columna de estado, con SP, horas y última actualización (solo lectura; tope de 100 tickets y 60 días para no hacer llamadas grandes) |
 | Configuración | Incluye **Jornada y marcación** (horario de entrada y salida, enlace de marcación: el checklist diario se colorea ámbar/naranja/rojo según el atraso, "Cargar horas" es rojo si ya marcaste salida, y hay un botón "Ir a marcar"). Edita `config.json` (rutas con selector nativo del sistema, orden de levantado, repos) |
 
-Planificación y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). Los **story points** no vienen en `/issues.json`: los guarda el plugin Agile y se leen de `/issues/<id>/agile_data.json` (se piden una vez por ticket y versión y se guardan en `data/sp-cache.json`; si falla, se usa el `[N SP]` del título). La API key se lee (ver la tabla de credenciales) de `REDMINE_API_KEY`, de `redmine.apiKey` o de la skill `redmine-drive`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
+Desarrollo y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). Los **story points** no vienen en `/issues.json`: los guarda el plugin Agile y se leen de `/issues/<id>/agile_data.json` (se piden una vez por ticket y versión y se guardan en `data/sp-cache.json`; si falla, se usa el `[N SP]` del título). La API key se lee (ver la tabla de credenciales) de `REDMINE_API_KEY`, de `redmine.apiKey` o de la skill `redmine-drive`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
+
+## Resumen para explicarle el panel al usuario
+Si el usuario pregunta "¿qué tengo acá?" o es la primera vez, explicalo así, corto y en este orden (una línea por pestaña; profundizá solo si lo pide):
+- **Inicio**: semáforo del entorno (Docker, Mongo, servicios obligatorios, secretos) y el checklist del día.
+- **Servicios**: los contenedores, sus puertos y logs en vivo; se pueden reiniciar con confirmación.
+- **Levantado**: elegís qué servicios opcionales necesitás (o un preset) y los levanta en el orden correcto, esperando a RabbitMQ y Mongo.
+- **Datos**: copias de colecciones (snapshots) y restauración, reseteo de contraseñas, backup remoto y limpieza de los datos de prueba de un ticket.
+- **Sesiones de prueba**: entrar como cualquier usuario del entorno local sin conocer su clave.
+- **Repos y .env**: en qué rama está cada repo y cambio de los `.env` entre MinIO local y remoto, con diff y respaldo.
+- **Kanban**: tus tickets de Redmine por estado, con story points y horas (solo lectura).
+- **Pruebas**: cada ticket con sus tandas de pruebas, informes, capturas, conclusión (aprobado / requiere cambios) y un checklist por tanda; también tickets que solo revisás.
+- **Desarrollo**: lo que desarrollás vos: análisis, plan, diagramas y datos del ticket (descripción completa, comentarios, SP); desde acá marcás "Listo para pruebas" y levantás los servicios del ticket.
+- **Daily**: borrador del daily a partir de git y la base de conocimiento, historial de 5 días, checklist de entrada/salida/horas y un botón que arma el pedido del resumen semanal para Claude.
+- **Claude**: tus cuentas con su uso (se recarga a mano) y las skills instaladas con su fecha de modificación.
+- **Configuración**: rutas, tu nombre, la API key de Redmine, horarios de la jornada, orden de levantado y repos.
+- **Barra superior**: búsqueda rápida (`Ctrl+K`), uso de Claude con botón de recarga, selector de **tema de colores** (índigo, ámbar, violeta, bosque, océano, rosa, medianoche, eclipse, claro) y estado del servidor. El menú lateral se puede colapsar.
+- **Claude puede usar el panel**: hay un servidor MCP de solo lectura (ver "Servidor MCP") para pedirle, por ejemplo, el reporte semanal o el estado del entorno.
+Lo que el panel **no** hace: llamar a GitLab, escribir en Redmine, marcar entrada/salida de verdad ni guardar el historial de consumo de Claude.
 
 ## Reglas fijas
 - **Siempre `yarn`** (v1.22). Nunca `npm` ni `npx`, ni en scripts, ni en docs, ni en comandos que le pidas al usuario.
@@ -35,6 +53,38 @@ yarn dev        # servidor (127.0.0.1:4777) + Vite con recarga (http://127.0.0.1
 yarn start      # compila todo y sirve el panel completo en http://127.0.0.1:4777
 ```
 Primer arranque: el panel abre un **asistente** que detecta Docker, las rutas y los servicios del compose, y escribe `config.json` (fuera de git; ejemplo en `config.example.json`). Se puede cambiar después en la vista Configuración. Variables opcionales: `DEV_PANEL_PORT` (4777), `DEV_PANEL_CONFIG` (ruta de `config.json`), `DEV_PANEL_DATA` (carpeta de datos), `LOG_LEVEL`.
+
+## Primera vez en una máquina: qué revisar con el usuario
+Requisitos: Node 18+, `yarn`, Docker con Compose, `git`; la CLI `claude` es opcional (cuentas y skills). El asistente de primer arranque detecta casi todo; confirmá con el usuario:
+1. Rutas (`paths.*`): carpeta de proyectos, base de conocimiento (`_EXTRA`), carpeta del Daily y de scripts.
+2. Su nombre (`userName`, opcional) y el tema de colores que prefiera (se elige en la barra superior).
+3. API key de Redmine (opcional; ver la tabla de credenciales). Sin ella no hay Kanban ni datos de Redmine, pero el resto funciona.
+4. Horarios y enlace de marcación (`workday`, opcional).
+5. Las skills del pipeline (ver la sección siguiente: **se pregunta, no se modifica solo**).
+6. Opcional: registrar el MCP para que Claude consulte el panel (ver "Servidor MCP").
+
+## Referencia de `config.json`
+Todo se edita en la vista Configuración; el archivo está fuera de git y `config.example.json` muestra todas las claves. Solo hace falta tocarlo a mano para lo que la pantalla no cubre.
+| Clave | Para qué sirve |
+|---|---|
+| `userName` | Nombre bajo "Dev Panel" (vacío = nada) |
+| `paths.projects/extra/daily/scripts` | Carpeta de repos, base de conocimiento, daily y scripts de backup |
+| `paths.ignoreDirs` | Carpetas de `_EXTRA` que Pruebas/Desarrollo ignoran (por defecto `daily`; podés sumar `dev-panel` para que no aparezca en los reportes) |
+| `compose.main` / `compose.minio` | Los docker-compose que el panel invoca (nunca los modifica) |
+| `mongo.*` | Contenedor de Mongo, bases prohibidas, superadmin para resetear contraseñas |
+| `remoteBackup.script/types` | Script de backup remoto y sus tipos (chips) |
+| `startup.*` | Orden de levantado: etapas 1 y 2, espera de RabbitMQ, obligatorios, opcionales, grupos y presets |
+| `repoServices` | Traduce nombre de repo → servicio del compose cuando difieren |
+| `envProfiles` | Líneas de `.env` que cambian entre perfiles (MinIO local/remoto) por repo |
+| `session.*` | Sesiones de prueba (`enabled` las apaga; dónde está el `JWT_SECRET`, base y URL del front) |
+| `redmine.*` | `enabled`, `apiKey` (opcional), `baseUrl`, `configFile` y `doneStatuses` (qué estados cuentan como entregado para los SP semanales) |
+| `claude.*` | Binario de la CLI y `liveUsage` (apaga la consulta de uso en vivo) |
+| `workday.*` | Horario de entrada/salida y enlace de marcación |
+| `checklists.test/daily` | Pasos de cada tanda de pruebas y tareas diarias |
+| `git.baseBranch` | Rama base (por defecto `desarrollo`) |
+| `checks.*` | Chequeos del Inicio: secreto compartido y carpeta de la CA de firma |
+| `testData` | Qué colecciones/campos limpia "Datos de prueba" por ticket |
+Datos propios del panel (carpeta `data/`, fuera de git, se puede borrar sin perder código): checklists, estado de tickets, caché de story points, historial de actividad, snapshots, respaldos de `.env`, presets personales y cuentas de Claude.
 
 ## Configuración y credenciales (de dónde sale cada cosa)
 Un agente que configure el repo en una máquina nueva solo necesita `config.json` (lo crea el asistente del primer arranque o se copia de `config.example.json`) y saber esto:
