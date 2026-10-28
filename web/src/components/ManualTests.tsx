@@ -1,4 +1,4 @@
-import { Check, ClipboardList, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, ClipboardList, ExternalLink, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
@@ -76,6 +76,9 @@ export const ManualTests = ({ dir, onChanged, refreshKey = 0 }: { dir: string; o
                           {item.esperado && <span className="mt-0.5 block text-sm text-muted">Esperado: {item.esperado}</span>}
                         </span>
                       </label>
+                      {item.enlace && (
+                        <a href={item.enlace} target="_blank" rel="noreferrer noopener" aria-label="Abrir para probar este caso" title={item.enlace} className="mt-1.5 inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-accent hover:bg-surface-3"><ExternalLink className="size-4" aria-hidden />Abrir</a>
+                      )}
                       {item.source === 'panel' && (
                         <button type="button" aria-label="Borrar este caso" title="Borrar este caso" onClick={() => run(() => api.del<ManualTestsData>(`${base}/${item.id}`))} className="mt-1.5 rounded-lg p-1.5 text-muted hover:bg-surface-3 hover:text-danger"><Trash2 className="size-4" aria-hidden /></button>
                       )}

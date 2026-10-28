@@ -98,7 +98,7 @@ export interface TicketMeta {
   mrs?: TicketMr[];
   codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
   tipo?: 'desarrollo' | 'revision';
-  pruebasManuales?: Array<string | { caso: string; esperado?: string; grupo?: string }>;
+  pruebasManuales?: Array<string | { caso: string; esperado?: string; grupo?: string; ruta?: string; url?: string }>;
   pruebas?: Array<{ conclusion?: string; fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
   plan?: { resumen?: string; diagrama?: string; referenciaVisual?: string };
 }
@@ -222,6 +222,7 @@ export interface ManualCase {
   grupo: string | null;
   source: 'ticket' | 'panel';
   done: boolean;
+  enlace: string | null;
 }
 export interface ManualTests {
   items: ManualCase[];
