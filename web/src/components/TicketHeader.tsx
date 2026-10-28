@@ -1,12 +1,20 @@
-import { ExternalLink, GitBranch } from 'lucide-react';
+import { ClipboardCheck, ExternalLink, GitBranch, Layers } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { TicketDetail } from '../lib/types';
 import { Badge, toneOf } from './Badge';
 
-export const TicketHeader = ({ detail }: { detail: TicketDetail }) => (
+/** `to` indica a qué vista hermana se puede saltar con el mismo ticket (Pruebas ⇄ Desarrollo). */
+export const TicketHeader = ({ detail, to }: { detail: TicketDetail; to?: 'pruebas' | 'desarrollo' }) => (
   <header className="mb-6">
     <div className="flex flex-wrap items-center gap-3">
       <span className="font-mono text-accent">{detail.ticket ? `#${detail.ticket}` : detail.dir}</span>
       {detail.estado && <Badge tone={toneOf(detail.estado)}>{detail.estado}</Badge>}
+      {to && (
+        <Link to={`${to === 'pruebas' ? '/pruebas' : '/planificacion'}/${encodeURIComponent(detail.dir)}`} className="inline-flex h-8 items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 text-sm font-medium text-accent transition-colors hover:bg-accent/20">
+          {to === 'pruebas' ? <ClipboardCheck className="size-4" aria-hidden /> : <Layers className="size-4" aria-hidden />}
+          {to === 'pruebas' ? 'Ir a pruebas' : 'Ir al desarrollo'}
+        </Link>
+      )}
       {detail.meta?.url && (
         <a href={detail.meta.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-muted hover:text-accent">
           Abrir ticket <ExternalLink className="size-4" aria-hidden />

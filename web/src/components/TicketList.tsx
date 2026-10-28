@@ -8,6 +8,7 @@ import { CONCLUSIONS, conclusionInfo } from '../lib/conclusion';
 import type { Conclusion, TicketSummary } from '../lib/types';
 import { Chip } from './Chip';
 import { Badge, toneOf } from './Badge';
+import { Tooltip } from './Tooltip';
 
 /** Lista lateral de carpetas de la base de conocimiento, con búsqueda por número, título o rama. */
 export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tickets: TicketSummary[]; basePath: string; withTestFilters?: boolean }) => {
@@ -66,7 +67,11 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
                 {ticket.estado && <Badge tone={toneOf(ticket.estado)}>{ticket.estado}</Badge>}
                 {withTestFilters && ticket.testStatus && <Badge tone={conclusionInfo(ticket.testStatus.conclusion).tone}>{conclusionInfo(ticket.testStatus.conclusion).label}</Badge>}
                 {withTestFilters && ticket.testStatus && ticket.testStatus.checklistTotal > 0 && ticket.testStatus.runs > 0 && <Badge tone={ticket.testStatus.checklistDone === ticket.testStatus.checklistTotal ? 'success' : 'warning'}>checklist {ticket.testStatus.checklistDone}/{ticket.testStatus.checklistTotal}</Badge>}
-                {ticket.lastTest?.resultado && <Badge tone="info">{ticket.lastTest.resultado}</Badge>}
+                {ticket.lastTest?.resultado && (
+                  <Tooltip width={300} content={<><div className="mb-1 font-semibold">Última tanda de pruebas: {ticket.lastTest.resultado}</div><p className="text-muted">Es el resultado que se registró en <span className="font-mono">ticket.json</span> para la última tanda de pruebas (por ejemplo, 25 de 25 casos pasaron). <strong className="text-fg">No indica que el desarrollo esté terminado</strong>: eso depende del estado del ticket y de la revisión.</p></>}>
+                    <span><Badge tone="info">Pruebas {ticket.lastTest.resultado}</Badge></span>
+                  </Tooltip>
+                )}
                 {ticket.review && <Badge tone={toneOf(ticket.review)}>review: {ticket.review}</Badge>}
                 {ticket.images > 0 && <Badge>{ticket.images} capturas</Badge>}
               </div>

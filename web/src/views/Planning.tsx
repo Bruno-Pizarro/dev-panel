@@ -39,7 +39,7 @@ const Detail = ({ dir }: { dir: string }) => {
   const groups = classifyDocs(data.files.docs);
 
   return (
-    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} to="pruebas" /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
       {tab === 'plan' &&
         (plan ? (

@@ -70,7 +70,7 @@ const Detail = ({ dir }: { dir: string }) => {
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} to="desarrollo" /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
       {tab === 'resumen' && <Summary detail={data} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}
