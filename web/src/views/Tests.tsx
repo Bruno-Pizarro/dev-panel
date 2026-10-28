@@ -6,6 +6,7 @@ import { Card } from '../components/Card';
 import { DocViewer } from '../components/DocViewer';
 import { EmptyState } from '../components/EmptyState';
 import { Gallery } from '../components/Gallery';
+import { ManualTests } from '../components/ManualTests';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
@@ -19,7 +20,7 @@ import { api } from '../lib/api';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'resumen' | 'informes' | 'capturas';
+type Tab = 'resumen' | 'manuales' | 'informes' | 'capturas';
 
 const Summary = ({ detail, onListChanged }: { detail: TicketDetail; onListChanged: () => void }) => {
   const meta = detail.meta;
@@ -72,8 +73,9 @@ const Detail = ({ dir, onListChanged }: { dir: string; onListChanged: () => void
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
     <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} /></>}>
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
       {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} />}
+      {tab === 'manuales' && <ManualTests dir={dir} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}
       {tab === 'capturas' && <Gallery dir={dir} images={data.files.images} />}
     </TicketFrame>

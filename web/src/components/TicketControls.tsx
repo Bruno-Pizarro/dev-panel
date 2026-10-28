@@ -56,7 +56,8 @@ export const TicketControls = ({ detail, view, onChanged }: TicketControlsProps)
     <div className="flex flex-wrap items-center gap-3">
       <Button className="h-9" icon={<Power className="size-4" />} loading={busy} onClick={startServices} title="Levanta, en el orden correcto, lo que pide este ticket">Levantar servicios</Button>
       <span className="text-sm text-muted">
-        {optional.length ? <>Además de los obligatorios: <span className="font-mono text-fg">{optional.join(', ')}</span></> : 'Solo los obligatorios'}
+        {optional.length ? <>Para probarlo, además de los obligatorios: <span className="font-mono text-fg">{optional.join(', ')}</span></> : 'Solo los obligatorios'}
+        {services?.source.includes('ticket.json') && <> (incluye lo que declara el ticket en <span className="font-mono">servicios</span>)</>}
         {services && services.skipped.length > 0 && <> · sin servicio propio: <span className="font-mono">{services.skipped.join(', ')}</span></>}
       </span>
     </div>

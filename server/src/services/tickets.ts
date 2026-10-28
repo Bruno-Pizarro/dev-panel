@@ -14,9 +14,11 @@ export const ticketMetaSchema = z
     rama: z.string().optional(),
     /** "desarrollo" = lo desarrollo yo; "revision" = solo reviso el desarrollo de otra persona (va solo a Pruebas). */
     tipo: z.enum(['desarrollo', 'revision']).optional(),
-    /** Servicios de compose que hay que levantar para este ticket; si falta, se deducen de `repos`. */
+    /** Servicios que hay que tener levantados para probar el ticket aunque no se modifiquen (se suman a los de `repos`). */
     servicios: z.array(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)).optional(),
     repos: z.array(z.string()).optional(),
+    /** Casos para probar a mano: texto o `{ caso, esperado?, grupo? }`. El avance (tildes) vive en el panel. */
+    pruebasManuales: z.array(z.union([z.string(), z.object({ caso: z.string(), esperado: z.string().optional(), grupo: z.string().optional() })])).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
     pruebas: z.array(z.object({ conclusion: z.string().optional(), fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),
@@ -201,21 +203,29 @@ export const trashTicket = (extraRoot: string, dir: string, typedName: string, i
 export interface TicketServices {
   /** Opcionales que hay que levantar (los obligatorios se levantan siempre). */
   optional: string[];
-  /** Repos del ticket que no corresponden a un servicio (ej. el front) o que no están en la configuración. */
+  /** Servicios del ticket que siempre están arriba (obligatorios, RabbitMQ, Mongo, MinIO): no hace falta pedirlos. */
+  always: string[];
+  /** Repos o servicios del ticket que no corresponden a un servicio del compose (ej. el front) o que no están en la configuración. */
   skipped: string[];
-  source: 'ticket.json' | 'repos' | 'ninguno';
+  source: 'ticket.json' | 'repos' | 'repos + ticket.json' | 'ninguno';
 }
 
-/** Servicios que pide un ticket: `servicios` de ticket.json o, si no está, los de sus `repos` según `repoServices`. */
+/**
+ * Servicios que necesita un ticket para probarse: los de sus `repos` (según `repoServices`) **más** los `servicios` de
+ * ticket.json, que sirven para declarar lo que hay que tener levantado aunque no se modifique (por ejemplo `firma`).
+ */
 export const servicesForTicket = (config: DevPanelConfig, meta: TicketMeta | null): TicketServices => {
-  const { optional } = config.startup;
+  const { optional, mandatory, stage1, stage2 } = config.startup;
   const known = new Set(optional);
-  if (meta?.servicios?.length) {
-    const valid = meta.servicios.filter((name) => known.has(name));
-    return { optional: [...new Set(valid)], skipped: meta.servicios.filter((name) => !known.has(name)), source: 'ticket.json' };
-  }
+  const alwaysUp = new Set([...mandatory, ...stage1, ...stage2]);
   const repos = meta?.repos ?? [];
-  const mapped = repos.map((repo) => ({ repo, service: config.repoServices[repo] ?? repo }));
-  const services = mapped.filter((item) => known.has(item.service)).map((item) => item.service);
-  return { optional: [...new Set(services)], skipped: mapped.filter((item) => !known.has(item.service)).map((item) => item.repo), source: repos.length ? 'repos' : 'ninguno' };
+  const declared = meta?.servicios ?? [];
+  const wanted = [...repos.map((repo) => ({ label: repo, service: config.repoServices[repo] ?? repo })), ...declared.map((name) => ({ label: name, service: name }))];
+  const source: TicketServices['source'] = repos.length && declared.length ? 'repos + ticket.json' : declared.length ? 'ticket.json' : repos.length ? 'repos' : 'ninguno';
+  return {
+    optional: [...new Set(wanted.filter((item) => known.has(item.service)).map((item) => item.service))],
+    always: [...new Set(wanted.filter((item) => alwaysUp.has(item.service)).map((item) => item.service))],
+    skipped: [...new Set(wanted.filter((item) => !known.has(item.service) && !alwaysUp.has(item.service)).map((item) => item.label))],
+    source,
+  };
 };

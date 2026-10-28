@@ -161,18 +161,22 @@ describe('carpetas omitidas (daily y otras que no son tickets)', () => {
 
 describe('servicesForTicket (botón "Levantar servicios")', () => {
   const config = defaultConfig('/x');
-  it('deduce los servicios de los repos del ticket, con los nombres distintos del compose, y descarta lo que no es servicio', () => {
+  it('deduce los servicios de los repos del ticket, con los nombres distintos del compose, y separa los obligatorios y lo que no es servicio', () => {
     const result = servicesForTicket(config, { repos: ['front', 'legajo', 'documentos', 'control-horario', 'security'] } as never);
     expect(result.optional.sort()).toEqual(['controlhorario', 'documentos']);
-    expect(result.skipped.sort()).toEqual(['front', 'legajo', 'security']);
+    expect(result.always.sort()).toEqual(['legajo', 'security']);
+    expect(result.skipped).toEqual(['front']);
     expect(result.source).toBe('repos');
   });
-  it('un campo servicios de ticket.json manda sobre los repos y se valida contra los opcionales', () => {
-    const result = servicesForTicket(config, { repos: ['firma'], servicios: ['leia', 'firma', 'rabbitmq'] } as never);
-    expect(result).toEqual({ optional: ['leia', 'firma'], skipped: ['rabbitmq'], source: 'ticket.json' });
+  it('los servicios de ticket.json se suman a los de los repos (lo que hay que tener levantado aunque no se modifique)', () => {
+    const result = servicesForTicket(config, { repos: ['documentos'], servicios: ['firma', 'legajo', 'inexistente'] } as never);
+    expect(result.optional.sort()).toEqual(['documentos', 'firma']);
+    expect(result.always).toEqual(['legajo']);
+    expect(result.skipped).toEqual(['inexistente']);
+    expect(result.source).toBe('repos + ticket.json');
   });
   it('sin repos ni servicios no pide nada extra', () => {
-    expect(servicesForTicket(config, null)).toEqual({ optional: [], skipped: [], source: 'ninguno' });
+    expect(servicesForTicket(config, null)).toEqual({ optional: [], always: [], skipped: [], source: 'ninguno' });
   });
 });
 

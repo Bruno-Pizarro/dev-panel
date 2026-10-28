@@ -33,7 +33,7 @@ En el primer arranque se abre un **asistente** que detecta Docker, tus rutas y l
 Además: búsqueda rápida (`Ctrl+K`), **temas de color** (selector en la barra superior) y un servidor MCP de solo lectura para que Claude consulte el panel.
 
 ## Para usar Pruebas y Desarrollo
-Esas vistas leen un `ticket.json` por carpeta de la base de conocimiento (`_EXTRA`), que escriben las skills del pipeline (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review`, `ship`). Esas skills viven fuera de este repo y hay que prepararlas una vez por máquina: ver [docs/skills-sdd/](docs/skills-sdd/README.md). Convención del archivo: [docs/TICKET_JSON.md](docs/TICKET_JSON.md).
+Esas vistas leen un `ticket.json` por carpeta de la base de conocimiento (`_EXTRA`), que escriben las skills del pipeline (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review`, `ship`). Este repo trae la skill [`skills/dev-panel`](skills/dev-panel/SKILL.md) con la convención; se instala con un enlace simbólico y las skills del pipeline (que viven fuera del repo) se preparan una vez por máquina: ver [docs/skills-sdd/](docs/skills-sdd/README.md). Convención del archivo: [docs/TICKET_JSON.md](docs/TICKET_JSON.md).
 
 ## Seguridad en una línea
 Solo `127.0.0.1`, validación de `Host`/`Origin`, escrituras con cabecera propia, comandos sin shell, confirmación en lo destructivo y ninguna credencial en el repo, los logs ni la pantalla. Detalle en [CLAUDE.md](CLAUDE.md).
