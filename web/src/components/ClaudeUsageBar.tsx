@@ -39,7 +39,7 @@ export const ClaudeUsageBar = () => {
     <Link to="/claude" className="flex items-center gap-4 rounded-xl border border-line bg-surface-2 px-3.5 py-1.5 transition-colors hover:border-accent/40" title={title}>
       <span className="flex items-center gap-2 text-sm font-medium">
         <ClaudeIcon className="size-5 shrink-0" style={{ color: tint(account.color, 0.95) }} />
-        <span className="whitespace-nowrap">{account.label}</span>
+        <span className="hidden whitespace-nowrap xl:inline">{account.label}</span>
       </span>
       {usage && (usage.fiveHour || usage.sevenDay) ? (
         <>

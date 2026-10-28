@@ -21,7 +21,7 @@ export const Layout = () => {
     <div className="flex h-full">
       <Sidebar collapsed={collapsed} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">
+        <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
             <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} aria-expanded={!collapsed} title={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg">
               <Menu className="size-5" aria-hidden />
