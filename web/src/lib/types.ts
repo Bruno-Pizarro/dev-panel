@@ -223,6 +223,9 @@ export interface ClaudeSkill {
   modifiedFile: string;
   files: number;
   path: string;
+  source: 'user' | 'plugin';
+  plugin: string | null;
+  enabled: boolean;
 }
 export interface ClaudeSkillsResponse {
   account: { id: string; label: string };

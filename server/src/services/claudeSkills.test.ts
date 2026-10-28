@@ -32,6 +32,22 @@ describe('listSkills', () => {
     expect(skills[0]!.modifiedAt).toBe('2026-03-01T00:00:00.000Z');
   });
 
+  it('suma las skills de los plugins instalados, con su estado y sin salir de la carpeta de plugins', () => {
+    const config = join(home, 'cuenta');
+    const install = join(config, 'plugins', 'cache', 'm', 'caveman', '1.0');
+    mkdirSync(join(install, 'skills', 'caveman'), { recursive: true });
+    writeFileSync(join(install, 'skills', 'caveman', 'SKILL.md'), '---\nname: caveman\ndescription: Modo breve\n---\n');
+    utimesSync(join(install, 'skills', 'caveman', 'SKILL.md'), new Date('2026-01-01'), new Date('2026-01-01'));
+    const outside = join(home, 'afuera');
+    mkdirSync(join(outside, 'skills', 'robada'), { recursive: true });
+    writeFileSync(join(outside, 'skills', 'robada', 'SKILL.md'), '---\nname: robada\n---\n');
+    writeFileSync(join(config, 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'caveman@m': [{ scope: 'user', installPath: install, version: '1.0', lastUpdated: '2026-05-01T00:00:00.000Z' }], 'mala@m': [{ installPath: outside }] } }));
+    writeFileSync(join(config, 'settings.json'), JSON.stringify({ enabledPlugins: { 'caveman@m': false } }));
+    const { skills } = listSkills({ id: 'x', label: 'x', color: '1 1 1', configDir: config }, home);
+    expect(skills.map((skill) => skill.id)).toEqual(['caveman:caveman']);
+    expect(skills[0]).toMatchObject({ source: 'plugin', plugin: 'caveman', enabled: false, version: '1.0', modifiedAt: '2026-05-01T00:00:00.000Z' });
+  });
+
   it('sin carpeta de skills devuelve una lista vacía', () => {
     expect(listSkills({ id: 'x', label: 'x', color: '1 1 1', configDir: join(home, 'nada') }, home).skills).toEqual([]);
   });

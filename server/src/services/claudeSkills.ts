@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import type { ClaudeAccount } from './claudeAccounts.js';
 
 export interface SkillInfo {
@@ -16,6 +16,11 @@ export interface SkillInfo {
   modifiedFile: string;
   files: number;
   path: string;
+  /** `user`: carpeta de skills de la cuenta; `plugin`: viene de un plugin instalado. */
+  source: 'user' | 'plugin';
+  plugin: string | null;
+  /** Solo plugins: false si la cuenta lo tiene desactivado en `enabledPlugins`. */
+  enabled: boolean;
 }
 
 const IGNORED = new Set(['node_modules', '.git', '__pycache__']);
@@ -69,10 +74,17 @@ const newest = (root: string): { at: number; file: string; files: number } => {
 /** Carpeta de skills de la cuenta: la carpeta de configuración de Claude + `/skills`. */
 export const skillsDirOf = (account: ClaudeAccount, home: string = homedir()): string => join(account.configDir || join(home, '.claude'), 'skills');
 
-/** Skills instaladas para una cuenta (solo lectura: nombre, descripción y fecha de la última modificación), las más nuevas primero. */
-export const listSkills = (account: ClaudeAccount, home: string = homedir()): { dir: string; skills: SkillInfo[] } => {
-  const dir = skillsDirOf(account, home);
-  if (!existsSync(dir)) return { dir, skills: [] };
+interface ScanOptions {
+  source: SkillInfo['source'];
+  plugin?: string;
+  enabled?: boolean;
+  version?: string | null;
+  /** Fecha de instalación/actualización del plugin: cuenta como modificación si es más nueva que sus archivos. */
+  updatedAt?: string;
+}
+
+const scanDir = (dir: string, options: ScanOptions): SkillInfo[] => {
+  if (!existsSync(dir)) return [];
   const skills: SkillInfo[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue;
@@ -93,17 +105,69 @@ export const listSkills = (account: ClaudeAccount, home: string = homedir()): { 
       meta = {};
     }
     const latest = newest(path);
+    const fileTime = latest.at || statSync(manifest).mtimeMs;
+    const installed = options.updatedAt ? Date.parse(options.updatedAt) : 0;
     skills.push({
-      id: entry.name,
+      id: options.plugin ? `${options.plugin}:${entry.name}` : entry.name,
       name: meta['name'] || entry.name,
       description: (meta['description'] ?? '').slice(0, 600),
-      version: meta['version'] || null,
-      modifiedAt: new Date(latest.at || statSync(manifest).mtimeMs).toISOString(),
+      version: meta['version'] || options.version || null,
+      modifiedAt: new Date(Math.max(fileTime, Number.isNaN(installed) ? 0 : installed)).toISOString(),
       modifiedFile: latest.file || 'SKILL.md',
       files: latest.files,
       path,
+      source: options.source,
+      plugin: options.plugin ?? null,
+      enabled: options.enabled ?? true,
     });
   }
+  return skills;
+};
+
+const readJson = (file: string): Record<string, unknown> => {
+  try {
+    const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+};
+
+interface PluginInstall {
+  installPath?: unknown;
+  version?: unknown;
+  lastUpdated?: unknown;
+  installedAt?: unknown;
+}
+
+/**
+ * Skills de los plugins instalados: Claude Code los registra en `<config>/plugins/installed_plugins.json` (con la ruta de
+ * cada instalación) y los activa en `enabledPlugins` de `settings.json`. Se ignora toda ruta fuera de `<config>/plugins`.
+ */
+const pluginSkills = (configDir: string): SkillInfo[] => {
+  const pluginsRoot = resolve(configDir, 'plugins');
+  const installed = readJson(join(pluginsRoot, 'installed_plugins.json'))['plugins'];
+  if (!installed || typeof installed !== 'object') return [];
+  const enabledMap = (readJson(join(configDir, 'settings.json'))['enabledPlugins'] ?? {}) as Record<string, unknown>;
+  const out: SkillInfo[] = [];
+  for (const [key, value] of Object.entries(installed as Record<string, unknown>)) {
+    const installs = Array.isArray(value) ? (value as PluginInstall[]) : [];
+    const plugin = key.split('@')[0] ?? key;
+    for (const install of installs) {
+      if (typeof install.installPath !== 'string') continue;
+      const root = resolve(install.installPath);
+      if (!root.startsWith(`${pluginsRoot}${sep}`)) continue;
+      const updated = typeof install.lastUpdated === 'string' ? install.lastUpdated : typeof install.installedAt === 'string' ? install.installedAt : undefined;
+      out.push(...scanDir(join(root, 'skills'), { source: 'plugin', plugin, enabled: enabledMap[key] !== false, version: typeof install.version === 'string' ? install.version : null, ...(updated ? { updatedAt: updated } : {}) }));
+    }
+  }
+  return out;
+};
+
+/** Skills de una cuenta: las propias (`<config>/skills`) y las de sus plugins (solo lectura), las modificadas más recientemente primero. */
+export const listSkills = (account: ClaudeAccount, home: string = homedir()): { dir: string; skills: SkillInfo[] } => {
+  const configDir = account.configDir || join(home, '.claude');
+  const skills = [...scanDir(skillsDirOf(account, home), { source: 'user' }), ...pluginSkills(configDir)];
   skills.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt) || a.id.localeCompare(b.id));
-  return { dir, skills };
+  return { dir: configDir, skills };
 };

@@ -27,7 +27,8 @@ export interface AccountsFile {
 
 const DEFAULT_ID = 'default';
 const registryFile = () => join(paths.data, 'claude-accounts.json');
-const defaultDir = () => join(homedir(), '.claude');
+/** Carpeta de configuración de Claude Code: la variable CLAUDE_CONFIG_DIR si está definida, si no `~/.claude` (en cualquier sistema). */
+const defaultDir = () => process.env['CLAUDE_CONFIG_DIR']?.trim() || join(homedir(), '.claude');
 
 export const slugify = (text: string): string =>
   text

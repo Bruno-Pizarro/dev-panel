@@ -18,14 +18,15 @@ const exact = (iso: string) => new Date(iso).toLocaleString('es-AR', { day: '2-d
 export const ClaudeSkills = ({ accounts }: { accounts: Array<{ id: string; label: string }> }) => {
   const [accountId, setAccountId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [origin, setOrigin] = useState<'todas' | 'user' | 'plugin'>('todas');
   const selected = accountId ?? accounts[0]?.id ?? null;
   const skills = useAsync(() => api.get<ClaudeSkillsResponse>(`/api/claude/skills${selected ? `?id=${encodeURIComponent(selected)}` : ''}`));
   const response = skills.data;
   const list = response?.skills ?? [];
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
-    return (response?.skills ?? []).filter((skill) => !text || `${skill.id} ${skill.name} ${skill.description}`.toLowerCase().includes(text));
-  }, [response, query]);
+    return (response?.skills ?? []).filter((skill) => (origin === 'todas' || skill.source === origin) && (!text || `${skill.id} ${skill.name} ${skill.description}`.toLowerCase().includes(text)));
+  }, [response, query, origin]);
 
   const pick = (id: string) => {
     // Los dos cambios van en el mismo render: la recarga ya lee la cuenta nueva.
@@ -40,6 +41,11 @@ export const ClaudeSkills = ({ accounts }: { accounts: Array<{ id: string; label
           <Search className="size-4 text-muted" aria-hidden />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar skill…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
         </label>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Origen">
+          {([['todas', 'Todas'], ['user', 'Propias'], ['plugin', 'De plugins']] as const).map(([id, label]) => (
+            <Chip key={id} selected={origin === id} onToggle={() => setOrigin(id)}>{label}</Chip>
+          ))}
+        </div>
         {accounts.length > 1 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Cuenta">
             {accounts.map((account) => <Chip key={account.id} selected={selected === account.id} onToggle={() => pick(account.id)}>{account.label}</Chip>)}
@@ -51,7 +57,7 @@ export const ClaudeSkills = ({ accounts }: { accounts: Array<{ id: string; label
       ) : skills.error ? (
         <p className="text-danger">{skills.error}</p>
       ) : list.length === 0 ? (
-        <EmptyState icon={<Sparkles className="size-6" />} title="Sin skills">No hay skills instaladas en <span className="font-mono">{skills.data?.dir}</span>.</EmptyState>
+        <EmptyState icon={<Sparkles className="size-6" />} title="Sin skills">No se encontraron skills (propias ni de plugins) en <span className="font-mono">{skills.data?.dir}</span>.</EmptyState>
       ) : (
         <Card title={`Skills instaladas (${visible.length}${visible.length !== list.length ? ` de ${list.length}` : ''})`} action={<span className="font-mono text-sm text-muted">{skills.data?.dir}</span>}>
           <ul className="divide-y divide-line">
@@ -62,6 +68,8 @@ export const ClaudeSkills = ({ accounts }: { accounts: Array<{ id: string; label
                   <div className="min-w-0 flex-1 basis-96">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-medium text-accent">/{skill.id}</span>
+                      {skill.plugin && <Badge tone="accent">plugin {skill.plugin}</Badge>}
+                      {skill.plugin && !skill.enabled && <Badge tone="warning">desactivado</Badge>}
                       {skill.version && <Badge>v{skill.version}</Badge>}
                       {recent && <Badge tone="success">modificada esta semana</Badge>}
                     </div>
