@@ -56,4 +56,7 @@ Etiquetas que ya empiezan con comillas (`A["Texto (con paréntesis)"]`) son vál
 - Lo marcado en el panel (Pruebas → "Tipo de ticket") tiene prioridad sobre este campo. "Listo para pruebas" también se marca en el panel y no vive en este archivo.
 
 ## Servicios del ticket: `servicios` (opcional)
-Lista de servicios de compose que el botón **Levantar servicios** debe levantar para este ticket (solo opcionales; los obligatorios siempre se levantan). Si falta, el panel los deduce de `repos` (`control-horario` → `controlhorario`, `file-manager` → `files`; el front no es un servicio).
+Servicios de compose que hay que **tener levantados para probar el ticket aunque no se modifiquen** (por ejemplo `firma`, que el ticket solo usa para firmar). El botón **Levantar servicios** levanta la **suma** de los de `repos` (`control-horario` → `controlhorario`, `file-manager` → `files`; el front no es un servicio) y los de este campo. Los obligatorios (`panel`, `security`, `files`, `legajo`) y MinIO/RabbitMQ/Mongo siempre se levantan: se pueden listar para documentar, no hace falta. Nombres del compose, no de repos.
+
+## Pruebas manuales: `pruebasManuales` (opcional)
+Lista de casos para probar a mano, que el panel muestra como checklist en la pestaña **Pruebas manuales** de Pruebas. Cada elemento es un texto o `{ "caso": "...", "esperado": "...", "grupo": "..." }` (`esperado` y `grupo` opcionales; los casos del mismo `grupo` se muestran juntos). Qué se tildó **no** vive en este archivo: lo guarda el panel, y el usuario puede sumar casos propios desde la pantalla. Conviene derivarlos de los criterios de aceptación del contrato, en pasos que alguien pueda seguir sin leer el código.

@@ -113,3 +113,97 @@ export const testStatusOf = (
     checklistTotal: labels.length,
   };
 };
+
+// ------------------------------------------------------------------ pruebas manuales de un ticket
+export interface ManualCaseInput {
+  caso: string;
+  esperado?: string | undefined;
+  grupo?: string | undefined;
+}
+export interface ManualCase {
+  id: string;
+  caso: string;
+  esperado: string | null;
+  grupo: string | null;
+  /** `ticket`: viene de ticket.json (solo lectura); `panel`: lo agregó el usuario desde el panel (se puede borrar). */
+  source: 'ticket' | 'panel';
+  done: boolean;
+}
+export interface ManualTests {
+  items: ManualCase[];
+  done: number;
+  total: number;
+}
+interface ManualState {
+  done: Record<string, boolean>;
+  custom: Array<{ id: string; caso: string; esperado?: string }>;
+}
+type ManualFile = Record<string, ManualState>;
+
+const MAX_CUSTOM = 100;
+const MANUAL_FILE = 'manual-tests.json';
+
+/** Id estable de un caso a partir de su texto (el texto de ticket.json puede cambiar de orden sin perder lo tildado). */
+export const manualId = (text: string): string => {
+  let hash = 5381;
+  for (const char of text) hash = ((hash * 33) ^ char.codePointAt(0)!) >>> 0;
+  return `${itemId(text).slice(0, 30)}-${hash.toString(16)}`;
+};
+
+const stateOf = (all: ManualFile, dir: string): ManualState => ({ done: all[dir]?.done ?? {}, custom: all[dir]?.custom ?? [] });
+
+export const getManualTests = (dir: string, fromTicket: ManualCaseInput[]): ManualTests => {
+  const state = stateOf(read<ManualFile>(MANUAL_FILE, {}), dir);
+  const seen = new Set<string>();
+  const items: ManualCase[] = [];
+  for (const entry of fromTicket) {
+    const id = manualId(`${entry.grupo ?? ''}|${entry.caso}`);
+    if (seen.has(id) || !entry.caso.trim()) continue;
+    seen.add(id);
+    items.push({ id, caso: entry.caso.trim(), esperado: entry.esperado?.trim() || null, grupo: entry.grupo?.trim() || null, source: 'ticket', done: state.done[id] === true });
+  }
+  for (const entry of state.custom) items.push({ id: entry.id, caso: entry.caso, esperado: entry.esperado ?? null, grupo: null, source: 'panel', done: state.done[entry.id] === true });
+  return { items, done: items.filter((item) => item.done).length, total: items.length };
+};
+
+const saveManual = (dir: string, mutate: (state: ManualState) => void): void => {
+  const all = read<ManualFile>(MANUAL_FILE, {});
+  const state = stateOf(all, dir);
+  mutate(state);
+  all[dir] = state;
+  write(MANUAL_FILE, all);
+};
+
+export const setManualDone = (dir: string, id: string, done: boolean, validIds: string[]): void => {
+  if (!validIds.includes(id)) throw new ChecklistError('Caso inexistente');
+  saveManual(dir, (state) => {
+    state.done = { ...state.done, [id]: done };
+  });
+};
+
+export const addManualCase = (dir: string, input: { caso: string; esperado?: string | undefined }): string => {
+  const caso = input.caso.trim().slice(0, 300);
+  if (!caso) throw new ChecklistError('Escribí el caso a probar');
+  const id = manualId(`panel|${caso}`);
+  saveManual(dir, (state) => {
+    if (state.custom.length >= MAX_CUSTOM) throw new ChecklistError(`Máximo ${MAX_CUSTOM} casos propios por ticket`);
+    if (state.custom.some((entry) => entry.id === id)) return;
+    const esperado = input.esperado?.trim().slice(0, 300);
+    state.custom.push({ id, caso, ...(esperado ? { esperado } : {}) });
+  });
+  return id;
+};
+
+export const removeManualCase = (dir: string, id: string): void => {
+  const state = stateOf(read<ManualFile>(MANUAL_FILE, {}), dir);
+  if (!state.custom.some((entry) => entry.id === id)) throw new ChecklistError('Solo se pueden borrar los casos agregados desde el panel');
+  saveManual(dir, (next) => {
+    next.custom = next.custom.filter((entry) => entry.id !== id);
+    delete next.done[id];
+  });
+};
+
+export const resetManualDone = (dir: string): void =>
+  saveManual(dir, (state) => {
+    state.done = {};
+  });

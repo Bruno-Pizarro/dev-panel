@@ -98,6 +98,7 @@ export interface TicketMeta {
   mrs?: TicketMr[];
   codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
   tipo?: 'desarrollo' | 'revision';
+  pruebasManuales?: Array<string | { caso: string; esperado?: string; grupo?: string }>;
   pruebas?: Array<{ conclusion?: string; fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
   plan?: { resumen?: string; diagrama?: string; referenciaVisual?: string };
 }
@@ -119,7 +120,7 @@ export interface TicketSummary {
   /** "revision" = solo se revisa el desarrollo de otra persona: va solo a Pruebas. */
   kind?: 'desarrollo' | 'revision';
   readyForTests?: boolean;
-  services?: { optional: string[]; skipped: string[]; source: 'ticket.json' | 'repos' | 'ninguno' };
+  services?: { optional: string[]; always: string[]; skipped: string[]; source: 'ticket.json' | 'repos' | 'repos + ticket.json' | 'ninguno' };
 }
 export interface TicketDetail extends TicketSummary {
   meta: TicketMeta | null;
@@ -212,6 +213,20 @@ export interface TestDataRow {
   collection: string;
   field: string;
   count: number;
+}
+
+export interface ManualCase {
+  id: string;
+  caso: string;
+  esperado: string | null;
+  grupo: string | null;
+  source: 'ticket' | 'panel';
+  done: boolean;
+}
+export interface ManualTests {
+  items: ManualCase[];
+  done: number;
+  total: number;
 }
 
 export interface ClaudeSkill {
