@@ -11,6 +11,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { TestRuns } from '../components/TestRuns';
 import { RedmineCard } from '../components/RedmineCard';
+import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
@@ -70,7 +71,7 @@ const Detail = ({ dir }: { dir: string }) => {
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} to="desarrollo" /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
       {tab === 'resumen' && <Summary detail={data} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}
@@ -83,16 +84,16 @@ export const Tests = () => {
   const { dir } = useParams();
   const list = useAsync(() => api.get<{ tickets: TicketSummary[]; extra: string }>('/api/tickets'));
   return (
-    <>
+    <div className="md:flex md:h-full md:min-h-0 md:flex-col">
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} />
-      <div className="grid gap-6 md:h-[calc(100vh-14rem)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="min-h-0 md:h-full">
+      <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="relative min-h-0 md:h-full">
           {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
         </div>
-        <div className="min-w-0 md:h-full md:overflow-y-auto md:pr-2">
+        <div className="relative min-w-0 md:h-full md:overflow-y-auto md:pr-2">
           {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
         </div>
       </div>
-    </>
+    </div>
   );
 };

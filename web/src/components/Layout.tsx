@@ -14,6 +14,8 @@ export const Layout = () => {
   const { pathname } = useLocation();
   // Las vistas de lectura (pruebas y desarrollo) usan todo el ancho disponible.
   const wide = ['/pruebas', '/planificacion', '/kanban'].some((prefix) => pathname.startsWith(prefix));
+  // Pruebas y Desarrollo son dos paneles con scroll propio: la página no debe tener un tercero.
+  const split = ['/pruebas', '/planificacion'].some((prefix) => pathname.startsWith(prefix));
   return (
     <div className="flex h-full">
       <Sidebar collapsed={collapsed} />
@@ -30,8 +32,8 @@ export const Layout = () => {
           <StatusDot labelClassName="hidden whitespace-nowrap xl:inline" status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-          <div className={cn('mx-auto animate-fade-in', wide ? 'max-w-none' : 'max-w-6xl')}>
+        <main className={cn('min-h-0 flex-1 overflow-y-auto px-8 py-8', split && 'md:overflow-hidden')}>
+          <div className={cn('mx-auto animate-fade-in', wide ? 'max-w-none' : 'max-w-6xl', split && 'md:h-full')}>
             <Outlet />
           </div>
         </main>

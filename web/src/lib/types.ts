@@ -93,6 +93,7 @@ export interface TicketMeta {
   repos?: string[];
   mrs?: TicketMr[];
   codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
+  tipo?: 'desarrollo' | 'revision';
   pruebas?: Array<{ conclusion?: string; fecha?: string; resumen?: string; resultado?: string; archivo?: string; capturas?: string[] }>;
   plan?: { resumen?: string; diagrama?: string; referenciaVisual?: string };
 }
@@ -111,6 +112,9 @@ export interface TicketSummary {
   lastTest: { fecha: string | null; resultado: string | null } | null;
   review: string | null;
   testStatus?: TestStatus;
+  /** "revision" = solo se revisa el desarrollo de otra persona: va solo a Pruebas. */
+  kind?: 'desarrollo' | 'revision';
+  readyForTests?: boolean;
 }
 export interface TicketDetail extends TicketSummary {
   meta: TicketMeta | null;

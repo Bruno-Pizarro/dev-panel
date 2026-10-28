@@ -1,6 +1,6 @@
 import { Layers } from 'lucide-react';
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { DocViewer } from '../components/DocViewer';
 import { EmptyState } from '../components/EmptyState';
@@ -10,6 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { RedmineCard } from '../components/RedmineCard';
+import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
@@ -33,13 +34,15 @@ const Detail = ({ dir }: { dir: string }) => {
   if (detail.loading) return <Skeleton className="h-96" />;
   if (detail.error || !detail.data) return <p className="text-danger">{detail.error}</p>;
   const data = detail.data;
+  // Un ticket solo de revisión nunca se muestra en Desarrollo: su lugar es Pruebas.
+  if (data.kind === 'revision') return <Navigate to={`/pruebas/${encodeURIComponent(dir)}`} replace />;
   const plan = planDoc(data);
   const diagram = diagramFile(data);
   const reference = referenceImage(data);
   const groups = classifyDocs(data.files.docs);
 
   return (
-    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} to="pruebas" /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="desarrollo" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
       {tab === 'plan' &&
         (plan ? (
@@ -73,16 +76,16 @@ export const Planning = () => {
   const { dir } = useParams();
   const list = useAsync(() => api.get<{ tickets: TicketSummary[] }>('/api/tickets'));
   return (
-    <>
+    <div className="md:flex md:h-full md:min-h-0 md:flex-col">
       <PageHeader title="Desarrollo" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." />
-      <div className="grid gap-6 md:h-[calc(100vh-14rem)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className="min-h-0 md:h-full">
-          {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/planificacion" />}
+      <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
+        <div className="relative min-h-0 md:h-full">
+          {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={(list.data?.tickets ?? []).filter((ticket) => ticket.kind !== 'revision')} basePath="/planificacion" />}
         </div>
-        <div className="min-w-0 md:h-full md:overflow-y-auto md:pr-2">
+        <div className="relative min-w-0 md:h-full md:overflow-y-auto md:pr-2">
           {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<Layers className="size-6" />} title="Elegí un desarrollo">Acá vas a entender una funcionalidad sin leer todo el análisis: ticket, rama, plan abreviado, diagrama y cómo debería verse.</EmptyState>}
         </div>
       </div>
-    </>
+    </div>
   );
 };

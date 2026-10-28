@@ -17,6 +17,7 @@ Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener u
   "url": "https://redmine.icono-cloud.com/issues/33526",
   "estado": "En desarrollo",
   "responsable": "Nombre",
+  "tipo": "desarrollo | revision",
   "rama": "feature/33526-pendientes-firma",
   "repos": ["front", "legajo", "documentos"],
   "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.icono-cloud.com/...", "autor": "usuario", "estado": "abierto" }],
@@ -48,3 +49,8 @@ Los diagramas de los `.md` y `.mmd` se dibujan en el panel con Mermaid, que es e
 2. **Punto y coma en un mensaje de secuencia:** `A->>B: recalcula; sigue` falla (el `;` corta la instrucción). Usar coma, "y" o `#59;`.
 3. **Dos veces `:` en una transición de estados:** `A --> B: texto (rol: admin)` falla. Dejar un solo `:` por línea.
 Etiquetas que ya empiezan con comillas (`A["Texto (con paréntesis)"]`) son válidas.
+
+## Tipo de ticket: `tipo`
+- `desarrollo` (por defecto): lo desarrollo yo; aparece en **Desarrollo** y en Pruebas.
+- `revision`: solo reviso el desarrollo de otra persona; **nunca** aparece en Desarrollo, solo en Pruebas, y el resumen semanal lo agrupa como revisión.
+- Lo marcado en el panel (Pruebas → "Tipo de ticket") tiene prioridad sobre este campo. "Listo para pruebas" también se marca en el panel y no vive en este archivo.

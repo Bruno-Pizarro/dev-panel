@@ -43,7 +43,7 @@ describe('agrupar por ticket', () => {
 
 describe('texto del pedido', () => {
   const range = weekRange('current', new Date(2026, 9, 28));
-  const data = formatWeekData(range, [{ ticket: '33526', url: 'https://redmine.example.com/issues/33526', title: 'Pestaña Pendientes de firma', redmineStatus: 'Revisión', commits: [{ repo: 'front', subject: 'feat: pestaña' }], pushes: 1, reviews: [], mergeRequests: [], tests: ['31/31'], analyses: [], estimations: [] }]);
+  const data = formatWeekData(range, [{ ticket: '33526', url: 'https://redmine.example.com/issues/33526', title: 'Pestaña Pendientes de firma', redmineStatus: 'Revisión', kind: 'desarrollo', commits: [{ repo: 'front', subject: 'feat: pestaña' }], pushes: 1, reviews: [], mergeRequests: [], tests: ['31/31'], analyses: [], estimations: [] }]);
 
   it('los datos listan el ticket con su título, estado, commits y pruebas', () => {
     expect(data).toContain('Ticket 33526 — Pestaña Pendientes de firma [estado en Redmine: Revisión]');

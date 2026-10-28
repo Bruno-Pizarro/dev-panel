@@ -12,6 +12,8 @@ export const ticketMetaSchema = z
     estado: z.string().optional(),
     responsable: z.string().optional(),
     rama: z.string().optional(),
+    /** "desarrollo" = lo desarrollo yo; "revision" = solo reviso el desarrollo de otra persona (va solo a Pruebas). */
+    tipo: z.enum(['desarrollo', 'revision']).optional(),
     repos: z.array(z.string()).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),

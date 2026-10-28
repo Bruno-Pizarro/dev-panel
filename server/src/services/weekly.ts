@@ -3,7 +3,8 @@ import { run, type Runner } from '../docker.js';
 import { collectGit, collectTickets, type ActivityEvent } from './activity.js';
 import { localDay } from './checklists.js';
 import { fetchIssue, ticketUrl } from './redmine.js';
-import { ignoredDirs, listTickets } from './tickets.js';
+import { getTicketState, kindOf } from './ticketState.js';
+import { getTicket, ignoredDirs, listTickets } from './tickets.js';
 
 export type WeekChoice = 'current' | 'previous';
 
@@ -36,6 +37,8 @@ export interface TicketWeek {
   url: string | null;
   title: string | null;
   redmineStatus: string | null;
+  /** "revision" = solo se revisó el desarrollo de otra persona. */
+  kind: 'desarrollo' | 'revision';
   commits: Array<{ repo: string; subject: string }>;
   pushes: number;
   reviews: string[];
@@ -45,7 +48,7 @@ export interface TicketWeek {
   estimations: string[];
 }
 
-const empty = (ticket: string | null): TicketWeek => ({ ticket, url: null, title: null, redmineStatus: null, commits: [], pushes: 0, reviews: [], mergeRequests: [], tests: [], analyses: [], estimations: [] });
+const empty = (ticket: string | null): TicketWeek => ({ ticket, url: null, title: null, redmineStatus: null, kind: 'desarrollo', commits: [], pushes: 0, reviews: [], mergeRequests: [], tests: [], analyses: [], estimations: [] });
 const clean = (title: string) => title.replace(/^(Pruebas|Code review|Informe|Análisis|Estimación)\s·\s/, '');
 
 /** Agrupa los eventos de la semana por ticket. Lo que no se puede asociar a un número queda en "sin ticket". */
@@ -75,7 +78,7 @@ export const formatWeekData = (range: WeekRange, tickets: TicketWeek[]): string 
   const lines = [`Semana ${range.label}`, ''];
   if (!tickets.length) lines.push('(sin actividad registrada en git ni en la base de conocimiento)');
   for (const item of tickets) {
-    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.url ? ` — ${item.url}` : ''}` : '- Sin número de ticket');
+    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.url ? ` — ${item.url}` : ''}${item.kind === 'revision' ? ' [SOLO REVISIÓN de desarrollo ajeno]' : ''}` : '- Sin número de ticket');
     const repos = [...new Set(item.commits.map((commit) => commit.repo))].filter(Boolean);
     if (item.commits.length) lines.push(`  - ${item.commits.length} commits${repos.length ? ` en ${repos.join(', ')}` : ''}: ${item.commits.slice(0, 6).map((commit) => commit.subject).join(' · ')}${item.commits.length > 6 ? ` · … y ${item.commits.length - 6} más` : ''}`);
     if (item.pushes) lines.push(`  - ${item.pushes} push`);
@@ -109,6 +112,7 @@ export const buildReportPrompt = (range: WeekRange, data: string): string =>
     '',
     'Reglas:',
     '- Mismo formato y tono que el ejemplo de abajo: bloques cortos, cada ticket como "- NÚMERO Título", y una línea final por bloque con su estado.',
+    '- Los tickets marcados [SOLO REVISIÓN de desarrollo ajeno] van siempre en el bloque de revisiones y nunca como "avanzados".',
     '- Agrupá así (omití el bloque que no aplique): tickets avanzados; revisiones hechas a tickets de otros; correcciones subidas a pedido de una revisión; estimación, análisis y definición de tickets nuevos.',
     '- Usá solo lo que figura en los datos. No inventes quién revisó, fechas ni estados: si algo no está, omitilo o preguntámelo en una línea aparte, fuera del bloque.',
     '- Los títulos de los tickets, sin prefijos como "[5 SP]" ni "[Módulo: …]".',
@@ -141,11 +145,14 @@ export const buildWeeklyReport = async (config: DevPanelConfig, choice: WeekChoi
   const events = [...(await collectGit(config, range.start, runner)), ...collectTickets(config, range.start)].filter(inWeek);
   const tickets = groupByTicket(events);
 
-  const folders = new Map(listTickets(config.paths.extra, ignoredDirs(config)).filter((item) => item.ticket).map((item) => [item.ticket!, item.title]));
+  const found = listTickets(config.paths.extra, ignoredDirs(config)).filter((item) => item.ticket);
+  const folders = new Map(found.map((item) => [item.ticket!, item.title]));
+  const kinds = new Map(found.map((item) => [item.ticket!, kindOf(getTicketState(item.dir), getTicket(config.paths.extra, item.dir, ignoredDirs(config))?.meta?.tipo)]));
   await Promise.all(
     tickets.slice(0, 20).map(async (item) => {
       if (!item.ticket) return;
       item.url = ticketUrl(config, item.ticket);
+      item.kind = kinds.get(item.ticket) ?? 'desarrollo';
       item.title = folders.get(item.ticket) ?? null;
       try {
         const issue = await fetchIssue(config, item.ticket);

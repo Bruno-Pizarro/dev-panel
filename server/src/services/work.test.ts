@@ -196,3 +196,17 @@ describe('el kanban nunca pide tickets de otros', () => {
     else process.env['REDMINE_API_KEY'] = previous;
   });
 });
+
+describe('tipo de ticket y "listo para pruebas"', () => {
+  it('lo marcado en el panel manda sobre ticket.json y por defecto es desarrollo propio', async () => {
+    const { kindOf, getTicketState, setTicketState } = await import('./ticketState.js');
+    expect(kindOf({}, undefined)).toBe('desarrollo');
+    expect(kindOf({}, 'revision')).toBe('revision');
+    expect(kindOf({ kind: 'desarrollo' }, 'revision')).toBe('desarrollo');
+    const dir = `t-${Date.now()}`;
+    expect(setTicketState(dir, { ready: true }, new Date('2026-10-28T10:00:00Z'))).toMatchObject({ readyForTests: true, readyAt: '2026-10-28T10:00:00.000Z' });
+    expect(setTicketState(dir, { kind: 'revision' })).toMatchObject({ readyForTests: true, kind: 'revision' });
+    expect(setTicketState(dir, { ready: false }).readyAt).toBeUndefined();
+    expect(getTicketState(dir).kind).toBe('revision');
+  });
+});
