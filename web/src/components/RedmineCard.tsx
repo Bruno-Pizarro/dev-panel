@@ -2,6 +2,7 @@ import { CalendarClock, ChevronDown, ExternalLink, FileText, Gauge, Layers3, Tim
 import { useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
+import { textileToMarkdown } from '../lib/textile';
 import { timeAgo } from '../lib/tickets';
 import type { RedmineIssue } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -64,7 +65,7 @@ export const RedmineCard = ({ ticket }: { ticket: string | null }) => {
         <div className="mt-5 border-t border-line pt-4">
           <Button variant="secondary" icon={<FileText className="size-4" />} onClick={() => setDescriptionOpen(true)}>Leer la descripción completa</Button>
           <Modal open={descriptionOpen} onClose={() => setDescriptionOpen(false)} size="screen" title={`#${data.id} · ${data.title}`}>
-            <div className="min-h-0 flex-1 overflow-y-auto pr-2"><Markdown source={data.description} /></div>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2"><Markdown source={textileToMarkdown(data.description)} /></div>
           </Modal>
         </div>
       )}
