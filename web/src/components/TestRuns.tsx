@@ -16,7 +16,7 @@ interface StateResponse {
 }
 
 /** Cada tanda de pruebas tiene su propio checklist (actualizar ticket, subir comentarios…) y su conclusión. */
-export const TestRuns = ({ dir, runs }: { dir: string; runs: NonNullable<TicketMeta['pruebas']> }) => {
+export const TestRuns = ({ dir, runs, onChanged }: { dir: string; runs: NonNullable<TicketMeta['pruebas']>; onChanged?: () => void }) => {
   const toast = useToast();
   const state = useAsync(() => api.get<StateResponse>(`/api/tickets/${encodeURIComponent(dir)}/test-state`));
   const [local, setLocal] = useState<Record<string, TestRunState>>({});
@@ -28,6 +28,8 @@ export const TestRuns = ({ dir, runs }: { dir: string; runs: NonNullable<TicketM
     try {
       const next = await api.put<TestRunState>(`/api/tickets/${encodeURIComponent(dir)}/test-state/${index}`, patch);
       setLocal((previous) => ({ ...previous, [index]: next }));
+      // El listado lateral (conclusión y checklist por ticket) se actualiza al instante, sin recargar la página.
+      onChanged?.();
     } catch (error) {
       toast('error', (error as Error).message);
     }

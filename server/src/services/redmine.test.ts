@@ -38,6 +38,12 @@ describe('mapIssue', () => {
     expect(issue).toMatchObject({ id: 33526, url: 'https://r.example.com/issues/33526', status: 'Desarrollo', storyPoints: 5, estimatedHours: 16, spentHours: 1, relations: 2, assignedTo: 'Bruno' });
     expect(issue.lastNotes.map((note) => note.notes)).toEqual(['dos', 'tres', 'cuatro']);
   });
+
+  it('trae la descripción completa solo en el detalle (con journals), no en las listas', () => {
+    const list = Object.fromEntries(Object.entries(RAW).filter(([key]) => key !== 'journals')) as typeof RAW;
+    expect(mapIssue({ ...RAW, description: '  # Título\n\nTexto largo  ' }, 'https://r.example.com').description).toBe('# Título\n\nTexto largo');
+    expect(mapIssue({ ...list, description: 'no debería viajar' }, 'https://r.example.com').description).toBe('');
+  });
 });
 
 describe('credenciales', () => {

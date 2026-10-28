@@ -1,10 +1,16 @@
-import { CalendarClock, ExternalLink, Gauge, Layers3, Timer, UserRound } from 'lucide-react';
+import { CalendarClock, ChevronDown, ExternalLink, FileText, Gauge, Layers3, Timer, UserRound } from 'lucide-react';
+import { useState } from 'react';
 import { api } from '../lib/api';
+import { cn } from '../lib/cn';
 import { timeAgo } from '../lib/tickets';
 import type { RedmineIssue } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge, toneOf } from './Badge';
+import { Button } from './Button';
 import { Card } from './Card';
+import { Linkified } from './Linkified';
+import { Markdown } from './Markdown';
+import { Modal } from './Modal';
 import { Skeleton } from './Skeleton';
 
 const hours = (value: number | null) => (value === null ? '—' : `${value % 1 === 0 ? value : value.toFixed(1)} h`);
@@ -22,6 +28,8 @@ const Fact = ({ icon: Icon, label, children }: { icon: typeof Timer; label: stri
 
 /** Datos en vivo del ticket desde Redmine (solo lectura). Si no hay API key, se oculta sin molestar. */
 export const RedmineCard = ({ ticket }: { ticket: string | null }) => {
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
   const issue = useAsync(() => (ticket ? api.get<RedmineIssue>(`/api/redmine/issues/${ticket}`) : Promise.reject(new Error('sin ticket'))));
   if (!ticket) return null;
   if (issue.loading) return <Skeleton className="mb-6 h-40" />;
@@ -29,6 +37,7 @@ export const RedmineCard = ({ ticket }: { ticket: string | null }) => {
     return <p className="mb-6 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">Redmine: {issue.error}</p>;
   }
   const data = issue.data;
+  const issueBase = data.url.replace(/\/\d+$/, '');
   const progress = data.estimatedHours ? Math.min(100, Math.round(((data.spentHours ?? 0) / data.estimatedHours) * 100)) : null;
 
   return (
@@ -51,17 +60,28 @@ export const RedmineCard = ({ ticket }: { ticket: string | null }) => {
           <Layers3 className="size-4" aria-hidden />{data.module && <Badge tone="accent">{data.module}</Badge>}{data.relations > 0 && <Badge>{data.relations} relaciones</Badge>}<Badge>{data.project}</Badge>
         </div>
       )}
+      {data.description && (
+        <div className="mt-5 border-t border-line pt-4">
+          <Button variant="secondary" icon={<FileText className="size-4" />} onClick={() => setDescriptionOpen(true)}>Leer la descripción completa</Button>
+          <Modal open={descriptionOpen} onClose={() => setDescriptionOpen(false)} size="screen" title={`#${data.id} · ${data.title}`}>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2"><Markdown source={data.description} /></div>
+          </Modal>
+        </div>
+      )}
       {data.lastNotes.length > 0 && (
         <div className="mt-5 border-t border-line pt-4">
-          <div className="mb-2 text-sm font-medium">Últimos comentarios</div>
-          <ul className="space-y-2.5">
+          <button type="button" onClick={() => setNotesOpen(!notesOpen)} aria-expanded={notesOpen} className="flex w-full items-center gap-2 text-left text-sm font-medium hover:text-accent">
+            <ChevronDown className={cn('size-4 transition-transform', !notesOpen && '-rotate-90')} aria-hidden />
+            Últimos comentarios <span className="text-muted">({data.lastNotes.length})</span>
+          </button>
+          {notesOpen && <ul className="mt-3 space-y-2.5">
             {data.lastNotes.map((note, index) => (
               <li key={index} className="rounded-lg bg-surface-2 px-3.5 py-2.5 text-sm">
                 <span className="font-medium">{note.user}</span> <span className="text-muted">· {timeAgo(Date.parse(note.date))}</span>
-                <p className="mt-1 whitespace-pre-wrap text-muted">{note.notes}</p>
+                <p className="mt-1 whitespace-pre-wrap text-muted"><Linkified text={note.notes} issueBaseUrl={issueBase} /></p>
               </li>
             ))}
-          </ul>
+          </ul>}
         </div>
       )}
     </Card>

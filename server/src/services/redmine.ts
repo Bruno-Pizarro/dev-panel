@@ -40,6 +40,8 @@ export interface RedmineIssue {
   updatedOn: string;
   closedOn: string | null;
   relations: number;
+  /** Solo viene en el detalle de un ticket (en las listas, como el kanban, queda vacía para no mover datos de más). */
+  description: string;
   lastNotes: RedmineNote[];
 }
 
@@ -61,6 +63,7 @@ interface RawIssue {
   updated_on?: string;
   closed_on?: string | null;
   relations?: unknown[];
+  description?: string | null;
   journals?: Array<{ user?: { name: string }; created_on: string; notes?: string }>;
 }
 
@@ -97,10 +100,11 @@ export const mapIssue = (raw: RawIssue, baseUrl: string, closedStatuses: Set<str
     updatedOn: raw.updated_on ?? '',
     closedOn: raw.closed_on ?? null,
     relations: raw.relations?.length ?? 0,
+    description: raw.journals === undefined ? '' : (raw.description ?? '').trim().slice(0, 50_000),
     lastNotes: (raw.journals ?? [])
       .filter((journal) => journal.notes?.trim())
       .slice(-3)
-      .map((journal) => ({ user: journal.user?.name ?? '—', date: journal.created_on, notes: journal.notes!.trim().slice(0, 400) })),
+      .map((journal) => ({ user: journal.user?.name ?? '—', date: journal.created_on, notes: journal.notes!.trim().slice(0, 4000) })),
   };
 };
 

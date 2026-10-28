@@ -236,6 +236,7 @@ export interface RedmineIssue {
   updatedOn: string;
   closedOn: string | null;
   relations: number;
+  description: string;
   lastNotes: Array<{ user: string; date: string; notes: string }>;
 }
 

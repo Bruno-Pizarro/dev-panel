@@ -21,13 +21,13 @@ import { useAsync } from '../lib/useAsync';
 
 type Tab = 'resumen' | 'informes' | 'capturas';
 
-const Summary = ({ detail }: { detail: TicketDetail }) => {
+const Summary = ({ detail, onListChanged }: { detail: TicketDetail; onListChanged: () => void }) => {
   const meta = detail.meta;
   const empty = !meta?.pruebas?.length && !meta?.mrs?.length && !meta?.codeReview?.length;
   if (empty) return <EmptyState icon={<ClipboardCheck className="size-6" />} title="Sin resumen estructurado">Hay {detail.docs} documentos y {detail.images} capturas en las otras pestañas. El resumen aparece cuando existe <span className="font-mono">ticket.json</span>.</EmptyState>;
   return (
     <div className="space-y-6">
-      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} />}
+      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} />}
       {meta?.mrs && meta.mrs.length > 0 && (
         <Card title="Merge requests">
           <table className="w-full text-left text-sm">
@@ -63,7 +63,7 @@ const Summary = ({ detail }: { detail: TicketDetail }) => {
   );
 };
 
-const Detail = ({ dir }: { dir: string }) => {
+const Detail = ({ dir, onListChanged }: { dir: string; onListChanged: () => void }) => {
   const [tab, setTab] = useState<Tab>('resumen');
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   if (detail.loading) return <Skeleton className="h-96" />;
@@ -71,9 +71,9 @@ const Detail = ({ dir }: { dir: string }) => {
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} /></>}>
+    <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
-      {tab === 'resumen' && <Summary detail={data} />}
+      {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} />}
       {tab === 'capturas' && <Gallery dir={dir} images={data.files.images} />}
     </TicketFrame>
@@ -88,10 +88,10 @@ export const Tests = () => {
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} />
       <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="relative min-h-0 md:h-full">
-          {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
+          {list.loading && !list.data ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}
         </div>
         <div className="relative min-w-0 md:h-full md:overflow-y-auto md:pr-2">
-          {dir ? <Detail key={dir} dir={dir} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
+          {dir ? <Detail key={dir} dir={dir} onListChanged={list.reload} /> : <EmptyState icon={<ClipboardCheck className="size-6" />} title="Elegí un ticket">Acá vas a ver el resumen de pruebas, los informes en Markdown y las capturas de cada carpeta de la base de conocimiento.</EmptyState>}
         </div>
       </div>
     </div>
