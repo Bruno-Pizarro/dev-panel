@@ -66,7 +66,6 @@ const Card = ({ issue, folder }: { issue: RedmineIssue; folder: TicketSummary | 
 };
 
 export const Kanban = () => {
-  const [scope, setScope] = useStoredState<'me' | 'all'>('devpanel.kanban.scope', 'me');
   const [days, setDays] = useStoredState<number>('devpanel.kanban.days', 30);
   const [sort, setSort] = useStoredState<Sort>('devpanel.kanban.sort', 'updated');
   const [showClosed, setShowClosed] = useStoredState<boolean>('devpanel.kanban.closed', false);
@@ -74,8 +73,7 @@ export const Kanban = () => {
   const [picking, setPicking] = useState(false);
   const dragRef = useDragScroll<HTMLDivElement>();
   const [query, setQuery] = useState('');
-  const [assignee, setAssignee] = useState<string | null>(null);
-  const board = useAsync(() => api.get<Board>(`/api/redmine/board?scope=${scope}&days=${days}`));
+  const board = useAsync(() => api.get<Board>(`/api/redmine/board?days=${days}`));
   const folders = useAsync(() => api.get<{ tickets: TicketSummary[] }>('/api/tickets'));
   // Al cambiar los filtros del servidor (alcance o días) se vuelve a pedir; la primera carga ya la hizo useAsync.
   const first = useRef(true);
@@ -83,16 +81,15 @@ export const Kanban = () => {
     if (first.current) first.current = false;
     else board.reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, days]);
+  }, [days]);
 
   const data = board.data;
   const byTicket = useMemo(() => new Map((folders.data?.tickets ?? []).filter((item) => item.ticket).map((item) => [item.ticket!, item])), [folders.data]);
-  const people = useMemo(() => [...new Set((data?.issues ?? []).map((issue) => issue.assignedTo).filter((name): name is string => Boolean(name)))].sort(), [data]);
 
   const columns = useMemo(() => {
     if (!data) return [];
     const text = query.trim().toLowerCase();
-    const visible = data.issues.filter((issue) => (!assignee || issue.assignedTo === assignee) && (!text || `${issue.id} ${issue.title} ${issue.module ?? ''}`.toLowerCase().includes(text)));
+    const visible = data.issues.filter((issue) => (!text || `${issue.id} ${issue.title} ${issue.module ?? ''}`.toLowerCase().includes(text)));
     const order = (a: RedmineIssue, b: RedmineIssue) =>
       sort === 'sp' ? (b.storyPoints ?? -1) - (a.storyPoints ?? -1) : sort === 'priority' ? (PRIORITY_RANK[a.priority] ?? 3) - (PRIORITY_RANK[b.priority] ?? 3) || b.updatedOn.localeCompare(a.updatedOn) : b.updatedOn.localeCompare(a.updatedOn);
     return data.statuses
@@ -102,7 +99,7 @@ export const Kanban = () => {
         return { status, issues, sp: issues.reduce((sum, issue) => sum + (issue.storyPoints ?? 0), 0), hours: issues.reduce((sum, issue) => sum + (issue.estimatedHours ?? 0), 0) };
       })
       .filter((column) => column.issues.length > 0 || !column.status.closed);
-  }, [data, query, assignee, sort, showClosed, hiddenColumns]);
+  }, [data, query, sort, showClosed, hiddenColumns]);
 
   const shown = columns.reduce((sum, column) => sum + column.issues.length, 0);
   // Columnas sin tickets ocupan lugar: se colapsan a un rótulo angosto.
@@ -113,7 +110,7 @@ export const Kanban = () => {
     <>
       <PageHeader
         title="Kanban"
-        description={data ? `${shown} tickets con cambios en los últimos ${data.days} días · Redmine, solo lectura` : 'Tickets de Redmine por estado.'}
+        description={data ? `${shown} tickets con cambios en los últimos ${data.days} días · tus tickets en Redmine, solo lectura` : 'Tickets de Redmine por estado.'}
         actions={<Button icon={<RefreshCw className="size-4" />} onClick={board.reload}>Actualizar</Button>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -121,16 +118,10 @@ export const Kanban = () => {
           <Search className="size-4 text-muted" aria-hidden />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar número, título o módulo…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
         </label>
-        <div className="flex gap-2"><Chip selected={scope === 'me'} onToggle={() => setScope('me')}>Mis tickets</Chip><Chip selected={scope === 'all'} onToggle={() => setScope('all')} hint="Todos los que puede ver tu API key">Todos</Chip></div>
-        <div className="flex items-center gap-2"><span className="text-sm text-muted">Cambios en</span>{[7, 30, 60].map((value) => <Chip key={value} selected={days === value} onToggle={() => setDays(value)}>{value} días</Chip>)}</div>
+                <div className="flex items-center gap-2"><span className="text-sm text-muted">Cambios en</span>{[7, 30, 60].map((value) => <Chip key={value} selected={days === value} onToggle={() => setDays(value)}>{value} días</Chip>)}</div>
         <div className="flex items-center gap-2"><span className="text-sm text-muted">Ordenar</span>{([['updated', 'Actualización'], ['sp', 'SP'], ['priority', 'Prioridad']] as const).map(([id, label]) => <Chip key={id} selected={sort === id} onToggle={() => setSort(id)}>{label}</Chip>)}</div>
         <Chip selected={showClosed} onToggle={() => setShowClosed(!showClosed)} hint="Entregado, Rechazado y Baja">Mostrar cerrados</Chip>
         <Button className="h-10" icon={<Columns3 className="size-4" />} onClick={() => setPicking(!picking)}>Columnas{hiddenColumns.length ? ` (${hiddenColumns.length} ocultas)` : ''}</Button>
-        {scope === 'all' && people.length > 0 && (
-          <select value={assignee ?? ''} onChange={(event) => setAssignee(event.target.value || null)} aria-label="Asignado a" className="h-10 rounded-lg border border-line bg-surface px-3 text-sm outline-none focus:border-accent/60">
-            <option value="">Todos los asignados</option>{people.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-        )}
       </div>
 
       {picking && data && (
@@ -147,13 +138,13 @@ export const Kanban = () => {
         </div>
       )}
 
-      {scope === 'me' && <SpHistoryCard />}
+      <SpHistoryCard />
 
       {board.loading && !data ? <div className="flex gap-4"><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /></div> : board.error ? (
         <p className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-muted">Redmine: {board.error}</p>
       ) : (
         <>
-          {data?.truncated && <p className="mb-3 text-sm text-warning">Hay más de 500 tickets: se muestran los 500 más recientes. Acotá los días o usá “Mis tickets”.</p>}
+          {data?.truncated && <p className="mb-3 text-sm text-warning">Hay más de 100 tickets en ese período: se muestran los 100 más recientes. Acotá los días.</p>}
           <div ref={dragRef} className="flex cursor-grab items-start gap-4 overflow-x-auto pb-4" title="Arrastrá para moverte">
             {filled.map(({ status, issues, sp, hours }) => {
               const rgb = STATUS_RGB[status.name] ?? '138 151 255';

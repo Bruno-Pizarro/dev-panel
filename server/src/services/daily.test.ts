@@ -63,6 +63,8 @@ describe('borrador', () => {
     );
     expect(markdown).toContain('# Daily 2026-10-27');
     expect(markdown).toContain('**#33526 Pendientes de firma** — En desarrollo · pruebas 31/31');
+    const linked = formatDraft('2026-10-27', [], [{ dir: '33526-x', ticket: '33526', title: 'Pendientes de firma', estado: null, rama: null, repos: [], mrs: 0, lastUpdated: 0, docs: 0, images: 0, hasMeta: false, lastTest: null, review: null }], (t) => `https://r.example.com/issues/${t}`);
+    expect(linked).toContain('**[#33526](https://r.example.com/issues/33526) Pendientes de firma**');
     expect(markdown).toContain('### front (`feature/x`)');
     expect(markdown).toContain('1 commits · 3 archivos · +10 −2');
     expect(markdown).toContain('`abc1234` feat: panel');

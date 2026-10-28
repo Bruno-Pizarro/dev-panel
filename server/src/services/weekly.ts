@@ -2,7 +2,7 @@ import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
 import { collectGit, collectTickets, type ActivityEvent } from './activity.js';
 import { localDay } from './checklists.js';
-import { fetchIssue } from './redmine.js';
+import { fetchIssue, ticketUrl } from './redmine.js';
 import { ignoredDirs, listTickets } from './tickets.js';
 
 export type WeekChoice = 'current' | 'previous';
@@ -32,6 +32,8 @@ export const ticketOfEvent = (event: ActivityEvent): string | null => {
 
 export interface TicketWeek {
   ticket: string | null;
+  /** Enlace al ticket en Redmine. */
+  url: string | null;
   title: string | null;
   redmineStatus: string | null;
   commits: Array<{ repo: string; subject: string }>;
@@ -43,7 +45,7 @@ export interface TicketWeek {
   estimations: string[];
 }
 
-const empty = (ticket: string | null): TicketWeek => ({ ticket, title: null, redmineStatus: null, commits: [], pushes: 0, reviews: [], mergeRequests: [], tests: [], analyses: [], estimations: [] });
+const empty = (ticket: string | null): TicketWeek => ({ ticket, url: null, title: null, redmineStatus: null, commits: [], pushes: 0, reviews: [], mergeRequests: [], tests: [], analyses: [], estimations: [] });
 const clean = (title: string) => title.replace(/^(Pruebas|Code review|Informe|Análisis|Estimación)\s·\s/, '');
 
 /** Agrupa los eventos de la semana por ticket. Lo que no se puede asociar a un número queda en "sin ticket". */
@@ -73,7 +75,7 @@ export const formatWeekData = (range: WeekRange, tickets: TicketWeek[]): string 
   const lines = [`Semana ${range.label}`, ''];
   if (!tickets.length) lines.push('(sin actividad registrada en git ni en la base de conocimiento)');
   for (const item of tickets) {
-    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}` : '- Sin número de ticket');
+    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.url ? ` — ${item.url}` : ''}` : '- Sin número de ticket');
     const repos = [...new Set(item.commits.map((commit) => commit.repo))].filter(Boolean);
     if (item.commits.length) lines.push(`  - ${item.commits.length} commits${repos.length ? ` en ${repos.join(', ')}` : ''}: ${item.commits.slice(0, 6).map((commit) => commit.subject).join(' · ')}${item.commits.length > 6 ? ` · … y ${item.commits.length - 6} más` : ''}`);
     if (item.pushes) lines.push(`  - ${item.pushes} push`);
@@ -110,6 +112,7 @@ export const buildReportPrompt = (range: WeekRange, data: string): string =>
     '- Agrupá así (omití el bloque que no aplique): tickets avanzados; revisiones hechas a tickets de otros; correcciones subidas a pedido de una revisión; estimación, análisis y definición de tickets nuevos.',
     '- Usá solo lo que figura en los datos. No inventes quién revisó, fechas ni estados: si algo no está, omitilo o preguntámelo en una línea aparte, fuera del bloque.',
     '- Los títulos de los tickets, sin prefijos como "[5 SP]" ni "[Módulo: …]".',
+    '- Cada ticket lleva su enlace completo de Redmine (el que figura en los datos) justo después del título, como URL en texto plano: así queda clickeable al pegarlo en el Google Doc. Ej.: "- 32972 Saldo de licencia en el formulario de carga https://…/issues/32972".',
     '- Muy breve: sin detalles técnicos ni nombres de archivos.',
     '- Respondé con el texto final en un único bloque de código, listo para copiar y pegar.',
     '',
@@ -142,6 +145,7 @@ export const buildWeeklyReport = async (config: DevPanelConfig, choice: WeekChoi
   await Promise.all(
     tickets.slice(0, 20).map(async (item) => {
       if (!item.ticket) return;
+      item.url = ticketUrl(config, item.ticket);
       item.title = folders.get(item.ticket) ?? null;
       try {
         const issue = await fetchIssue(config, item.ticket);

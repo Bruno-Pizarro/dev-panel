@@ -67,9 +67,9 @@ export const mcpTools: McpToolDef[] = [
   },
   {
     name: 'kanban',
-    description: 'Tickets de Redmine con cambios recientes (el kanban): por estado, con SP, horas y última actualización.',
-    shape: { scope: z.enum(['me', 'all']).default('me'), days: z.number().int().min(1).max(90).default(30) },
-    run: (args, call) => call('GET', `/api/redmine/board${query({ scope: String(args['scope']), days: String(args['days']) })}`),
+    description: 'Mis tickets de Redmine con cambios recientes (el kanban): por estado, con SP, horas y última actualización. Solo los asignados al dueño de la API key.',
+    shape: { days: z.number().int().min(1).max(60).default(30) },
+    run: (args, call) => call('GET', `/api/redmine/board${query({ days: String(args['days']) })}`),
   },
   { name: 'sp_history', description: 'Story points entregados por semana (últimas 4) y su promedio.', shape: {}, run: (_a, call) => call('GET', '/api/redmine/sp-history') },
   { name: 'snapshots', description: 'Snapshots de datos guardados en este equipo.', shape: {}, run: (_a, call) => call('GET', '/api/data/snapshots') },

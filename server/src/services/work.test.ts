@@ -110,21 +110,24 @@ describe('kanban de Redmine', () => {
     expect(ordered.map((s) => s.name)).toEqual(['Análisis', 'Desarrollo', 'Entregado', 'Raro']);
   });
 
-  it('pide los ticket con cambios, pagina, filtra por asignado y manda la key por cabecera', async () => {
+  it('pide solo mis tickets con cambios, pagina con tope y manda la key por cabecera', async () => {
     const calls: Array<{ url: string; key: string | undefined }> = [];
+    // total_count 130 > 100: con el tope de 2 páginas de 50 no se piden todas.
     const mk = (id: number) => ({ id, subject: `[3 SP] Tarea ${id}`, status: { name: 'Desarrollo' }, updated_on: '2026-10-27T10:00:00Z' });
     const fetcher = async (url: string, init: { headers: Record<string, string> }) => {
       calls.push({ url, key: init.headers['X-Redmine-API-Key'] });
       if (url.includes('issue_statuses')) return { ok: true, status: 200, json: async () => ({ issue_statuses: [{ id: 16, name: 'Desarrollo', is_closed: false }] }) };
       const offset = Number(new URL(url).searchParams.get('offset'));
-      return { ok: true, status: 200, json: async () => ({ total_count: 130, issues: Array.from({ length: offset === 0 ? 100 : 30 }, (_, i) => mk(offset + i + 1)) }) };
+      return { ok: true, status: 200, json: async () => ({ total_count: 130, issues: Array.from({ length: 50 }, (_, i) => mk(offset + i + 1)) }) };
     };
-    const board = await fetchBoard(config, 'me', 30, fetcher, Date.parse('2026-10-27T12:00:00Z'));
-    expect(board.issues).toHaveLength(130);
+    const board = await fetchBoard(config, 30, fetcher, Date.parse('2026-10-27T12:00:00Z'));
+    expect(board.issues).toHaveLength(100);
+    expect(board.scope).toBe('me');
     expect(board.issues[0]).toMatchObject({ storyPoints: 3, title: 'Tarea 1' });
-    expect(board.truncated).toBe(false);
+    expect(board.truncated).toBe(true);
     const list = calls.filter((c) => c.url.includes('/issues.json'));
     expect(list).toHaveLength(2);
+    expect(list.every((c) => c.url.includes('limit=50'))).toBe(true);
     expect(list[0]!.url).toContain('assigned_to_id=me');
     expect(list[0]!.url).toContain('updated_on=%3E%3D2026-09-27');
     expect(list.every((c) => c.key === 'clave-de-prueba' && !c.url.includes('clave-de-prueba'))).toBe(true);
@@ -170,5 +173,26 @@ describe('historial semanal de story points', () => {
     ];
     expect(firstDelivery(journals, new Set(['20', '21']))).toBe('2026-10-22T10:00:00Z');
     expect(firstDelivery(journals, new Set(['99']))).toBeNull();
+  });
+});
+
+describe('el kanban nunca pide tickets de otros', () => {
+  it('siempre filtra por asignado "me", aunque el pedido intente otra cosa, y limita los días a 60', async () => {
+    const previous = process.env['REDMINE_API_KEY'];
+    process.env['REDMINE_API_KEY'] = 'clave-de-prueba';
+    const config = { ...defaultConfig('/x'), redmine: { enabled: true, configFile: '', baseUrl: 'https://r.test', doneStatuses: [] } };
+    const urls: string[] = [];
+    const fetcher = async (url: string) => {
+      urls.push(url);
+      return url.includes('issue_statuses') ? { ok: true, status: 200, json: async () => ({ issue_statuses: [] }) } : { ok: true, status: 200, json: async () => ({ total_count: 0, issues: [] }) };
+    };
+    clearBoardCache();
+    const board = await fetchBoard(config, 9999, fetcher, Date.parse('2026-10-27T12:00:00Z'));
+    expect(board.days).toBe(60);
+    const list = urls.filter((u) => u.includes('/issues.json'));
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((u) => u.includes('assigned_to_id=me'))).toBe(true);
+    if (previous === undefined) delete process.env['REDMINE_API_KEY'];
+    else process.env['REDMINE_API_KEY'] = previous;
   });
 });

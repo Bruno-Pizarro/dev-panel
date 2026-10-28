@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { RedmineError, fetchBoard, fetchSpHistory, fetchIssue, loadCredentials } from '../services/redmine.js';
+import { RedmineError, fetchBoard, redmineBaseUrl, fetchSpHistory, fetchIssue, loadCredentials } from '../services/redmine.js';
 import { requireConfig } from './helpers.js';
 
 export const registerRedmineRoutes = (app: FastifyInstance): void => {
@@ -9,7 +9,7 @@ export const registerRedmineRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     const credentials = loadCredentials(config);
-    return { configured: credentials !== null, baseUrl: credentials?.baseUrl ?? null };
+    return { configured: credentials !== null, baseUrl: redmineBaseUrl(config) };
   });
 
   app.get('/api/redmine/sp-history', async (_request, reply) => {
@@ -26,10 +26,10 @@ export const registerRedmineRoutes = (app: FastifyInstance): void => {
   app.get('/api/redmine/board', async (request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
-    const query = z.object({ scope: z.enum(['me', 'all']).default('me'), days: z.coerce.number().int().min(1).max(90).default(30) }).safeParse(request.query);
+    const query = z.object({ days: z.coerce.number().int().min(1).max(60).default(30) }).strict().safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'Parámetros inválidos' });
     try {
-      return await fetchBoard(config, query.data.scope, query.data.days);
+      return await fetchBoard(config, query.data.days);
     } catch (error) {
       if (error instanceof RedmineError) return reply.code(error.status).send({ error: error.message });
       throw error;

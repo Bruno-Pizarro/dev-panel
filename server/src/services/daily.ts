@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
+import { ticketUrl } from './redmine.js';
 import { ignoredDirs, listTickets, type TicketSummary } from './tickets.js';
 
 export const DAILY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
@@ -109,12 +110,14 @@ export const sinceDate = (mode: 'today' | 'yesterday' | 'last', now: Date, exist
   return today;
 };
 
-export const formatDraft = (date: string, activity: RepoActivity[], tickets: TicketSummary[]): string => {
+export const formatDraft = (date: string, activity: RepoActivity[], tickets: TicketSummary[], linkOf: (ticket: string) => string | null = () => null): string => {
   const lines: string[] = [`# Daily ${date}`, '', '## Resumen', '', '- _(completar: en qué se trabajó y cuánto se avanzó)_', '', '## Tickets'];
   if (!tickets.length) lines.push('', '- Sin actividad registrada en `_EXTRA`.');
   for (const ticket of tickets) {
     const parts = [ticket.estado, ticket.lastTest?.resultado ? `pruebas ${ticket.lastTest.resultado}` : null, ticket.review ? `review: ${ticket.review}` : null].filter(Boolean);
-    lines.push('', `- **${ticket.ticket ? `#${ticket.ticket} ` : ''}${ticket.title}**${parts.length ? ` — ${parts.join(' · ')}` : ''}`);
+    const url = ticket.ticket ? linkOf(ticket.ticket) : null;
+    const id = ticket.ticket ? (url ? `[#${ticket.ticket}](${url}) ` : `#${ticket.ticket} `) : '';
+    lines.push('', `- **${id}${ticket.title}**${parts.length ? ` — ${parts.join(' · ')}` : ''}`);
   }
   lines.push('', '## Código');
   if (!activity.length) lines.push('', '- Sin commits ni cambios pendientes en los repos configurados.');
@@ -133,5 +136,5 @@ export const buildDraft = async (config: DevPanelConfig, mode: 'today' | 'yester
   const since = sinceDate(mode, now, listDaily(config.paths.daily));
   const activity = await collectActivity(config, since, runner);
   const touched = listTickets(config.paths.extra, ignoredDirs(config)).filter((ticket) => ticket.lastUpdated >= since.getTime());
-  return formatDraft(localDate(now), activity, touched);
+  return formatDraft(localDate(now), activity, touched, (ticket) => ticketUrl(config, ticket));
 };

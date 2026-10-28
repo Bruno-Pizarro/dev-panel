@@ -74,7 +74,7 @@ export const Planning = () => {
   const list = useAsync(() => api.get<{ tickets: TicketSummary[] }>('/api/tickets'));
   return (
     <>
-      <PageHeader title="Planificación" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." />
+      <PageHeader title="Desarrollo" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." />
       <div className="grid gap-6 md:h-[calc(100vh-14rem)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="min-h-0 md:h-full">
           {list.loading ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/planificacion" />}

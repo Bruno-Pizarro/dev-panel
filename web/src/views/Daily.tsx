@@ -88,6 +88,7 @@ export const Daily = () => {
         'Pedido:',
         '- Resumí en pocas líneas en qué se estuvo trabajando y cuánto se avanzó (por ticket).',
         '- Listá lo más relevante que se modificó o agregó en el código, por repo, sin enumerar cada archivo.',
+        '- Cada ticket con su enlace clickeable en Markdown, tal como figura en los datos: [#33526](https://…/issues/33526).',
         '- Cerrá con pendientes y bloqueos, si los hay.',
         '- Tono directo, en español, pensado para decirlo en voz alta en un minuto o dos.',
         '- Respondé únicamente con el Markdown final, con el mismo formato del borrador, para pegarlo en el panel.',

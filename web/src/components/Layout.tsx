@@ -12,7 +12,7 @@ export const Layout = () => {
   const health = useHealth();
   const [collapsed, setCollapsed] = useStoredState<boolean>('devpanel.sidebar.collapsed', false);
   const { pathname } = useLocation();
-  // Las vistas de lectura (pruebas y planificación) usan todo el ancho disponible.
+  // Las vistas de lectura (pruebas y desarrollo) usan todo el ancho disponible.
   const wide = ['/pruebas', '/planificacion', '/kanban'].some((prefix) => pathname.startsWith(prefix));
   return (
     <div className="flex h-full">

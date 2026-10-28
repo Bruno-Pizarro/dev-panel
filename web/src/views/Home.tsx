@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, FolderTree, Rocket } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
+import { DailyChecklistCard } from '../components/DailyChecklistCard';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { StatusDot } from '../components/StatusDot';
@@ -17,6 +18,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
   return (
     <>
       <PageHeader title="Inicio" description="Estado del entorno de desarrollo." />
+      <DailyChecklistCard />
       {detect.loading || !data ? (
         <div className="grid gap-4 md:grid-cols-3">
           <Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" />
@@ -69,7 +71,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
             </Link>
             <Link to="/pruebas" className="group rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-accent/50">
               <FolderTree className="mb-3 size-6 text-accent" aria-hidden />
-              <div className="font-semibold">Pruebas y planificación</div>
+              <div className="font-semibold">Pruebas y desarrollo</div>
               <p className="mt-1 text-sm text-muted">Lo que genera el análisis y las pruebas de cada ticket, en un solo lugar. Llega en la Fase 2.</p>
             </Link>
           </div>

@@ -15,17 +15,20 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
   // Por defecto no se muestran los aprobados: lo que importa es lo que falta resolver.
   const [shown, setShown] = useStoredState<Conclusion[]>('devpanel.tests.shown', ['requiere-cambios', 'sin-conclusion']);
   const [pendingOnly, setPendingOnly] = useStoredState<boolean>('devpanel.tests.pending', false);
+  // Por defecto solo carpetas con número de ticket: así la primera vista no se llena de archivos sueltos.
+  const [ticketKinds, setTicketKinds] = useStoredState<Array<'con' | 'sin'>>('devpanel.tickets.kinds', ['con']);
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
-    return tickets.filter((ticket) => {
+    return tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).filter((ticket) => {
       if (withTestFilters && ticket.testStatus) {
         if (!shown.includes(ticket.testStatus.conclusion)) return false;
         if (pendingOnly && ticket.testStatus.checklistDone >= ticket.testStatus.checklistTotal) return false;
       }
       return true;
     }).filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
-  }, [tickets, query, shown, pendingOnly, withTestFilters]);
-  const hidden = withTestFilters ? tickets.length - tickets.filter((ticket) => !ticket.testStatus || shown.includes(ticket.testStatus.conclusion)).length : 0;
+  }, [tickets, query, shown, pendingOnly, withTestFilters, ticketKinds]);
+  const hiddenKind = tickets.filter((ticket) => !ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length;
+  const hidden = withTestFilters ? tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length - tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && (!ticket.testStatus || shown.includes(ticket.testStatus.conclusion))).length : 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -33,6 +36,14 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
         <Search className="size-4 text-muted" aria-hidden />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ticket, título o rama…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
       </label>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {([['con', 'Con ticket'], ['sin', 'Sin ticket']] as const).map(([id, label]) => (
+            <Chip key={id} selected={ticketKinds.includes(id)} onToggle={() => setTicketKinds(ticketKinds.includes(id) ? ticketKinds.filter((value) => value !== id) : [...ticketKinds, id])}>{label}</Chip>
+          ))}
+        </div>
+        {hiddenKind > 0 && <p className="text-sm text-muted">{hiddenKind} sin número de ticket ocultas por el filtro.</p>}
+      </div>
       {withTestFilters && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">

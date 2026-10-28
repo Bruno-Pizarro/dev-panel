@@ -293,7 +293,7 @@ export interface BoardStatus {
   closed: boolean;
 }
 export interface Board {
-  scope: 'me' | 'all';
+  scope: 'me';
   days: number;
   statuses: BoardStatus[];
   issues: RedmineIssue[];

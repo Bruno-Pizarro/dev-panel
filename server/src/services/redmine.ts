@@ -117,7 +117,7 @@ const loadSpCache = (): Record<string, SpCacheEntry> => {
     return {};
   }
 };
-const SP_PARALLEL = 8;
+const SP_PARALLEL = 4;
 
 /**
  * Los story points no vienen en `/issues.json`: los guarda el plugin Agile y salen de `/issues/<id>/agile_data.json`.
@@ -193,6 +193,22 @@ export const loadCredentials = (config: DevPanelConfig, env: NodeJS.ProcessEnv =
   return key ? { key, baseUrl: (baseUrl || DEFAULT_URL).replace(/\/$/, '') } : null;
 };
 
+/** URL base de Redmine (para armar enlaces a tickets); no necesita la API key. */
+export const redmineBaseUrl = (config: DevPanelConfig, env: NodeJS.ProcessEnv = process.env): string => {
+  let baseUrl = config.redmine.baseUrl || env['REDMINE_URL'] || '';
+  if (!baseUrl) {
+    const file = config.redmine.configFile || join(homedir(), '.claude', 'skills', 'redmine-drive', 'config.json');
+    try {
+      baseUrl = existsSync(file) ? ((JSON.parse(readFileSync(file, 'utf8')) as { redmine_url?: string }).redmine_url ?? '') : '';
+    } catch {
+      baseUrl = '';
+    }
+  }
+  return (baseUrl || DEFAULT_URL).replace(/\/$/, '');
+};
+
+export const ticketUrl = (config: DevPanelConfig, ticket: string): string => `${redmineBaseUrl(config)}/issues/${ticket}`;
+
 type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
 
 const CACHE_MS = 60_000;
@@ -229,7 +245,8 @@ export interface BoardStatus {
   closed: boolean;
 }
 export interface Board {
-  scope: 'me' | 'all';
+  /** Siempre los asignados a quien dueña la API key: el panel no trae tickets de otras personas. */
+  scope: 'me';
   days: number;
   statuses: BoardStatus[];
   issues: RedmineIssue[];
@@ -248,19 +265,20 @@ export const orderStatuses = (statuses: BoardStatus[]): BoardStatus[] => {
   return [...statuses].sort((a, b) => rank(a) - rank(b));
 };
 
-const PAGE = 100;
-const MAX_PAGES = 5;
+const PAGE = 50;
+const MAX_PAGES = 2;
+export const MAX_BOARD_DAYS = 60;
 const boardCache = new Map<string, { at: number; board: Board }>();
 export const clearBoardCache = (): void => boardCache.clear();
 
 type JsonFetcher = Fetcher;
 
-/** Tickets con cambios en los últimos `days` días (solo lectura). `me` = asignados a quien dueña la API key. */
-export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {
+/** Mis tickets (asignados a quien dueña la API key) con cambios en los últimos `days` días. Solo lectura, y acotado: máximo 100 tickets y 60 días. */
+export const fetchBoard = async (config: DevPanelConfig, days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {
   const credentials = loadCredentials(config);
   if (!credentials) throw new RedmineError('Redmine no está configurado: falta la API key (skill redmine-drive o REDMINE_API_KEY)', 503);
-  const safeDays = Math.min(90, Math.max(1, Math.round(days)));
-  const cacheKey = `${credentials.baseUrl}#${scope}#${safeDays}`;
+  const safeDays = Math.min(MAX_BOARD_DAYS, Math.max(1, Math.round(days)));
+  const cacheKey = `${credentials.baseUrl}#me#${safeDays}`;
   const cached = boardCache.get(cacheKey);
   if (cached && now - cached.at < CACHE_MS) return cached.board;
 
@@ -284,14 +302,14 @@ export const fetchBoard = async (config: DevPanelConfig, scope: 'me' | 'all', da
   let truncated = false;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const query = new URLSearchParams({ status_id: '*', updated_on: `>=${since}`, sort: 'updated_on:desc', limit: String(PAGE), offset: String(page * PAGE) });
-    if (scope === 'me') query.set('assigned_to_id', 'me');
+    query.set('assigned_to_id', 'me');
     const body = (await get(`/issues.json?${query.toString()}`)) as { issues?: RawIssue[]; total_count?: number };
     issues.push(...(body.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl, closedNames)));
     if (issues.length >= (body.total_count ?? 0)) break;
     if (page === MAX_PAGES - 1) truncated = true;
   }
   await applyStoryPoints(issues, credentials, fetcher);
-  const board: Board = { scope, days: safeDays, statuses: orderStatuses(statuses), issues, truncated, fetchedAt: new Date(now).toISOString() };
+  const board: Board = { scope: 'me', days: safeDays, statuses: orderStatuses(statuses), issues, truncated, fetchedAt: new Date(now).toISOString() };
   boardCache.set(cacheKey, { at: now, board });
   return board;
 };

@@ -31,7 +31,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { path: '/kanban', label: 'Kanban', description: 'Tickets de Redmine por estado', icon: KanbanSquare, phase: null },
       { path: '/pruebas', label: 'Pruebas', description: 'Pruebas realizadas por ticket', icon: ClipboardCheck, phase: null },
-      { path: '/planificacion', label: 'Planificación', description: 'Análisis, plan y diagramas', icon: Layers, phase: null },
+      { path: '/planificacion', label: 'Desarrollo', description: 'Análisis, plan y diagramas de cada desarrollo', icon: Layers, phase: null },
       { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: null },
     ],
   },
