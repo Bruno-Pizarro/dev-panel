@@ -80,7 +80,7 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     if (!config) return reply;
     const cases = manualFromTicket(config, request.params.dir);
     if (!cases) return reply.code(404).send({ error: 'Ticket no encontrado' });
-    return getManualTests(request.params.dir, cases);
+    return getManualTests(request.params.dir, cases, config.session.frontUrl);
   });
 
   app.put<{ Params: { dir: string; id: string } }>('/api/tickets/:dir/manual-tests/:id', async (request, reply) => {
@@ -90,8 +90,8 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const cases = manualFromTicket(config, request.params.dir);
     if (!body.success || !cases) return reply.code(body.success ? 404 : 400).send({ error: body.success ? 'Ticket no encontrado' : 'Pedido inválido' });
     try {
-      setManualDone(request.params.dir, request.params.id, body.data.done, getManualTests(request.params.dir, cases).items.map((item) => item.id));
-      return getManualTests(request.params.dir, cases);
+      setManualDone(request.params.dir, request.params.id, body.data.done, getManualTests(request.params.dir, cases, config.session.frontUrl).items.map((item) => item.id));
+      return getManualTests(request.params.dir, cases, config.session.frontUrl);
     } catch (error) {
       return fail(reply, error);
     }
@@ -105,7 +105,7 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     if (!body.success || !cases) return reply.code(body.success ? 404 : 400).send({ error: body.success ? 'Ticket no encontrado' : 'Pedido inválido' });
     try {
       addManualCase(request.params.dir, body.data);
-      return getManualTests(request.params.dir, cases);
+      return getManualTests(request.params.dir, cases, config.session.frontUrl);
     } catch (error) {
       return fail(reply, error);
     }
@@ -118,7 +118,7 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     if (!cases) return reply.code(404).send({ error: 'Ticket no encontrado' });
     try {
       removeManualCase(request.params.dir, request.params.id);
-      return getManualTests(request.params.dir, cases);
+      return getManualTests(request.params.dir, cases, config.session.frontUrl);
     } catch (error) {
       return fail(reply, error);
     }
@@ -130,6 +130,6 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const cases = manualFromTicket(config, request.params.dir);
     if (!cases) return reply.code(404).send({ error: 'Ticket no encontrado' });
     resetManualDone(request.params.dir);
-    return getManualTests(request.params.dir, cases);
+    return getManualTests(request.params.dir, cases, config.session.frontUrl);
   });
 };

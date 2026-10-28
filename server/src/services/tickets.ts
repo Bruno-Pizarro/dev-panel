@@ -17,8 +17,8 @@ export const ticketMetaSchema = z
     /** Servicios que hay que tener levantados para probar el ticket aunque no se modifiquen (se suman a los de `repos`). */
     servicios: z.array(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)).optional(),
     repos: z.array(z.string()).optional(),
-    /** Casos para probar a mano: texto o `{ caso, esperado?, grupo? }`. El avance (tildes) vive en el panel. */
-    pruebasManuales: z.array(z.union([z.string(), z.object({ caso: z.string(), esperado: z.string().optional(), grupo: z.string().optional() })])).optional(),
+    /** Casos para probar a mano: texto o `{ caso, esperado?, grupo?, ruta?, url? }` (`ruta`: path del front, ej. `/profile`; `url`: enlace completo). El avance (tildes) vive en el panel. */
+    pruebasManuales: z.array(z.union([z.string(), z.object({ caso: z.string(), esperado: z.string().optional(), grupo: z.string().optional(), ruta: z.string().optional(), url: z.string().optional() })])).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
     pruebas: z.array(z.object({ conclusion: z.string().optional(), fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),

@@ -28,7 +28,7 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
   "rama": "feature/33526-pendientes-firma",
   "repos": ["front", "legajo", "documentos"],
   "servicios": ["firma"],
-  "pruebasManuales": [{ "grupo": "Listado", "caso": "Buscar un documento por nombre", "esperado": "Filtra sin recargar" }],
+  "pruebasManuales": [{ "grupo": "Listado", "caso": "Buscar un documento por nombre", "esperado": "Filtra sin recargar", "ruta": "/profile?panel=pending-signatures&tab=documentos" }],
   "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.../merge_requests/123", "autor": "usuario", "estado": "abierto" }],
   "codeReview": [{ "fecha": "2026-10-27", "veredicto": "aprobado | con cambios | rechazado", "resumen": "una línea", "hallazgos": 2 }],
   "pruebas": [{ "fecha": "2026-10-27", "conclusion": "aprobado | requiere-cambios | sin-conclusion", "resultado": "31/31", "resumen": "qué se probó", "archivo": "33526_EJECUCION_v1.0.md", "capturas": ["pruebas/capturas/b1.png"] }],
@@ -54,7 +54,7 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
 Servicios del docker-compose que el ticket necesita **aunque no los modifique** (por ejemplo `firma`, si solo se usa para firmar). El botón "Levantar servicios" del panel levanta los de `repos` **más** estos. Usá nombres del compose, no de repos. Los obligatorios (`panel`, `security`, `files`, `legajo`) y MinIO, RabbitMQ y Mongo siempre se levantan: no hace falta listarlos.
 
 ## `pruebasManuales`: casos para probar a mano
-Cada elemento es un texto o `{ "caso", "esperado", "grupo" }` (los dos últimos opcionales; los del mismo `grupo` se muestran juntos). Escribilos como pasos que alguien siga sin leer el código, uno por comportamiento verificable, con el resultado esperado visible en pantalla. Cubrí: el camino feliz, cada validación o error relevante, permisos/roles y aislamiento entre usuarios o empresas, y el comportamiento en celular si hay interfaz. Salen de los criterios de aceptación (BDD) del contrato. Lo tildado lo guarda el panel y el usuario puede sumar casos propios allí; no lo escribas en `ticket.json`.
+Cada elemento es un texto o `{ "caso", "esperado", "grupo", "ruta", "url" }` (todo menos `caso` es opcional; los del mismo `grupo` se muestran juntos). Escribilos como pasos que alguien siga sin leer el código, uno por comportamiento verificable, con el resultado esperado visible en pantalla. Cubrí: el camino feliz, cada validación o error relevante, permisos/roles y aislamiento entre usuarios o empresas, y el comportamiento en celular si hay interfaz. Salen de los criterios de aceptación (BDD) del contrato. **Siempre que se pueda, agregá `ruta`**: el path del front donde se prueba el caso, empezando con `/` y con los parámetros que dejan la pantalla lista (por ejemplo `/profile?panel=pending-signatures&tab=legajo`). El panel lo abre contra la URL del front de la configuración (`http://localhost:4200` por defecto) y muestra un botón "Abrir" junto al caso. Averiguá las rutas leyendo el router del front (`app.routes`, query params que usa el componente) y no inventes ninguna; si un caso no tiene una pantalla directa, omití `ruta`. Usá `url` solo para un enlace completo fuera del front (http o https). Lo tildado lo guarda el panel y el usuario puede sumar casos propios allí; no lo escribas en `ticket.json`.
 
 ## Diagramas Mermaid (`.mmd` y bloques ```mermaid en los `.md`)
 El panel los dibuja con Mermaid, que es estricto. Tres errores reales:

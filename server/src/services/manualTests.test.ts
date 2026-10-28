@@ -15,6 +15,25 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 const FROM_TICKET = [{ caso: 'Abrir Pendientes de firma', esperado: 'Se ve la insignia', grupo: 'Perfil' }, { caso: 'Firmar con PIN' }, { caso: 'Firmar con PIN' }, { caso: '   ' }];
 
+describe('manualLink', () => {
+  it('arma el enlace con la URL del front o usa una URL completa, y rechaza lo demás', async () => {
+    const { manualLink } = c;
+    expect(manualLink({ ruta: '/profile?panel=pending-signatures' }, 'http://localhost:4200/')).toBe('http://localhost:4200/profile?panel=pending-signatures');
+    expect(manualLink({ url: 'https://ejemplo.com/a', ruta: '/x' }, 'http://localhost:4200')).toBe('https://ejemplo.com/a');
+    expect(manualLink({ ruta: 'profile' }, 'http://localhost:4200')).toBeNull();
+    expect(manualLink({ ruta: '//evil.com' }, 'http://localhost:4200')).toBeNull();
+    expect(manualLink({ url: 'javascript:alert(1)' }, 'http://localhost:4200')).toBeNull();
+    expect(manualLink({ url: 'ftp://x.com' }, 'http://localhost:4200')).toBeNull();
+    expect(manualLink({}, 'http://localhost:4200')).toBeNull();
+  });
+
+  it('los casos de ticket.json traen su enlace y los propios del panel no', () => {
+    c.addManualCase('con-enlace', { caso: 'Propio' });
+    const list = c.getManualTests('con-enlace', [{ caso: 'Abrir perfil', ruta: '/profile' }, { caso: 'Sin ruta' }], 'http://localhost:4200');
+    expect(list.items.map((item) => item.enlace)).toEqual(['http://localhost:4200/profile', null, null]);
+  });
+});
+
 describe('pruebas manuales', () => {
   it('arma la lista desde ticket.json sin duplicados ni casos vacíos, todo sin tildar', () => {
     const result = c.getManualTests('33526-x', FROM_TICKET);

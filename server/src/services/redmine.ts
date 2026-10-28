@@ -220,6 +220,11 @@ const cache = new Map<string, { at: number; issue: RedmineIssue }>();
 
 export const clearRedmineCache = (): void => cache.clear();
 
+/** Olvida lo guardado de un ticket (botón "Actualizar"): el próximo pedido va a Redmine. */
+export const forgetRedmineIssue = (id: string): void => {
+  for (const key of [...cache.keys()]) if (key.endsWith(`#${id}`)) cache.delete(key);
+};
+
 export const fetchIssue = async (config: DevPanelConfig, id: string, fetcher: Fetcher = fetch as unknown as Fetcher, now = Date.now()): Promise<RedmineIssue> => {
   if (!/^\d{3,6}$/.test(id)) throw new RedmineError('Número de ticket inválido', 400);
   const credentials = loadCredentials(config);

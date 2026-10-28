@@ -119,7 +119,20 @@ export interface ManualCaseInput {
   caso: string;
   esperado?: string | undefined;
   grupo?: string | undefined;
+  /** Path dentro del front (empieza con `/`): se abre contra `session.frontUrl` (por defecto http://localhost:4200). */
+  ruta?: string | undefined;
+  /** Enlace completo (solo http o https); manda sobre `ruta`. */
+  url?: string | undefined;
 }
+
+/** Enlace para probar un caso: `url` (http/https) o `ruta` sobre la URL del front. Nada más: sin otros esquemas ni rutas que cambien de sitio. */
+export const manualLink = (entry: Pick<ManualCaseInput, 'ruta' | 'url'>, frontUrl: string): string | null => {
+  const url = entry.url?.trim();
+  if (url) return /^https?:\/\/[^\s]+$/i.test(url) ? url : null;
+  const route = entry.ruta?.trim();
+  if (!route || !route.startsWith('/') || route.startsWith('//') || /\s/.test(route)) return null;
+  return `${frontUrl.replace(/\/+$/, '')}${route}`;
+};
 export interface ManualCase {
   id: string;
   caso: string;
@@ -128,6 +141,8 @@ export interface ManualCase {
   /** `ticket`: viene de ticket.json (solo lectura); `panel`: lo agregó el usuario desde el panel (se puede borrar). */
   source: 'ticket' | 'panel';
   done: boolean;
+  /** Enlace para abrir y probar el caso (solo los que vienen de ticket.json). */
+  enlace: string | null;
 }
 export interface ManualTests {
   items: ManualCase[];
@@ -152,7 +167,7 @@ export const manualId = (text: string): string => {
 
 const stateOf = (all: ManualFile, dir: string): ManualState => ({ done: all[dir]?.done ?? {}, custom: all[dir]?.custom ?? [] });
 
-export const getManualTests = (dir: string, fromTicket: ManualCaseInput[]): ManualTests => {
+export const getManualTests = (dir: string, fromTicket: ManualCaseInput[], frontUrl = ''): ManualTests => {
   const state = stateOf(read<ManualFile>(MANUAL_FILE, {}), dir);
   const seen = new Set<string>();
   const items: ManualCase[] = [];
@@ -160,9 +175,9 @@ export const getManualTests = (dir: string, fromTicket: ManualCaseInput[]): Manu
     const id = manualId(`${entry.grupo ?? ''}|${entry.caso}`);
     if (seen.has(id) || !entry.caso.trim()) continue;
     seen.add(id);
-    items.push({ id, caso: entry.caso.trim(), esperado: entry.esperado?.trim() || null, grupo: entry.grupo?.trim() || null, source: 'ticket', done: state.done[id] === true });
+    items.push({ id, caso: entry.caso.trim(), esperado: entry.esperado?.trim() || null, grupo: entry.grupo?.trim() || null, source: 'ticket', done: state.done[id] === true, enlace: frontUrl || entry.url ? manualLink(entry, frontUrl) : null });
   }
-  for (const entry of state.custom) items.push({ id: entry.id, caso: entry.caso, esperado: entry.esperado ?? null, grupo: null, source: 'panel', done: state.done[entry.id] === true });
+  for (const entry of state.custom) items.push({ id: entry.id, caso: entry.caso, esperado: entry.esperado ?? null, grupo: null, source: 'panel', done: state.done[entry.id] === true, enlace: null });
   return { items, done: items.filter((item) => item.done).length, total: items.length };
 };
 

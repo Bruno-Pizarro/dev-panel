@@ -97,3 +97,18 @@ export const useJob = (): { job: JobState; follow: (id: string) => void; reset: 
   }, []);
   return { job, follow, reset };
 };
+
+/** Ejecuta `reload` cada vez que `key` cambia (menos en el primer render): lo usa el botón "Actualizar" de Pruebas y Desarrollo. */
+export const useReloadOn = (key: number, reload: () => void): void => {
+  const first = useRef(true);
+  // Siempre se llama a la última versión de `reload` (puede ser una función nueva en cada render), pero solo cuando cambia `key`.
+  const latest = useRef(reload);
+  latest.current = reload;
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    latest.current();
+  }, [key]);
+};

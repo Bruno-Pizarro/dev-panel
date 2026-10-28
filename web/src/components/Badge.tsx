@@ -13,7 +13,10 @@ const tones: Record<Tone, string> = {
 };
 
 export const Badge = ({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) => (
-  <span className={cn('inline-flex h-7 items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium', tones[tone])}>{children}</span>
+  // Si el texto es más largo que el espacio disponible se corta con "…" en vez de salirse de la tarjeta.
+  <span className={cn('inline-flex h-7 max-w-full items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium', tones[tone])}>
+    <span className="truncate">{children}</span>
+  </span>
 );
 
 /** Color según el texto del estado o del veredicto (aprobado, con cambios, revisión…). */
