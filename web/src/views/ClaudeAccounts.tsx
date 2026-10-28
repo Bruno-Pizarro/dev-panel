@@ -1,4 +1,4 @@
-import { Check, Copy, KeyRound, LogIn, Plus, Trash2, UserRoundCheck } from 'lucide-react';
+import { Check, Copy, KeyRound, LogIn, Plus, RefreshCw, Trash2, UserRoundCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -147,6 +147,20 @@ export const ClaudeAccounts = () => {
   const [adding, setAdding] = useState(false);
   const [loginFor, setLoginFor] = useState<ClaudeAccount | null>(null);
   const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
+  const [reloadingId, setReloadingId] = useState<string | null>(null);
+
+  const reloadUsage = async (account: ClaudeAccount) => {
+    setReloadingId(account.id);
+    try {
+      const result = await api.post<{ problem: string | null }>('/api/claude/usage/refresh', { id: account.id });
+      if (result.problem) toast('error', result.problem);
+      data.refresh();
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setReloadingId(null);
+    }
+  };
 
   const activate = async (account: ClaudeAccount) => {
     try {
@@ -162,7 +176,7 @@ export const ClaudeAccounts = () => {
     <>
       <PageHeader title="Cuentas de Claude" description="Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba." actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button>} />
       <p className="mb-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-        El panel <strong className="text-fg">no guarda ni muestra tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso lo consulta en vivo al servicio de Anthropic con el token de cada cuenta (endpoint no documentado, solo en memoria, como mucho cada 2 minutos; se apaga con <span className="font-mono">claude.liveUsage: false</span>) y, si no se puede, toma el caché de Claude Code o el <span className="font-mono">statusLine</span>. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
+        El panel <strong className="text-fg">no guarda ni muestra tus credenciales</strong>: consulta el estado a la propia CLI de Claude (<span className="font-mono">claude auth status</span>) y el uso en vivo se consulta <strong className="text-fg">solo cuando apretás “Recargar”</strong> (endpoint no documentado de Anthropic, con el token de cada cuenta solo en memoria; si responde 429 el panel espera antes de dejarte reintentar; se apaga con <span className="font-mono">claude.liveUsage: false</span>). Mientras no recargues, muestra el último dato guardado o el caché de Claude Code. “Activa” es la cuenta que muestra el panel; para que la extensión de VS Code o la terminal usen otra, hay que arrancarlas con su carpeta (comandos abajo).
       </p>
 
       {data.data && (
@@ -193,6 +207,7 @@ export const ClaudeAccounts = () => {
                       <div className="mt-1 font-mono text-sm text-muted">{account.configDir}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <Button className="h-9" icon={<RefreshCw className="size-4" />} loading={reloadingId === account.id} onClick={() => reloadUsage(account)} title="Consulta el uso al servicio de Anthropic (solo a mano)">Recargar uso</Button>
                       {!active && <Button className="h-9" icon={<UserRoundCheck className="size-4" />} onClick={() => activate(account)}>Usar en el panel</Button>}
                       <Button className="h-9" variant={account.status.loggedIn ? 'secondary' : 'primary'} icon={<LogIn className="size-4" />} onClick={() => setLoginFor(account)}>{account.status.loggedIn ? 'Volver a iniciar sesión' : 'Iniciar sesión'}</Button>
                       {account.id !== 'default' && <Button className="h-9" variant="danger" icon={<Trash2 className="size-4" />} onClick={() => setRemoving(account)}>Quitar</Button>}

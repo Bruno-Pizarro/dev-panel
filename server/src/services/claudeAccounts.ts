@@ -288,15 +288,36 @@ export const readUsage = (accounts: ClaudeAccount[], now = Date.now(), home: str
 
 // ---------------------------------------------------------------- uso en vivo (endpoint no documentado, uso personal)
 const LIVE_URL = 'https://api.anthropic.com/api/oauth/usage';
-const LIVE_MIN_INTERVAL_MS = 2 * 60_000;
-type LiveFetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
-interface LiveEntry {
+/** Entre una consulta manual y la siguiente (por si se aprieta el botón varias veces). */
+const LIVE_MIN_INTERVAL_MS = 30_000;
+/** Si el servicio responde 429 sin `Retry-After`, no se vuelve a consultar durante este tiempo. */
+const LIVE_DEFAULT_BACKOFF_MS = 5 * 60_000;
+const LIVE_MAX_BACKOFF_MS = 60 * 60_000;
+type LiveFetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
+export interface LiveEntry {
   at: number;
   snapshot: UsageSnapshot | null;
   problem: string | null;
+  /** Epoch ms hasta el que no se consulta (límite de consultas, 429). */
+  blockedUntil?: number;
 }
 const liveMemo = new Map<string, LiveEntry>();
 export const clearLiveUsage = (): void => liveMemo.clear();
+
+const liveFile = () => join(paths.data, 'claude-live.json');
+/** Último dato en vivo de cada cuenta (solo porcentajes): así un reinicio del panel no obliga a consultar de nuevo. */
+const readLiveFile = (): Record<string, UsageSnapshot> => {
+  try {
+    return existsSync(liveFile()) ? (JSON.parse(readFileSync(liveFile(), 'utf8')) as Record<string, UsageSnapshot>) : {};
+  } catch {
+    return {};
+  }
+};
+const saveLive = (accountId: string, snapshot: UsageSnapshot): void => {
+  mkdirSync(paths.data, { recursive: true });
+  writeFileSync(`${liveFile()}.tmp`, JSON.stringify({ ...readLiveFile(), [accountId]: snapshot }), { mode: 0o600 });
+  renameSync(`${liveFile()}.tmp`, liveFile());
+};
 
 /** Token de acceso de la cuenta: solo se devuelve a quien llama (nunca se guarda). `null` si no hay sesión o ya venció. */
 const readAccessToken = (account: ClaudeAccount, now: number, home: string): { token: string } | { problem: string } => {
@@ -324,36 +345,61 @@ export const liveToSnapshot = (body: unknown, now: number): UsageSnapshot | null
   return snapshot && (snapshot.fiveHour || snapshot.sevenDay) ? { ...snapshot, source: 'live' } : null;
 };
 
+/** Segundos de espera de un `Retry-After` (en segundos o como fecha); sin dato o inválido, el valor por defecto. Con tope de 1 hora. */
+export const retryAfterMs = (header: string | null | undefined, now: number): number => {
+  if (!header) return LIVE_DEFAULT_BACKOFF_MS;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - now;
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, LIVE_MAX_BACKOFF_MS) : LIVE_DEFAULT_BACKOFF_MS;
+};
+
 /**
- * Consulta el uso en vivo de una cuenta (a lo sumo una vez cada 2 minutos). Solo lectura: no renueva tokens ni escribe
- * credenciales; guarda en memoria únicamente los porcentajes.
+ * Consulta el uso en vivo de una cuenta. **Solo se llama a mano** (botón de recargar): ninguna página ni refresco automático
+ * lo dispara. Como mucho una vez cada 30 s y, si el servicio responde 429, no vuelve a consultar hasta que pase el
+ * `Retry-After` (o 5 min). Solo lectura: no renueva tokens ni escribe credenciales; únicamente se guardan los porcentajes.
  */
 export const refreshLiveUsage = async (config: DevPanelConfig, account: ClaudeAccount, fetcher: LiveFetcher = fetch as unknown as LiveFetcher, now = Date.now(), home: string = homedir()): Promise<LiveEntry> => {
   const memo = liveMemo.get(account.id);
   if (!config.claude.liveUsage) return { at: now, snapshot: null, problem: 'Consulta en vivo desactivada (claude.liveUsage)' };
+  if (memo?.blockedUntil && now < memo.blockedUntil) {
+    return { ...memo, problem: `El servicio limitó las consultas (429): esperá ${Math.ceil((memo.blockedUntil - now) / 60_000)} min antes de volver a recargar` };
+  }
   if (memo && now - memo.at < LIVE_MIN_INTERVAL_MS) return memo;
   const credentials = readAccessToken(account, now, home);
   let entry: LiveEntry;
-  if ('problem' in credentials) entry = { at: now, snapshot: null, problem: credentials.problem };
+  if ('problem' in credentials) entry = { at: now, snapshot: memo?.snapshot ?? null, problem: credentials.problem };
   else {
     try {
       const response = await fetcher(LIVE_URL, { headers: { Authorization: `Bearer ${credentials.token}`, 'anthropic-beta': 'oauth-2025-04-20', Accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
-      entry = response.ok
-        ? { at: now, snapshot: liveToSnapshot(await response.json(), now), problem: null }
-        : { at: now, snapshot: memo?.snapshot ?? null, problem: response.status === 401 || response.status === 403 ? 'El servicio rechazó el token: abrí Claude Code para renovarlo' : `El servicio de uso respondió ${response.status}` };
+      if (response.ok) {
+        const snapshot = liveToSnapshot(await response.json(), now);
+        entry = { at: now, snapshot, problem: snapshot ? null : 'Respuesta inesperada del servicio de uso' };
+        if (snapshot) saveLive(account.id, snapshot);
+      } else if (response.status === 429) {
+        const wait = retryAfterMs(response.headers?.get('retry-after'), now);
+        entry = { at: now, snapshot: memo?.snapshot ?? null, blockedUntil: now + wait, problem: `El servicio limitó las consultas (429): esperá ${Math.ceil(wait / 60_000)} min antes de volver a recargar` };
+      } else {
+        entry = { at: now, snapshot: memo?.snapshot ?? null, problem: response.status === 401 || response.status === 403 ? 'El servicio rechazó el token: abrí Claude Code para renovarlo' : `El servicio de uso respondió ${response.status}` };
+      }
     } catch {
       entry = { at: now, snapshot: memo?.snapshot ?? null, problem: 'No se pudo consultar el servicio de uso' };
     }
-    if (entry.snapshot === null && entry.problem === null) entry.problem = 'Respuesta inesperada del servicio de uso';
   }
   liveMemo.set(account.id, entry);
   return entry;
 };
 
-/** Dato en vivo vigente (ya consultado) de una cuenta, con su antigüedad al momento de leerlo. */
+/** Último dato en vivo de una cuenta (de memoria o, tras un reinicio, del archivo), con su antigüedad actual. No consulta nada. */
 export const liveSnapshotOf = (accountId: string, now = Date.now()): UsageSnapshot | null => {
+  const snapshot = liveMemo.get(accountId)?.snapshot ?? readLiveFile()[accountId] ?? null;
+  return snapshot ? { ...snapshot, ageSeconds: Math.max(0, Math.round((now - Date.parse(snapshot.capturedAt)) / 1000)) } : null;
+};
+
+/** Problema de la última consulta manual de una cuenta (para mostrarlo sin volver a consultar). */
+export const liveProblemOf = (accountId: string, now = Date.now()): string | null => {
   const entry = liveMemo.get(accountId);
-  return entry?.snapshot ? { ...entry.snapshot, ageSeconds: Math.max(0, Math.round((now - Date.parse(entry.snapshot.capturedAt)) / 1000)) } : null;
+  if (entry?.blockedUntil && now < entry.blockedUntil) return `El servicio limitó las consultas (429): esperá ${Math.ceil((entry.blockedUntil - now) / 60_000)} min antes de volver a recargar`;
+  return entry?.problem ?? null;
 };
 
 /** Comandos listos para copiar: terminal y extensión de VS Code. */

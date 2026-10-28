@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defaultConfig, paths } from '../config.js';
-import { ClaudeError, addAccount, clearLiveUsage, liveToSnapshot, refreshLiveUsage, readCachedUsage, stateFileOf, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
+import { ClaudeError, addAccount, clearLiveUsage, liveSnapshotOf, liveToSnapshot, refreshLiveUsage, retryAfterMs, readCachedUsage, stateFileOf, extractLoginUrl, launchSnippets, loadAccounts, parseAuthStatus, readUsage, removeAccount, setActive, slugify, toSnapshot, validCode } from './claudeAccounts.js';
 
 const reset = () => {
   mkdirSync(paths.data, { recursive: true });
@@ -159,17 +159,17 @@ describe('uso en vivo', () => {
     expect(liveToSnapshot({ nada: 1 }, now)).toBeNull();
   });
 
-  it('manda el token por cabecera, no lo devuelve ni lo guarda, y consulta como mucho cada 2 minutos', async () => {
+  it('manda el token por cabecera, no lo devuelve ni lo guarda, y consulta como mucho cada 30 segundos', async () => {
     clearLiveUsage();
     credentials(now + 3_600_000);
     const calls: Array<{ url: string; auth: string | undefined }> = [];
     const first = await refreshLiveUsage(config, account, okFetcher(calls), now, home);
-    await refreshLiveUsage(config, account, okFetcher(calls), now + 60_000, home);
+    await refreshLiveUsage(config, account, okFetcher(calls), now + 10_000, home);
     expect(calls).toHaveLength(1);
     expect(calls[0]!.auth).toBe(`Bearer ${SECRET}`);
     expect(calls[0]!.url).not.toContain(SECRET);
     expect(JSON.stringify(first)).not.toContain(SECRET);
-    await refreshLiveUsage(config, account, okFetcher(calls), now + 130_000, home);
+    await refreshLiveUsage(config, account, okFetcher(calls), now + 40_000, home);
     expect(calls).toHaveLength(2);
   });
 
@@ -196,5 +196,48 @@ describe('uso en vivo', () => {
     const entry = await refreshLiveUsage(config, account, failing, now + 200_000, home);
     expect(entry.snapshot?.fiveHour?.usedPercentage).toBe(26);
     expect(entry.problem).toMatch(/rechazó el token/);
+  });
+});
+
+describe('uso en vivo: manual y con freno ante 429', () => {
+  const now = Date.parse('2026-10-27T18:00:00Z');
+  const home = mkdtempSync(join(tmpdir(), 'dp-429-'));
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  writeFileSync(join(home, '.claude', '.credentials.json'), JSON.stringify({ claudeAiOauth: { accessToken: 'tok', expiresAt: now + 3_600_000 } }));
+  const account = { id: 'default', label: 'A', color: '1 2 3', configDir: join(home, '.claude') };
+  const config = defaultConfig('/x');
+  const ok = async () => ({ ok: true, status: 200, json: async () => ({ five_hour: { utilization: 26, resets_at: '2026-10-27T20:00:00Z' }, seven_day: { utilization: 72, resets_at: '2026-11-01T06:00:00Z' } }) });
+
+  it('interpreta Retry-After en segundos o como fecha, con tope de 1 hora', () => {
+    expect(retryAfterMs('120', now)).toBe(120_000);
+    expect(retryAfterMs('Tue, 27 Oct 2026 18:10:00 GMT', now)).toBe(600_000);
+    expect(retryAfterMs('999999', now)).toBe(3_600_000);
+    expect(retryAfterMs(null, now)).toBe(300_000);
+    expect(retryAfterMs('basura', now)).toBe(300_000);
+  });
+
+  it('ante un 429 no vuelve a consultar hasta que pase la espera, y conserva el último dato', async () => {
+    clearLiveUsage();
+    await refreshLiveUsage(config, account, ok, now, home);
+    let calls = 0;
+    const limited = async () => (calls++, { ok: false, status: 429, headers: { get: (name: string) => (name === 'retry-after' ? '180' : null) }, json: async () => ({}) });
+    const first = await refreshLiveUsage(config, account, limited, now + 60_000, home);
+    expect(calls).toBe(1);
+    expect(first.problem).toMatch(/429.*3 min/);
+    expect(first.snapshot?.fiveHour?.usedPercentage).toBe(26);
+    const during = await refreshLiveUsage(config, account, limited, now + 120_000, home);
+    expect(calls).toBe(1);
+    expect(during.problem).toMatch(/429/);
+    // Pasada la espera, vuelve a consultar (y si sigue limitado, vuelve a frenar).
+    const after = await refreshLiveUsage(config, account, limited, now + 60_000 + 181_000, home);
+    expect(calls).toBe(2);
+    expect(after.blockedUntil).toBeDefined();
+  });
+
+  it('el último dato queda guardado y se lee sin consultar (tras un reinicio)', async () => {
+    clearLiveUsage();
+    await refreshLiveUsage(config, account, ok, now, home);
+    clearLiveUsage();
+    expect(liveSnapshotOf('default', now + 90_000)).toMatchObject({ source: 'live', ageSeconds: 90, fiveHour: { usedPercentage: 26 } });
   });
 });

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import {
-  ClaudeError, LoginManager, addAccount, launchSnippets, loadAccounts, readAuthStatus, readUsage, refreshLiveUsage, removeAccount, setActive, type AuthStatus,
+  ClaudeError, LoginManager, addAccount, launchSnippets, loadAccounts, readAuthStatus, readUsage, liveProblemOf, refreshLiveUsage, removeAccount, setActive, type AuthStatus,
 } from '../services/claudeAccounts.js';
 import { join } from 'node:path';
 import { paths } from '../config.js';
@@ -23,15 +23,14 @@ export const registerClaudeRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     const data = loadAccounts();
-    // Uso en vivo de cada cuenta (como máximo una vez cada 2 minutos); si falla, queda el caché de Claude Code.
-    const live = await Promise.all(data.accounts.map((account) => refreshLiveUsage(config, account)));
+    // Solo lectura local: el uso en vivo se actualiza a mano (POST /api/claude/usage/refresh), nunca desde acá.
     const usage = readUsage(data.accounts);
     const accounts = await Promise.all(
       data.accounts.map(async (account) => {
         const cached = statusCache.get(account.id);
         const status = cached && Date.now() - cached.at < STATUS_CACHE_MS ? cached.status : await readAuthStatus(config, account);
         statusCache.set(account.id, { at: cached && Date.now() - cached.at < STATUS_CACHE_MS ? cached.at : Date.now(), status });
-        return { ...account, status, usage: usage[account.id] ?? null, usageProblem: live[data.accounts.indexOf(account)]?.problem ?? null, snippets: launchSnippets(account) };
+        return { ...account, status, usage: usage[account.id] ?? null, usageProblem: liveProblemOf(account.id), snippets: launchSnippets(account) };
       }),
     );
     // Comando del colector (rutas absolutas: la extensión de VS Code no siempre hereda el PATH de nvm).
@@ -45,9 +44,21 @@ export const registerClaudeRoutes = (app: FastifyInstance): void => {
     if (!config) return reply;
     const data = loadAccounts();
     const account = data.accounts.find((item) => item.id === data.activeId) ?? null;
-    // Cada página que se abre llega acá: la consulta en vivo se limita sola a una cada 2 minutos.
-    const live = account ? await refreshLiveUsage(config, account) : null;
-    return { account: account ? { id: account.id, label: account.label, color: account.color } : null, usage: account ? (readUsage([account])[account.id] ?? null) : null, problem: live?.problem ?? null };
+    // Solo lectura local (caché y último dato guardado): esta ruta se consulta seguido y NO llama a ningún servicio externo.
+    return { account: account ? { id: account.id, label: account.label, color: account.color } : null, usage: account ? (readUsage([account])[account.id] ?? null) : null, problem: account ? liveProblemOf(account.id) : null };
+  });
+
+  /** Recarga manual del uso en vivo (la única forma de consultar al servicio). Sin `id`, la cuenta activa. */
+  app.post('/api/claude/usage/refresh', async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const body = z.object({ id: z.string().optional() }).safeParse(request.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: 'Pedido inválido' });
+    const data = loadAccounts();
+    const account = data.accounts.find((item) => item.id === (body.data.id ?? data.activeId));
+    if (!account) return reply.code(404).send({ error: 'Cuenta inexistente' });
+    const entry = await refreshLiveUsage(config, account);
+    return { problem: entry.problem, usage: readUsage([account])[account.id] ?? null };
   });
 
   app.post('/api/claude/accounts', async (request, reply) => {
