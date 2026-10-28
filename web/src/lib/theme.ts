@@ -15,6 +15,7 @@ export const THEMES: ThemeOption[] = [
   { id: 'oceano', label: 'Océano', swatch: ['#0a1118', '#1c3146', '#38bdf8'] },
   { id: 'rosa', label: 'Rosa', swatch: ['#180d13', '#3d2331', '#f472b6'] },
   { id: 'medianoche', label: 'Medianoche', swatch: ['#000000', '#1c1c1f', '#7dd3fc'] },
+  { id: 'eclipse', label: 'Eclipse', swatch: ['#000000', '#1c1c1f', '#a78bfa'] },
   { id: 'claro', label: 'Claro', swatch: ['#f4f6f9', '#e4e8ef', '#4f46e5'] },
 ];
 

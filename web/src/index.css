@@ -51,6 +51,10 @@
   --bg: 0 0 0; --surface: 10 10 11; --surface-2: 18 18 20; --surface-3: 28 28 31; --line: 40 40 44;
   --fg: 236 236 238; --muted: 140 140 148; --accent: 125 211 252; --accent-strong: 14 165 233;
 }
+[data-theme='eclipse'] {
+  --bg: 0 0 0; --surface: 10 10 11; --surface-2: 18 18 20; --surface-3: 28 28 31; --line: 40 40 44;
+  --fg: 236 236 238; --muted: 140 140 148; --accent: 167 139 250; --accent-strong: 124 58 237;
+}
 [data-theme='claro'] {
   color-scheme: light;
   --bg: 244 246 249; --surface: 255 255 255; --surface-2: 240 243 247; --surface-3: 228 232 239; --line: 212 218 228;
