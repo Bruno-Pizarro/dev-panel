@@ -14,6 +14,8 @@ export const ticketMetaSchema = z
     rama: z.string().optional(),
     /** "desarrollo" = lo desarrollo yo; "revision" = solo reviso el desarrollo de otra persona (va solo a Pruebas). */
     tipo: z.enum(['desarrollo', 'revision']).optional(),
+    /** Servicios de compose que hay que levantar para este ticket; si falta, se deducen de `repos`. */
+    servicios: z.array(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/)).optional(),
     repos: z.array(z.string()).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
@@ -194,4 +196,26 @@ export const trashTicket = (extraRoot: string, dir: string, typedName: string, i
   const target = join(trash, `${dir}__${now.toISOString().replace(/[:.]/g, '-')}`);
   renameSync(source, target);
   return { movedTo: relative(extraRoot, target) };
+};
+
+export interface TicketServices {
+  /** Opcionales que hay que levantar (los obligatorios se levantan siempre). */
+  optional: string[];
+  /** Repos del ticket que no corresponden a un servicio (ej. el front) o que no están en la configuración. */
+  skipped: string[];
+  source: 'ticket.json' | 'repos' | 'ninguno';
+}
+
+/** Servicios que pide un ticket: `servicios` de ticket.json o, si no está, los de sus `repos` según `repoServices`. */
+export const servicesForTicket = (config: DevPanelConfig, meta: TicketMeta | null): TicketServices => {
+  const { optional } = config.startup;
+  const known = new Set(optional);
+  if (meta?.servicios?.length) {
+    const valid = meta.servicios.filter((name) => known.has(name));
+    return { optional: [...new Set(valid)], skipped: meta.servicios.filter((name) => !known.has(name)), source: 'ticket.json' };
+  }
+  const repos = meta?.repos ?? [];
+  const mapped = repos.map((repo) => ({ repo, service: config.repoServices[repo] ?? repo }));
+  const services = mapped.filter((item) => known.has(item.service)).map((item) => item.service);
+  return { optional: [...new Set(services)], skipped: mapped.filter((item) => !known.has(item.service)).map((item) => item.repo), source: repos.length ? 'repos' : 'ninguno' };
 };

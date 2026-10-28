@@ -1,5 +1,6 @@
 export interface DevPanelConfig {
   paths: { projects: string; extra: string; daily: string; ignoreDirs: string[] };
+  workday: { entry: string; exit: string; punchUrl: string };
   compose: { main: string; minio: string };
   mongo: { container: string };
   startup: {
@@ -115,6 +116,7 @@ export interface TicketSummary {
   /** "revision" = solo se revisa el desarrollo de otra persona: va solo a Pruebas. */
   kind?: 'desarrollo' | 'revision';
   readyForTests?: boolean;
+  services?: { optional: string[]; skipped: string[]; source: 'ticket.json' | 'repos' | 'ninguno' };
 }
 export interface TicketDetail extends TicketSummary {
   meta: TicketMeta | null;
@@ -288,6 +290,7 @@ export interface ActivityEvent {
   detail?: string;
 }
 export interface DailyChecklist {
+  workday?: { entry: string; exit: string; punchUrl: string };
   date: string;
   items: Array<{ id: string; label: string; done: boolean }>;
 }

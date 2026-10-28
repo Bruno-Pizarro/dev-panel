@@ -42,6 +42,17 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
         </div>
       </Card>
 
+      <Card title="Jornada y marcación">
+        <p className="mb-4 text-muted">Con tus horarios, el checklist de Inicio y de Daily pasa de ámbar a naranja y rojo cuanto más tarde es para marcar entrada o salida (hasta 15 min, hasta 1 h, más de 1 h). Dejá un horario vacío para no colorear. No colorea los fines de semana.</p>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field label="Horario de entrada" type="time" mono={false} value={config.workday.entry} onChange={(entry) => setConfig({ ...config, workday: { ...config.workday, entry } })} />
+          <Field label="Horario de salida" type="time" mono={false} value={config.workday.exit} onChange={(exit) => setConfig({ ...config, workday: { ...config.workday, exit } })} />
+        </div>
+        <div className="mt-5">
+          <Field label="Enlace de marcación" help="Aparece como botón “Ir a marcar” debajo del checklist. Solo http o https." placeholder="https://…/control-horario/marcaciones/pin" value={config.workday.punchUrl} onChange={(punchUrl) => setConfig({ ...config, workday: { ...config.workday, punchUrl } })} />
+        </div>
+      </Card>
+
       <Card title="Orden de levantado" action={<span className="text-sm text-muted">Nombres de servicio del compose</span>}>
         <div className="space-y-5">
           <TagEditor label="Etapa 1" help="Se levantan primero (MinIO de file-manager)." values={startup.stage1} onChange={(stage1) => setStartup({ stage1 })} />

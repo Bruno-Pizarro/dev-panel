@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { defaultConfig } from '../config.js';
-import { TicketDeleteError, getTicket, ignoredDirs, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
+import { TicketDeleteError, getTicket, ignoredDirs, servicesForTicket, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
 
 let extra: string;
 const write = (path: string, content: string | Buffer = 'x') => {
@@ -156,5 +156,33 @@ describe('carpetas omitidas (daily y otras que no son tickets)', () => {
     const config = { ...defaultConfig('/x'), paths: { ...defaultConfig('/x').paths, extra: '/base', daily: '/base/resumenes', ignoreDirs: ['dev-panel'] } };
     expect(ignoredDirs(config).sort()).toEqual(['dev-panel', 'resumenes']);
     expect(ignoredDirs({ ...config, paths: { ...config.paths, daily: '/otro/lado/daily' } })).toEqual(['dev-panel']);
+  });
+});
+
+describe('servicesForTicket (botón "Levantar servicios")', () => {
+  const config = defaultConfig('/x');
+  it('deduce los servicios de los repos del ticket, con los nombres distintos del compose, y descarta lo que no es servicio', () => {
+    const result = servicesForTicket(config, { repos: ['front', 'legajo', 'documentos', 'control-horario', 'security'] } as never);
+    expect(result.optional.sort()).toEqual(['controlhorario', 'documentos']);
+    expect(result.skipped.sort()).toEqual(['front', 'legajo', 'security']);
+    expect(result.source).toBe('repos');
+  });
+  it('un campo servicios de ticket.json manda sobre los repos y se valida contra los opcionales', () => {
+    const result = servicesForTicket(config, { repos: ['firma'], servicios: ['leia', 'firma', 'rabbitmq'] } as never);
+    expect(result).toEqual({ optional: ['leia', 'firma'], skipped: ['rabbitmq'], source: 'ticket.json' });
+  });
+  it('sin repos ni servicios no pide nada extra', () => {
+    expect(servicesForTicket(config, null)).toEqual({ optional: [], skipped: [], source: 'ninguno' });
+  });
+});
+
+describe('workday en la configuración', () => {
+  it('acepta HH:MM y enlaces http(s), y rechaza horarios o enlaces inválidos', async () => {
+    const { configSchema } = await import('../config.js');
+    const base = defaultConfig('/x');
+    expect(configSchema.safeParse({ ...base, workday: { entry: '09:00', exit: '18:30', punchUrl: 'https://triunfo.e-sueldos.com/control-horario/marcaciones/pin' } }).success).toBe(true);
+    expect(configSchema.safeParse({ ...base, workday: { entry: '25:00', exit: '', punchUrl: '' } }).success).toBe(false);
+    expect(configSchema.safeParse({ ...base, workday: { entry: '', exit: '', punchUrl: 'javascript:alert(1)' } }).success).toBe(false);
+    expect(configSchema.safeParse({ ...base, workday: { entry: '', exit: '', punchUrl: '' } }).success).toBe(true);
   });
 });

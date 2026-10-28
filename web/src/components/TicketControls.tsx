@@ -1,4 +1,4 @@
-import { Check, ClipboardCheck, Layers, Rocket } from 'lucide-react';
+import { Check, ClipboardCheck, Layers, Power, Rocket } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -38,6 +38,30 @@ export const TicketControls = ({ detail, view, onChanged }: TicketControlsProps)
     }
   };
 
+  const services = detail.services;
+  const optional = services?.optional ?? [];
+  const startServices = async () => {
+    setBusy(true);
+    try {
+      await api.post('/api/startup/run', { services: optional });
+      toast('success', 'Levantado en marcha: seguilo en la vista Levantado.');
+      navigate('/levantado');
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const startButton = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Button className="h-9" icon={<Power className="size-4" />} loading={busy} onClick={startServices} title="Levanta, en el orden correcto, lo que pide este ticket">Levantar servicios</Button>
+      <span className="text-sm text-muted">
+        {optional.length ? <>Además de los obligatorios: <span className="font-mono text-fg">{optional.join(', ')}</span></> : 'Solo los obligatorios'}
+        {services && services.skipped.length > 0 && <> · sin servicio propio: <span className="font-mono">{services.skipped.join(', ')}</span></>}
+      </span>
+    </div>
+  );
+
   if (view === 'desarrollo') {
     return (
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3">
@@ -53,6 +77,7 @@ export const TicketControls = ({ detail, view, onChanged }: TicketControlsProps)
             <span className="text-sm text-muted">Al marcarlo te lleva a Pruebas con este ticket abierto.</span>
           </>
         )}
+        <div className="basis-full border-t border-line pt-3">{startButton}</div>
       </div>
     );
   }
@@ -64,6 +89,7 @@ export const TicketControls = ({ detail, view, onChanged }: TicketControlsProps)
       <Chip selected={kind === 'revision'} onToggle={() => kind !== 'revision' && save({ kind: 'revision' })} hint="Solo reviso el desarrollo de otra persona: no aparece en Desarrollo">Solo revisión</Chip>
       {kind === 'desarrollo' && <Button className="h-9" icon={<Layers className="size-4" />} onClick={() => navigate(`/planificacion/${dir}`)}>Ir al desarrollo</Button>}
       {kind === 'revision' && <span className="text-sm text-muted">No se muestra en Desarrollo.</span>}
+      <div className="basis-full border-t border-line pt-3">{startButton}</div>
     </div>
   );
 };

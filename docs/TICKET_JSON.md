@@ -54,3 +54,6 @@ Etiquetas que ya empiezan con comillas (`A["Texto (con paréntesis)"]`) son vál
 - `desarrollo` (por defecto): lo desarrollo yo; aparece en **Desarrollo** y en Pruebas.
 - `revision`: solo reviso el desarrollo de otra persona; **nunca** aparece en Desarrollo, solo en Pruebas, y el resumen semanal lo agrupa como revisión.
 - Lo marcado en el panel (Pruebas → "Tipo de ticket") tiene prioridad sobre este campo. "Listo para pruebas" también se marca en el panel y no vive en este archivo.
+
+## Servicios del ticket: `servicios` (opcional)
+Lista de servicios de compose que el botón **Levantar servicios** debe levantar para este ticket (solo opcionales; los obligatorios siempre se levantan). Si falta, el panel los deduce de `repos` (`control-horario` → `controlhorario`, `file-manager` → `files`; el front no es un servicio).

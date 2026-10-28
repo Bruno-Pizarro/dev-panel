@@ -2,7 +2,10 @@
   "paths": {
     "projects": "/path/to/projects",
     "extra": "/path/to/projects/_EXTRA",
-    "daily": "/path/to/projects/_EXTRA/daily"
+    "daily": "/path/to/projects/_EXTRA/daily",
+    "ignoreDirs": [
+      "daily"
+    ]
   },
   "compose": {
     "main": "/path/to/projects/docker-compose.yml",
@@ -44,6 +47,44 @@
     "frontUrl": "http://localhost:4200",
     "accessTtlSec": 3600,
     "refreshTtlSec": 86400
+  },
+  "redmine": {
+    "enabled": true,
+    "configFile": "",
+    "baseUrl": "",
+    "doneStatuses": [
+      "Revisión",
+      "Testeado",
+      "Testing Consultoría",
+      "Testing Aprobado Consultoría",
+      "Terminado",
+      "Entregado"
+    ]
+  },
+  "claude": {
+    "binary": "claude",
+    "liveUsage": true
+  },
+  "workday": {
+    "entry": "",
+    "exit": "",
+    "punchUrl": ""
+  },
+  "repoServices": {
+    "control-horario": "controlhorario",
+    "file-manager": "files",
+    "panel": "new-panel"
+  },
+  "checklists": {
+    "test": [
+      "Actualizar el ticket en Redmine",
+      "Subir los comentarios"
+    ],
+    "daily": [
+      "Marcar entrada",
+      "Marcar salida",
+      "Cargar horas"
+    ]
   },
   "git": {
     "baseBranch": "desarrollo"

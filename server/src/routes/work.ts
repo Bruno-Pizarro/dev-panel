@@ -31,7 +31,7 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     try {
-      return getDailyChecklist(config.checklists.daily, request.query.date ?? localDay());
+      return { ...getDailyChecklist(config.checklists.daily, request.query.date ?? localDay()), workday: config.workday };
     } catch (error) {
       return fail(reply, error);
     }
@@ -43,7 +43,7 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const body = z.object({ id: z.string(), done: z.boolean(), date: z.string().optional() }).safeParse(request.body);
     if (!body.success) return reply.code(400).send({ error: 'Pedido inválido' });
     try {
-      return setDailyItem(config.checklists.daily, body.data.id, body.data.done, body.data.date ?? localDay());
+      return { ...setDailyItem(config.checklists.daily, body.data.id, body.data.done, body.data.date ?? localDay()), workday: config.workday };
     } catch (error) {
       return fail(reply, error);
     }

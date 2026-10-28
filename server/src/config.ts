@@ -38,6 +38,8 @@ const DEFAULT_TEST_DATA = [
   { db: 'documentos', collection: 'documentos', field: 'name' },
   { db: 'documentos', collection: 'carpetas', field: 'name' },
 ];
+/** Repos cuyo servicio de compose se llama distinto. Los que no están acá se asumen con el mismo nombre. */
+const DEFAULT_REPO_SERVICES = { 'control-horario': 'controlhorario', 'file-manager': 'files', panel: 'new-panel' } as Record<string, string>;
 const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
@@ -66,6 +68,8 @@ export const configSchema = z.object({
       types: z.array(z.string().regex(/^[A-Za-z0-9._-]+$/)).default(DEFAULT_BACKUP_TYPES),
     })
     .default({}),
+  /** Qué servicio de compose levanta cada repo (para el botón "Levantar servicios" de los tickets). */
+  repoServices: z.record(z.string(), serviceName).default(DEFAULT_REPO_SERVICES),
   /** Sesiones de prueba: el panel firma tokens con el JWT_SECRET de `security` para entrar como un usuario del entorno local. */
   session: z
     .object({
@@ -100,6 +104,15 @@ export const configSchema = z.object({
        * El token se lee solo en memoria; no se guarda, no se loguea ni llega al navegador. Apagalo si no lo querés.
        */
       liveUsage: z.boolean().default(true),
+    })
+    .default({}),
+  /** Jornada de trabajo: el checklist diario cambia de color según cuánto pasó desde cada horario; "" = sin horario (no colorea). */
+  workday: z
+    .object({
+      entry: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).or(z.literal('')).default(''),
+      exit: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).or(z.literal('')).default(''),
+      /** Enlace de marcación (solo http/https): se muestra como botón debajo del checklist. */
+      punchUrl: z.string().url().refine((value) => /^https?:\/\//i.test(value), 'Solo http o https').or(z.literal('')).default(''),
     })
     .default({}),
   /** Pasos que se tildan en cada tanda de pruebas, y tareas que se repiten todos los días. */
@@ -166,6 +179,8 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   claude: { binary: 'claude', liveUsage: true },
+  workday: { entry: '', exit: '', punchUrl: '' },
+  repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },

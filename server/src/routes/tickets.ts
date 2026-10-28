@@ -1,7 +1,7 @@
 import { createReadStream, readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { IMAGE_TYPES, TicketDeleteError, getTicket, ignoredDirs, listTickets, resolveTicketFile, trashTicket } from '../services/tickets.js';
+import { IMAGE_TYPES, TicketDeleteError, getTicket, ignoredDirs, listTickets, servicesForTicket, resolveTicketFile, trashTicket } from '../services/tickets.js';
 import { getTestState, testStatusOf } from '../services/checklists.js';
 import { getTicketState, kindOf, setTicketState } from '../services/ticketState.js';
 import { requireConfig } from './helpers.js';
@@ -24,7 +24,7 @@ export const registerTicketRoutes = (app: FastifyInstance): void => {
     const ticket = getTicket(config.paths.extra, request.params.dir, ignoredDirs(config));
     if (!ticket) return reply.code(404).send({ error: 'Ticket no encontrado' });
     const state = getTicketState(request.params.dir);
-    return { ...ticket, kind: kindOf(state, ticket.meta?.tipo), readyForTests: state.readyForTests === true };
+    return { ...ticket, kind: kindOf(state, ticket.meta?.tipo), readyForTests: state.readyForTests === true, services: servicesForTicket(config, ticket.meta) };
   });
 
   /** Estado que se maneja desde el panel: "listo para pruebas" y si el ticket es desarrollo propio o solo revisión. */
