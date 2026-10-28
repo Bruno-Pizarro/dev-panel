@@ -100,10 +100,10 @@ Un agente que configure el repo en una máquina nueva solo necesita `config.json
 | Preferencias de pantalla (tema, menú colapsado, filtros) | `localStorage` del navegador | No viajan con el repo |
 
 ## Skills del pipeline (para que el panel tenga datos)
-Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills `ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`. Esas skills están **fuera de este repo** (`<carpeta de Claude>/skills`, normalmente `~/.claude/skills`) y por defecto no saben nada del panel: sin la sección "Registro en el Dev Panel" el panel igual lista las carpetas, pero sin pruebas, MRs, plan ni tipo.
+Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills `ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`. Esas skills están **fuera de este repo** (`<carpeta de Claude>/skills`, normalmente `~/.claude/skills`) y por defecto no saben nada del panel: sin la skill `dev-panel` (o la sección "Registro en el Dev Panel" en cada una) el panel igual lista las carpetas, pero sin pruebas, MRs, plan ni tipo.
 
 **La convención completa está en la skill [`skills/dev-panel`](skills/dev-panel/SKILL.md) de este repo** (se instala con un enlace simbólico a `<carpeta de Claude>/skills/dev-panel`, así un `git pull` la actualiza). **Instrucción para el agente que configure el repo: NO instales ni modifiques skills por tu cuenta.** Son del usuario y afectan a todos sus proyectos, no solo a este. En cambio:
-1. Comprobá si ya tienen la sección (buscá "Registro en el Dev Panel" en cada `SKILL.md`). Si ya la tienen, no hay nada que hacer.
+1. Comprobá si ya está instalada la skill `dev-panel` y si las cinco la referencian o tienen la sección "Registro en el Dev Panel" en su `SKILL.md`. Si ya está, no hay nada que hacer.
 2. Si faltan, **avisale al usuario y preguntale si quiere que las modifiques** para que el panel funcione bien. No avances sin un sí explícito (y si dice que no, el panel se usa igual, con menos datos).
 3. Antes de preguntar, **explicale qué se modificaría**, en concreto:
    - A cada `SKILL.md` se le **agrega una sección al final** ("Registro en el Dev Panel"); no se borra ni se reescribe nada existente, y los archivos de apoyo (plantillas, `reference/`) no se tocan.

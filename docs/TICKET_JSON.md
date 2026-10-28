@@ -1,6 +1,6 @@
 # Convención `ticket.json`
 
-Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener un `ticket.json` en su raíz. Es la fuente de las vistas **Pruebas** y **Planificación** del Dev Panel. Lo escriben las skills del pipeline (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review`, `ship`) al cerrar cada etapa. El panel solo lo lee; si falta, igual lista la carpeta y deduce lo básico del nombre (`33526-pendientes-firma`).
+Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener un `ticket.json` en su raíz. Es la fuente de las vistas **Pruebas** y **Planificación** del Dev Panel. La skill [`skills/dev-panel`](../skills/dev-panel/SKILL.md) es la versión para Claude de esta misma convención (si cambia una, cambiá la otra). Lo escriben las skills del pipeline (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review`, `ship`) al cerrar cada etapa. El panel solo lo lee; si falta, igual lista la carpeta y deduce lo básico del nombre (`33526-pendientes-firma`).
 
 ## Reglas
 1. **Leer antes de escribir y mezclar**: cada etapa agrega o actualiza *sus* campos y conserva los de las demás. Nunca recrear el archivo desde cero.
