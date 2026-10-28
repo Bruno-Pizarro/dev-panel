@@ -3,6 +3,8 @@
 El panel lee `ticket.json` en cada carpeta de la base de conocimiento (convención: [../TICKET_JSON.md](../TICKET_JSON.md)). Quien lo escribe son las **skills de Claude Code** del pipeline, que viven fuera de este repo (`<carpeta de Claude>/skills/<nombre>/SKILL.md`, normalmente `~/.claude/skills`). Sin esta sección en cada skill, las skills siguen funcionando pero el panel solo ve lo que deduce del nombre de la carpeta (sin pruebas, MRs, plan ni tipo).
 
 ## Cómo aplicarlo en una máquina nueva
+**Un agente no debe aplicar esto por su cuenta**: primero tiene que avisarle al usuario, explicarle qué se modifica (una sección agregada al final de cada `SKILL.md`; las skills pasan a escribir `ticket.json` y algunos `.md`/`.mmd` en la carpeta de cada ticket, en todos los proyectos donde se usen) y esperar un sí explícito. Detalle en la sección "Skills del pipeline" de [../../CLAUDE.md](../../CLAUDE.md).
+
 1. Para cada skill de la tabla, copiar el contenido de su archivo de esta carpeta al **final de su `SKILL.md`** (antes de la "Regla meta" si la tiene), como una sección más.
 2. Ajustar las dos rutas del texto a la máquina: la carpeta de la base de conocimiento (`/root/projects/_EXTRA`) y la del panel (`/root/projects/dev-panel`).
 3. Las skills no se actualizan solas: si el texto cambia acá, hay que volver a copiarlo. En el panel, Claude → Skills muestra la fecha de la última modificación de cada una.

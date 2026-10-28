@@ -50,7 +50,17 @@ Un agente que configure el repo en una máquina nueva solo necesita `config.json
 | Preferencias de pantalla (tema, menú colapsado, filtros) | `localStorage` del navegador | No viajan con el repo |
 
 ## Skills del pipeline (para que el panel tenga datos)
-Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills `ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`. Esas skills están **fuera de este repo** y por defecto no saben nada del panel: **en una máquina nueva hay que agregarle a cada una la sección "Registro en el Dev Panel"** (el texto exacto y los pasos están en [docs/skills-sdd/](docs/skills-sdd/README.md), ajustando las dos rutas). Sin eso el panel igual lista las carpetas, pero sin pruebas, MRs, plan ni tipo. Las skills no se actualizan solas: al cambiar el texto en `docs/skills-sdd/` hay que recopiarlo (Claude → Skills muestra cuándo se modificó cada una).
+Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills `ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review` y `ship`. Esas skills están **fuera de este repo** (`<carpeta de Claude>/skills`, normalmente `~/.claude/skills`) y por defecto no saben nada del panel: sin la sección "Registro en el Dev Panel" el panel igual lista las carpetas, pero sin pruebas, MRs, plan ni tipo.
+
+**Instrucción para el agente que configure el repo: NO modifiques las skills por tu cuenta.** Son del usuario y afectan a todos sus proyectos, no solo a este. En cambio:
+1. Comprobá si ya tienen la sección (buscá "Registro en el Dev Panel" en cada `SKILL.md`). Si ya la tienen, no hay nada que hacer.
+2. Si faltan, **avisale al usuario y preguntale si quiere que las modifiques** para que el panel funcione bien. No avances sin un sí explícito (y si dice que no, el panel se usa igual, con menos datos).
+3. Antes de preguntar, **explicale qué se modificaría**, en concreto:
+   - A cada `SKILL.md` se le **agrega una sección al final** ("Registro en el Dev Panel"); no se borra ni se reescribe nada existente, y los archivos de apoyo (plantillas, `reference/`) no se tocan.
+   - Esa sección le indica a la skill que, al cerrar su etapa, **escriba o actualice `ticket.json`** en la carpeta del ticket de la base de conocimiento (leyendo antes y mezclando, sin pisar lo de otras etapas, sin credenciales). Qué escribe cada una: `ing-requisitos-sdd` → ticket, título, URL, repos y rama; `arquitecto-sdd` → tipo, rama, repos y plan (`plan_abreviado.md`, diagrama `flujo.mmd`), más reglas para que sus diagramas Mermaid dibujen; `desarrollador-sdd` → estado y una entrada por tanda de pruebas; `gitlab-review` → tipo `revision` y una entrada por revisión; `ship` → MRs y estado.
+   - Consecuencia visible: las skills van a **crear/modificar archivos `ticket.json` y algún `.md`/`.mmd` en la carpeta del ticket** cada vez que se usen, en todos los proyectos donde se usen.
+   - Los cambios son solo en esos 5 archivos y se pueden deshacer borrando la sección.
+4. Con el sí del usuario, el texto exacto y los pasos están en [docs/skills-sdd/](docs/skills-sdd/README.md) (ajustá las dos rutas a la máquina) y contá qué archivos tocaste. Las skills no se actualizan solas: al cambiar el texto en `docs/skills-sdd/` hay que recopiarlo, también con el permiso del usuario (Claude → Skills muestra cuándo se modificó cada una).
 
 ## Comandos
 | Comando | Qué hace |
