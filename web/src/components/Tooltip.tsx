@@ -23,7 +23,7 @@ export const Tooltip = ({ content, children, width = 320 }: TooltipProps) => {
 
   return (
     <>
-      <span ref={anchor} onMouseEnter={show} onMouseLeave={() => setBox(null)} onFocus={show} onBlur={() => setBox(null)} className="inline-flex">
+      <span ref={anchor} onMouseEnter={show} onMouseLeave={() => setBox(null)} onFocus={show} onBlur={() => setBox(null)} className="inline-flex max-w-full min-w-0">
         {children}
       </span>
       {box && (

@@ -69,7 +69,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
                 {withTestFilters && ticket.testStatus && ticket.testStatus.checklistTotal > 0 && ticket.testStatus.runs > 0 && <Badge tone={ticket.testStatus.checklistDone === ticket.testStatus.checklistTotal ? 'success' : 'warning'}>checklist {ticket.testStatus.checklistDone}/{ticket.testStatus.checklistTotal}</Badge>}
                 {ticket.lastTest?.resultado && (
                   <Tooltip width={300} content={<><div className="mb-1 font-semibold">Última tanda de pruebas: {ticket.lastTest.resultado}</div><p className="text-muted">Es el resultado que se registró en <span className="font-mono">ticket.json</span> para la última tanda de pruebas (por ejemplo, 25 de 25 casos pasaron). <strong className="text-fg">No indica que el desarrollo esté terminado</strong>: eso depende del estado del ticket y de la revisión.</p></>}>
-                    <span><Badge tone="info">Pruebas {ticket.lastTest.resultado}</Badge></span>
+                    <span className="inline-flex max-w-full min-w-0"><Badge tone="info">Pruebas {ticket.lastTest.resultado}</Badge></span>
                   </Tooltip>
                 )}
                 {ticket.review && <Badge tone={toneOf(ticket.review)}>review: {ticket.review}</Badge>}
