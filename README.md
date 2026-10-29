@@ -25,7 +25,7 @@ En el primer arranque se abre un **asistente** que detecta Docker, tus rutas y l
 | Sesiones de prueba | Entrar como un usuario del entorno local |
 | Repos y .env | Ramas por repo y cambio de `.env` entre MinIO local y remoto |
 | Kanban | Tus tickets de Redmine por estado, con story points |
-| Pruebas / Desarrollo | Por ticket: informes, capturas, plan, diagramas, descripción y comentarios de Redmine, checklists |
+| Pruebas / Desarrollo | Por ticket: informes, capturas, plan, diagramas, descripción y comentarios de Redmine, checklists y la pestaña **Estado** (qué falta antes de abrir los MRs, git de los repos, MRs y pipelines de GitLab, servicios caídos, datos de prueba) |
 | Daily | Borrador del daily, historial de 5 días y resumen semanal para Claude |
 | Claude | Cuentas con su uso (recarga manual) y skills instaladas con su fecha de modificación |
 | Configuración | Rutas, nombre, API key de Redmine, jornada, orden de levantado |

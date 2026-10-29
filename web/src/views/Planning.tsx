@@ -12,6 +12,7 @@ import { Tabs } from '../components/Tabs';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
+import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { RefreshButton } from '../components/RefreshButton';
@@ -21,7 +22,7 @@ import { assetUrl, classifyDocs, diagramFile, fileUrl, planDoc, referenceImage }
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'plan' | 'diagrama' | 'referencia' | 'documentos';
+type Tab = 'estado' | 'plan' | 'diagrama' | 'referencia' | 'documentos';
 
 const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: string; refreshKey: number; children: (content: string) => React.ReactNode }) => {
   const doc = useAsync(() => api.get<{ content: string }>(fileUrl(dir, file)));
@@ -47,7 +48,8 @@ const Detail = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
 
   return (
     <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="desarrollo" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'estado', label: 'Estado' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
+      {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
       {tab === 'plan' &&
         (plan ? (
           <Card><FileText dir={dir} file={plan} refreshKey={refreshKey}>{(content) => <Markdown source={content} ticket={{ dir, file: plan }} />}</FileText></Card>

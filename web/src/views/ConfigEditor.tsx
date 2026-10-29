@@ -50,6 +50,32 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
         )}
       </Card>
 
+      <Card title="GitLab">
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field
+            label="Token de acceso (opcional)"
+            type="password"
+            autoComplete="off"
+            help={config.gitlab.tokenSet ? 'Hay un token guardado en config.json (no se muestra). Escribí otro para reemplazarlo.' : 'Alcanza con el permiso read_api. Si lo dejás vacío se usa la variable GITLAB_TOKEN. Se guarda solo en config.json (fuera de git) y nunca vuelve a la pantalla. Sin token, el Estado del ticket no muestra los MRs.'}
+            placeholder={config.gitlab.tokenSet ? '•••••••••••• (guardado)' : 'Pegá tu token de GitLab'}
+            value={config.gitlab.token}
+            onChange={(token) => setConfig({ ...config, gitlab: { ...config.gitlab, token } })}
+          />
+          <Field label="URL de GitLab" help="El token solo se envía a este servidor." placeholder="https://git.ejemplo.com" value={config.gitlab.baseUrl} onChange={(baseUrl) => setConfig({ ...config, gitlab: { ...config.gitlab, baseUrl } })} />
+          <Field label="Grupo de los repos" help="Se usa cuando el MR de ticket.json no trae la URL." value={config.gitlab.group} onChange={(group) => setConfig({ ...config, gitlab: { ...config.gitlab, group } })} />
+        </div>
+        {config.gitlab.tokenSet && (
+          <button type="button" className="mt-3 text-sm text-danger hover:underline" onClick={() => setConfig({ ...config, gitlab: { ...config.gitlab, token: '', tokenSet: false, clearToken: true } })}>Quitar el token guardado (al guardar)</button>
+        )}
+        <label className="mt-5 flex cursor-pointer items-start gap-3">
+          <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={config.gitlab.sshAuto} onChange={(event) => setConfig({ ...config, gitlab: { ...config.gitlab, sshAuto: event.target.checked } })} />
+          <span>
+            <span className="block font-medium">Pedir un token de 1 día por SSH (sin cargarlo a mano)</span>
+            <span className="block text-sm text-muted">Si no hay token fijo, el panel pide por SSH (con tu clave, sin passphrase) un token de solo lectura que vence en 1 día y lo guarda solo en memoria. Crea un token «dev-panel» en tu cuenta de GitLab cada vez que hace falta (como mucho cada 12 h, y de nuevo si el servidor lo rechaza).</span>
+          </span>
+        </label>
+      </Card>
+
       <Card title="Rutas">
         <div className="grid gap-5 md:grid-cols-2">
           <PathField label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />

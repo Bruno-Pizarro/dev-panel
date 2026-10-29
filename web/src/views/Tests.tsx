@@ -14,6 +14,7 @@ import { TestRuns } from '../components/TestRuns';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
+import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { RefreshButton } from '../components/RefreshButton';
@@ -22,7 +23,7 @@ import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'resumen' | 'manuales' | 'informes' | 'capturas';
+type Tab = 'estado' | 'resumen' | 'manuales' | 'informes' | 'capturas';
 
 const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; onListChanged: () => void; refreshKey: number }) => {
   const meta = detail.meta;
@@ -30,7 +31,7 @@ const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; 
   if (empty) return <EmptyState icon={<ClipboardCheck className="size-6" />} title="Sin resumen estructurado">Hay {detail.docs} documentos y {detail.images} capturas en las otras pestañas. El resumen aparece cuando existe <span className="font-mono">ticket.json</span>.</EmptyState>;
   return (
     <div className="space-y-6">
-      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} refreshKey={refreshKey} />}
+      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} refreshKey={refreshKey} historyOnly={detail.kind !== 'revision'} />}
       {meta?.mrs && meta.mrs.length > 0 && (
         <Card title="Merge requests">
           <table className="w-full text-left text-sm">
@@ -76,7 +77,8 @@ const Detail = ({ dir, onListChanged, refreshKey }: { dir: string; onListChanged
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
     <TicketFrame dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'estado', label: 'Estado' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
+      {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
       {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} refreshKey={refreshKey} />}
       {tab === 'manuales' && <ManualTests dir={dir} refreshKey={refreshKey} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} refreshKey={refreshKey} />}

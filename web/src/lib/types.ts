@@ -4,6 +4,7 @@ export interface DevPanelConfig {
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
   redmine: { enabled: boolean; apiKey: string; apiKeySet?: boolean; clearApiKey?: boolean; configFile: string; baseUrl: string; doneStatuses: string[] };
+  gitlab: { enabled: boolean; token: string; tokenSet?: boolean; clearToken?: boolean; baseUrl: string; sshAuto: boolean; sshHost: string; group: string };
   compose: { main: string; minio: string };
   mongo: { container: string };
   startup: {
@@ -96,6 +97,8 @@ export interface TicketMeta {
   rama?: string;
   repos?: string[];
   mrs?: TicketMr[];
+  ordenMerge?: string[];
+  datosPrueba?: { descripcion?: string; siembra?: string; limpieza?: string; avisos?: string[] };
   codeReview?: Array<{ fecha?: string; veredicto?: string; resumen?: string; hallazgos?: number }>;
   tipo?: 'desarrollo' | 'revision';
   pruebasManuales?: Array<string | { caso: string; esperado?: string; grupo?: string; ruta?: string; url?: string }>;
@@ -367,4 +370,39 @@ export interface WeeklyReport {
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;
   data: string;
   prompt: string;
+}
+
+// ---- estado vivo de un ticket (pestaña Estado)
+export type Level = 'ok' | 'warn' | 'error' | 'idle';
+export interface RunSegment { label: string | null; passed: number; total: number }
+export interface LastRun { fecha: string | null; resultado: string | null; resumen: string | null; archivo: string | null; segments: RunSegment[]; passed: number; total: number; allPassed: boolean }
+export interface ShipItem { id: string; label: string; level: Level; detail: string }
+export interface ShipReport { items: ShipItem[]; summary: { ready: boolean; ok: number; warn: number; error: number }; lastRun: LastRun | null }
+export interface TicketRepoStatus {
+  repo: string;
+  exists: boolean;
+  branch: string | null;
+  base: { name: string; ahead: number; behind: number } | null;
+  upstream: { name: string; ahead: number; behind: number } | null;
+  dirty: Array<{ status: string; path: string }>;
+  last: { hash: string; subject: string; when: string } | null;
+  warnings: Array<{ level: Level; text: string }>;
+}
+export interface TicketGitReport { baseBranch: string; ticketBranch: string | null; repos: TicketRepoStatus[]; changedSinceLastRun: string[] }
+export interface ServiceHealth { service: string; container: string | null; state: string; level: Level; detail: string; ports: string }
+export interface ServicesReport { services: ServiceHealth[]; skipped: string[]; missing: string[] }
+export interface MrInfo {
+  repo: string | null; iid: number; order: number; title: string | null; url: string | null; state: string | null;
+  sourceBranch: string | null; targetBranch: string | null; notes: number; level: Level; summary: string;
+  pipeline: { status: string; url: string | null } | null; error: string | null;
+}
+export interface MrReport { configured: boolean; baseUrl: string; tokenError: string | null; mrs: MrInfo[] }
+export interface TicketDataReport {
+  ticket: string | null;
+  rows: Array<{ db: string; collection: string; field: string; count: number }>;
+  total: number;
+  error: string | null;
+  queues: Array<{ name: string; ready: number; unacked: number }> | null;
+  queuesError: string | null;
+  notes: { descripcion?: string; siembra?: string; limpieza?: string; avisos?: string[] } | null;
 }

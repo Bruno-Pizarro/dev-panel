@@ -6,7 +6,11 @@ import { defaultConfig, configSchema, loadConfig, saveConfig, paths } from '../c
 import { docker, listComposeServices, listContainerNames } from '../docker.js';
 
 /** Config para el navegador: la API key se reemplaza por un indicador de si hay una guardada. */
-export const publicConfig = (config: DevPanelConfig) => ({ ...config, redmine: { ...config.redmine, apiKey: '', apiKeySet: config.redmine.apiKey !== '' } });
+export const publicConfig = (config: DevPanelConfig) => ({
+  ...config,
+  redmine: { ...config.redmine, apiKey: '', apiKeySet: config.redmine.apiKey !== '' },
+  gitlab: { ...config.gitlab, token: '', tokenSet: config.gitlab.token !== '' },
+});
 
 export const registerSystemRoutes = (app: FastifyInstance): void => {
   app.get('/api/health', async () => ({ ok: true }));
@@ -21,12 +25,14 @@ export const registerSystemRoutes = (app: FastifyInstance): void => {
     if (!parsed.success) {
       return reply.code(400).send({ error: 'Configuración inválida', issues: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
     }
-    // La key nunca viaja al navegador: un campo vacío conserva la guardada; `clearApiKey` la quita.
-    const redmineBody = (request.body as { redmine?: { clearApiKey?: unknown } } | null)?.redmine;
+    // Las credenciales nunca viajan al navegador: un campo vacío conserva la guardada; `clearApiKey` / `clearToken` la quitan.
+    const body = request.body as { redmine?: { clearApiKey?: unknown }; gitlab?: { clearToken?: unknown } } | null;
     const previous = loadConfig();
     const keep = previous.configured ? previous.config.redmine.apiKey : '';
-    const apiKey = redmineBody?.clearApiKey === true ? '' : parsed.data.redmine.apiKey || keep;
-    const next = { ...parsed.data, redmine: { ...parsed.data.redmine, apiKey } };
+    const apiKey = body?.redmine?.clearApiKey === true ? '' : parsed.data.redmine.apiKey || keep;
+    const keepToken = previous.configured ? previous.config.gitlab.token : '';
+    const token = body?.gitlab?.clearToken === true ? '' : parsed.data.gitlab.token || keepToken;
+    const next = { ...parsed.data, redmine: { ...parsed.data.redmine, apiKey }, gitlab: { ...parsed.data.gitlab, token } };
     saveConfig(next);
     return { configured: true, config: publicConfig(next) };
   });

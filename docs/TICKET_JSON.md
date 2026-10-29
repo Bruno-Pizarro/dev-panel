@@ -60,3 +60,18 @@ Servicios de compose que hay que **tener levantados para probar el ticket aunque
 
 ## Pruebas manuales: `pruebasManuales` (opcional)
 Lista de casos para probar a mano, que el panel muestra como checklist en la pestaña **Pruebas manuales** de Pruebas. Cada elemento es un texto o `{ "caso": "...", "esperado": "...", "grupo": "...", "ruta": "/profile?panel=...", "url": "https://..." }` (todo menos `caso` es opcional; los casos del mismo `grupo` se muestran juntos). `ruta` es un path del front que empieza con `/` y el panel lo abre contra `session.frontUrl` de la configuración (por defecto `http://localhost:4200`), con un botón **Abrir** al lado del caso; `url` es un enlace completo (solo http o https) y manda sobre `ruta`. Cualquier otro valor se ignora. Qué se tildó **no** vive en este archivo: lo guarda el panel, y el usuario puede sumar casos propios desde la pantalla. Conviene derivarlos de los criterios de aceptación del contrato, en pasos que alguien pueda seguir sin leer el código.
+
+## Orden de merge y datos de prueba: `ordenMerge`, `datosPrueba` (opcionales)
+Alimentan la pestaña **Estado** de Pruebas y Desarrollo.
+- `ordenMerge`: `["documentos", "legajo", "front"]`, repos en el orden en que se mergean los MRs. Sin él, los backends van alfabéticos y el front al final.
+- `datosPrueba`: `{ "descripcion", "siembra", "limpieza", "avisos": [] }`, texto libre que el panel **solo muestra** (nunca ejecuta). Los datos marcados `[<ticket>]` los cuenta el panel directo en Mongo (`testData` en la configuración).
+
+## Pestaña Estado: de dónde sale cada cosa
+| Sección | Fuente |
+|---|---|
+| Listo para abrir los MRs (semáforo) | `pruebas[]` (formato `n/m`), `codeReview[]`, `mrs[]`, `*_EJECUCION_*.md`, pruebas manuales tildadas en el panel, git de los `repos`, y las claves de `*_I18N_KEYS*.md` contra `front/src/assets/i18n/{es,en}.json` |
+| Última corrida de pruebas | La última entrada de `pruebas[]`: cada `etiqueta n/m` separada por `·`, `;`, `,` o `|` es un tramo (verde si pasó todo). "Hay commits posteriores" compara su `fecha` con la fecha de autor del último commit propio de cada repo (solo por día) |
+| Git | Rama, distancia a la rama base, remoto, cambios sin commitear y avisos (rebase pendiente, sin push, rama distinta a `rama`) de cada repo de `repos` |
+| Merge requests | API de GitLab (solo lectura) para cada `mrs[]` con `iid` y `url` (o `repo`+`iid`): estado, pipeline, conflictos, discusiones sin resolver, borrador. Pide el token de Configuración → GitLab |
+| Servicios | Contenedores de Docker de los obligatorios y de los que el ticket necesita (`repos` + `servicios`), con healthcheck y estado de `tsc` |
+| Datos de prueba | Conteo de lo marcado `[<ticket>]` en Mongo, colas de RabbitMQ con mensajes sin confirmar y `datosPrueba` |
