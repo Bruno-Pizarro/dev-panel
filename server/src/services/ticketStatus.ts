@@ -59,6 +59,18 @@ export const reposChangedSince = (fecha: string | null, repos: RepoStatus[]): st
   fecha ? repos.filter((repo) => repo.lastCommitAt !== null && repo.lastCommitAt.slice(0, 10) > fecha).map((repo) => repo.repo) : [];
 
 // ---------------------------------------------------------------- git
+/**
+ * El panel cambia a propósito los `.env` de los repos con perfil MinIO (documentos, firma, file-manager): que figuren modificados
+ * no es trabajo del ticket sin commitear. Se quitan de `dirty` (y se cuentan aparte, `ignored`) solo para el Estado del ticket;
+ * la vista Repos y .env sigue mostrando todo.
+ */
+export const withoutManagedEnv = <T extends RepoStatus>(repos: T[], profiles: Record<string, { file: string }>): Array<T & { ignored: string[] }> =>
+  repos.map((repo) => {
+    const managed = profiles[repo.repo]?.file;
+    const ignored = managed ? repo.dirty.filter((entry) => entry.path === managed).map((entry) => entry.path) : [];
+    return { ...repo, dirty: repo.dirty.filter((entry) => !ignored.includes(entry.path)), ignored };
+  });
+
 export interface RepoWarning {
   level: Level;
   text: string;

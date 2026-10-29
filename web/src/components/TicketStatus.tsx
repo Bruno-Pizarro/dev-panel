@@ -84,6 +84,7 @@ const Git = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
                 {repo.base && <Badge tone={repo.base.behind > 0 ? 'warning' : 'neutral'}>{repo.base.name}: +{repo.base.ahead} / −{repo.base.behind}</Badge>}
                 {repo.upstream ? <Badge tone={repo.upstream.ahead || repo.upstream.behind ? 'warning' : 'success'}>remoto: ↑{repo.upstream.ahead} ↓{repo.upstream.behind}</Badge> : repo.exists && <Badge tone="warning">sin remoto</Badge>}
                 {repo.exists && <Badge tone={repo.dirty.length ? 'warning' : 'success'}>{repo.dirty.length ? `${repo.dirty.length} sin commitear` : 'limpio'}</Badge>}
+                {repo.ignored && repo.ignored.length > 0 && <Badge>{repo.ignored.join(', ')} ignorado</Badge>}
               </div>
               {repo.warnings.length > 0 && (
                 <ul className="mt-2 space-y-1">{repo.warnings.map((warning) => <li key={warning.text}><StatusDot status={warning.level} label={warning.text} /></li>)}</ul>

@@ -385,6 +385,8 @@ export interface TicketRepoStatus {
   base: { name: string; ahead: number; behind: number } | null;
   upstream: { name: string; ahead: number; behind: number } | null;
   dirty: Array<{ status: string; path: string }>;
+  /** Archivos modificados que el Estado ignora a propósito (el .env que administra el panel). */
+  ignored?: string[];
   last: { hash: string; subject: string; when: string } | null;
   warnings: Array<{ level: Level; text: string }>;
 }
