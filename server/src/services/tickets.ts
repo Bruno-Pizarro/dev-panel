@@ -19,6 +19,10 @@ export const ticketMetaSchema = z
     repos: z.array(z.string()).optional(),
     /** Casos para probar a mano: texto o `{ caso, esperado?, grupo?, ruta?, url? }` (`ruta`: path del front, ej. `/profile`; `url`: enlace completo). El avance (tildes) vive en el panel. */
     pruebasManuales: z.array(z.union([z.string(), z.object({ caso: z.string(), esperado: z.string().optional(), grupo: z.string().optional(), ruta: z.string().optional(), url: z.string().optional() })])).optional(),
+    /** Orden en que se mergean los MRs (nombres de repo). Por defecto: los backends en orden alfabético y el front al final. */
+    ordenMerge: z.array(z.string()).optional(),
+    /** Notas sobre los datos de prueba del ticket. Solo se muestran: el panel nunca ejecuta lo que dicen. */
+    datosPrueba: z.object({ descripcion: z.string().optional(), siembra: z.string().optional(), limpieza: z.string().optional(), avisos: z.array(z.string()).optional() }).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
     pruebas: z.array(z.object({ conclusion: z.string().optional(), fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),

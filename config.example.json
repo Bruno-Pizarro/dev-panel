@@ -63,6 +63,11 @@
       "Entregado"
     ]
   },
+  "gitlab": {
+    "enabled": true,
+    "baseUrl": "https://git.icono-cloud.com",
+    "group": "e-sueldos-v3"
+  },
   "claude": {
     "binary": "claude",
     "liveUsage": true

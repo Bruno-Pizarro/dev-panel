@@ -101,6 +101,17 @@ export const configSchema = z.object({
       doneStatuses: z.array(z.string()).default(['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado']),
     })
     .default({}),
+  /** GitLab (solo lectura): estado de los MRs y sus pipelines. El token sale de GITLAB_TOKEN o de `token` (opcional, solo en este config.json local). */
+  gitlab: z
+    .object({
+      enabled: z.boolean().default(true),
+      /** Opcional. Se guarda solo en config.json (fuera de git, permisos 600) y NUNCA se devuelve al navegador ni se registra. Vacío = usar la variable GITLAB_TOKEN. Alcanza con `read_api`. */
+      token: z.string().trim().max(200).default(''),
+      baseUrl: z.string().url().refine((value) => /^https?:\/\//i.test(value), 'Solo http o https').default('https://git.icono-cloud.com'),
+      /** Grupo donde viven los repos: se usa para armar el proyecto cuando el MR de ticket.json no trae la URL. */
+      group: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('e-sueldos-v3'),
+    })
+    .default({}),
   /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
   claude: z
     .object({
@@ -185,6 +196,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
+  gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', group: 'e-sueldos-v3' },
   claude: { binary: 'claude', liveUsage: true },
   workday: { entry: '', exit: '', punchUrl: '' },
   userName: '',

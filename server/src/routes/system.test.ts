@@ -48,3 +48,27 @@ describe('API key de Redmine en la configuración', () => {
     expect(stored()).toBe('');
   });
 });
+
+const putGitlab = (gitlab: Record<string, unknown>) =>
+  app.inject({ method: 'PUT', url: '/api/config', headers: { host: `127.0.0.1:${PORT}`, 'x-dev-panel': '1' }, payload: { ...base, gitlab: { ...(base['gitlab'] as object), ...gitlab } } });
+const storedToken = () => (JSON.parse(readFileSync(file, 'utf8')) as { gitlab: { token: string } }).gitlab.token;
+
+describe('token de GitLab en la configuración', () => {
+  it('se guarda en config.json pero nunca vuelve al navegador', async () => {
+    const saved = await putGitlab({ token: 'glpat-secreto' });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.body).not.toContain('glpat-secreto');
+    expect(saved.json().config.gitlab).toMatchObject({ token: '', tokenSet: true });
+    expect(storedToken()).toBe('glpat-secreto');
+    const read = await app.inject({ method: 'GET', url: '/api/config', headers: { host: `127.0.0.1:${PORT}` } });
+    expect(read.body).not.toContain('glpat-secreto');
+  });
+
+  it('un campo vacío conserva el guardado; clearToken lo quita', async () => {
+    await putGitlab({ token: '' });
+    expect(storedToken()).toBe('glpat-secreto');
+    const cleared = await putGitlab({ token: '', clearToken: true });
+    expect(cleared.json().config.gitlab.tokenSet).toBe(false);
+    expect(storedToken()).toBe('');
+  });
+});

@@ -28,6 +28,8 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
   "rama": "feature/33526-pendientes-firma",
   "repos": ["front", "legajo", "documentos"],
   "servicios": ["firma"],
+  "ordenMerge": ["documentos", "legajo", "front"],
+  "datosPrueba": { "descripcion": "Documentos y legajos marcados [33526]", "siembra": "cómo se sembraron", "limpieza": "Datos → Limpiar [33526]", "avisos": ["documentos y files dejan user.update sin ack en RabbitMQ"] },
   "pruebasManuales": [{ "grupo": "Listado", "caso": "Buscar un documento por nombre", "esperado": "Filtra sin recargar", "ruta": "/profile?panel=pending-signatures&tab=documentos" }],
   "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.../merge_requests/123", "autor": "usuario", "estado": "abierto" }],
   "codeReview": [{ "fecha": "2026-10-27", "veredicto": "aprobado | con cambios | rechazado", "resumen": "una línea", "hallazgos": 2 }],
@@ -55,6 +57,11 @@ Servicios del docker-compose que el ticket necesita **aunque no los modifique** 
 
 ## `pruebasManuales`: casos para probar a mano
 Cada elemento es un texto o `{ "caso", "esperado", "grupo", "ruta", "url" }` (todo menos `caso` es opcional; los del mismo `grupo` se muestran juntos). Escribilos como pasos que alguien siga sin leer el código, uno por comportamiento verificable, con el resultado esperado visible en pantalla. Cubrí: el camino feliz, cada validación o error relevante, permisos/roles y aislamiento entre usuarios o empresas, y el comportamiento en celular si hay interfaz. Salen de los criterios de aceptación (BDD) del contrato. **Siempre que se pueda, agregá `ruta`**: el path del front donde se prueba el caso, empezando con `/` y con los parámetros que dejan la pantalla lista (por ejemplo `/profile?panel=pending-signatures&tab=legajo`). El panel lo abre contra la URL del front de la configuración (`http://localhost:4200` por defecto) y muestra un botón "Abrir" junto al caso. Averiguá las rutas leyendo el router del front (`app.routes`, query params que usa el componente) y no inventes ninguna; si un caso no tiene una pantalla directa, omití `ruta`. Usá `url` solo para un enlace completo fuera del front (http o https). Lo tildado lo guarda el panel y el usuario puede sumar casos propios allí; no lo escribas en `ticket.json`.
+
+## `ordenMerge` y `datosPrueba` (opcionales, para la pestaña Estado del panel)
+- `ordenMerge`: nombres de repo en el orden en que se mergean los MRs (por ejemplo los backends antes que el front). Sin él, el panel ordena los backends alfabéticamente y deja el front al final. Lo escribe `ship` (o el arquitecto si ya sabe el orden).
+- `datosPrueba`: texto libre sobre los datos de prueba del ticket (`descripcion`, `siembra`, `limpieza`, `avisos[]`). **Solo se muestra: el panel nunca ejecuta lo que diga**, así que no pongas comandos con credenciales. Los datos marcados con `[<ticket>]` en el nombre los cuenta y limpia el panel solo (vista Datos).
+- Para que la pestaña **Estado** diga "todo en orden", dejá: `pruebas[].resultado` con formato `n/m` por tramo (`API 25/25 · pantalla 31/31`) y `fecha`; `codeReview[]` con `veredicto` ("aprobado" cuando corresponda); `mrs[]` con `repo`, `iid` y `url` completa del MR; un `*_EJECUCION_*.md` en la carpeta; y, si el ticket agrega textos al front, un `*_I18N_KEYS*.md` con un bloque ```json por idioma bajo un título que mencione `es.json` / `en.json` (el panel verifica que esas claves ya estén en el front).
 
 ## Diagramas Mermaid (`.mmd` y bloques ```mermaid en los `.md`)
 El panel los dibuja con Mermaid, que es estricto. Tres errores reales:
