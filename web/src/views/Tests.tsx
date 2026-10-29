@@ -31,7 +31,7 @@ const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; 
   if (empty) return <EmptyState icon={<ClipboardCheck className="size-6" />} title="Sin resumen estructurado">Hay {detail.docs} documentos y {detail.images} capturas en las otras pestañas. El resumen aparece cuando existe <span className="font-mono">ticket.json</span>.</EmptyState>;
   return (
     <div className="space-y-6">
-      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} refreshKey={refreshKey} />}
+      {meta?.pruebas && meta.pruebas.length > 0 && <TestRuns dir={detail.dir} runs={meta.pruebas} onChanged={onListChanged} refreshKey={refreshKey} historyOnly={detail.kind !== 'revision'} />}
       {meta?.mrs && meta.mrs.length > 0 && (
         <Card title="Merge requests">
           <table className="w-full text-left text-sm">

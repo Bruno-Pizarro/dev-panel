@@ -17,13 +17,33 @@ interface StateResponse {
 }
 
 /** Cada tanda de pruebas tiene su propio checklist (actualizar ticket, subir comentarios…) y su conclusión. */
-export const TestRuns = ({ dir, runs, onChanged, refreshKey = 0 }: { dir: string; runs: NonNullable<TicketMeta['pruebas']>; onChanged?: () => void; refreshKey?: number }) => {
+export const TestRuns = ({ dir, runs, onChanged, refreshKey = 0, historyOnly = false }: { dir: string; runs: NonNullable<TicketMeta['pruebas']>; onChanged?: () => void; refreshKey?: number; historyOnly?: boolean }) => {
   const toast = useToast();
   const state = useAsync(() => api.get<StateResponse>(`/api/tickets/${encodeURIComponent(dir)}/test-state`));
   const [local, setLocal] = useState<Record<string, TestRunState>>({});
   // "Actualizar": se descarta lo local y se vuelve a leer lo guardado.
   useReloadOn(refreshKey, () => (setLocal({}), state.reload()));
   const data = state.data;
+  // En un ticket propio las tandas son solo un historial: el checklist y la conclusión son para revisar el código de otra persona.
+  if (historyOnly) {
+    return (
+      <Card title="Historial de pruebas">
+        <ul className="space-y-3">
+          {[...runs].reverse().map((run, index) => (
+            <li key={index} className="rounded-xl border border-line bg-surface-2 p-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="font-mono text-sm text-muted">{run.fecha ?? '—'}</span>
+                {run.resultado && <Badge tone="info">{run.resultado}</Badge>}
+                <span className="min-w-0 flex-1" />
+                <span className="text-sm text-muted">Tanda {runs.length - index} de {runs.length}</span>
+              </div>
+              {run.resumen && <p className="mt-2">{run.resumen}</p>}
+            </li>
+          ))}
+        </ul>
+      </Card>
+    );
+  }
   if (!data) return null;
 
   const current = (index: number): TestRunState => local[index] ?? data.runs[String(index)] ?? { items: {}, conclusion: null, updatedAt: null };
