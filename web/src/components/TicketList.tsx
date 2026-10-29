@@ -18,18 +18,24 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
   const [pendingOnly, setPendingOnly] = useStoredState<boolean>('devpanel.tests.pending', false);
   // Por defecto solo carpetas con número de ticket: así la primera vista no se llena de archivos sueltos.
   const [ticketKinds, setTicketKinds] = useStoredState<Array<'con' | 'sin'>>('devpanel.tickets.kinds', ['con']);
+  // Propios (los desarrollo yo) o revisiones (código de otra persona): la conclusión y el checklist solo tienen sentido en estas últimas.
+  const [origins, setOrigins] = useStoredState<Array<'propio' | 'revision'>>('devpanel.tickets.origins', ['propio', 'revision']);
+  const originOf = (ticket: TicketSummary): 'propio' | 'revision' => (ticket.kind === 'revision' ? 'revision' : 'propio');
+  const reviewFilters = (ticket: TicketSummary) => withTestFilters && ticket.testStatus !== undefined && originOf(ticket) === 'revision';
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
-    return tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).filter((ticket) => {
-      if (withTestFilters && ticket.testStatus) {
+    return tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).filter((ticket) => !withTestFilters || origins.includes(originOf(ticket))).filter((ticket) => {
+      if (reviewFilters(ticket) && ticket.testStatus) {
         if (!shown.includes(ticket.testStatus.conclusion)) return false;
         if (pendingOnly && ticket.testStatus.checklistDone >= ticket.testStatus.checklistTotal) return false;
       }
       return true;
     }).filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
-  }, [tickets, query, shown, pendingOnly, withTestFilters, ticketKinds]);
+  }, [tickets, query, shown, pendingOnly, withTestFilters, ticketKinds, origins]);
   const hiddenKind = tickets.filter((ticket) => !ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length;
-  const hidden = withTestFilters ? tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length - tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && (!ticket.testStatus || shown.includes(ticket.testStatus.conclusion))).length : 0;
+  const inOrigin = tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && (!withTestFilters || origins.includes(originOf(ticket))));
+  const hidden = withTestFilters ? inOrigin.length - inOrigin.filter((ticket) => !reviewFilters(ticket) || (ticket.testStatus && shown.includes(ticket.testStatus.conclusion))).length : 0;
+  const countOf = (origin: 'propio' | 'revision') => tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && originOf(ticket) === origin).length;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -46,12 +52,19 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
         {hiddenKind > 0 && <p className="text-sm text-muted">{hiddenKind} sin número de ticket ocultas por el filtro.</p>}
       </div>
       {withTestFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          {([['propio', 'Desarrollos propios'], ['revision', 'Revisiones de otros']] as const).map(([id, label]) => (
+            <Chip key={id} selected={origins.includes(id)} onToggle={() => setOrigins(origins.includes(id) ? origins.filter((value) => value !== id) : [...origins, id])} hint={id === 'propio' ? 'Tickets que desarrollo yo' : 'Tickets donde solo reviso el código de otra persona'}>{label} ({countOf(id)})</Chip>
+          ))}
+        </div>
+      )}
+      {withTestFilters && origins.includes('revision') && countOf('revision') > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {CONCLUSIONS.map((item) => <Chip key={item.id} selected={shown.includes(item.id)} onToggle={() => setShown(shown.includes(item.id) ? shown.filter((value) => value !== item.id) : [...shown, item.id])}>{item.label}</Chip>)}
             <Chip selected={pendingOnly} onToggle={() => setPendingOnly(!pendingOnly)} hint="Solo los que tienen pasos del checklist sin tildar">Checklist pendiente</Chip>
           </div>
-          {hidden > 0 && <p className="text-sm text-muted">{hidden} ocultos por el filtro (por defecto no se muestran los aprobados).</p>}
+          {hidden > 0 && <p className="text-sm text-muted">{hidden} revisiones ocultas por el filtro (por defecto no se muestran las aprobadas).</p>}
         </div>
       )}
       <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -65,8 +78,8 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
               <div className="mt-1 font-medium leading-snug">{ticket.title}</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {ticket.estado && <Badge tone={toneOf(ticket.estado)}>{ticket.estado}</Badge>}
-                {withTestFilters && ticket.testStatus && <Badge tone={conclusionInfo(ticket.testStatus.conclusion).tone}>{conclusionInfo(ticket.testStatus.conclusion).label}</Badge>}
-                {withTestFilters && ticket.testStatus && ticket.testStatus.checklistTotal > 0 && ticket.testStatus.runs > 0 && <Badge tone={ticket.testStatus.checklistDone === ticket.testStatus.checklistTotal ? 'success' : 'warning'}>checklist {ticket.testStatus.checklistDone}/{ticket.testStatus.checklistTotal}</Badge>}
+                {reviewFilters(ticket) && ticket.testStatus && <Badge tone={conclusionInfo(ticket.testStatus.conclusion).tone}>{conclusionInfo(ticket.testStatus.conclusion).label}</Badge>}
+                {reviewFilters(ticket) && ticket.testStatus && ticket.testStatus.checklistTotal > 0 && ticket.testStatus.runs > 0 && <Badge tone={ticket.testStatus.checklistDone === ticket.testStatus.checklistTotal ? 'success' : 'warning'}>checklist {ticket.testStatus.checklistDone}/{ticket.testStatus.checklistTotal}</Badge>}
                 {ticket.lastTest?.resultado && (
                   <Tooltip width={300} content={<><div className="mb-1 font-semibold">Última tanda de pruebas: {ticket.lastTest.resultado}</div><p className="text-muted">Es el resultado que se registró en <span className="font-mono">ticket.json</span> para la última tanda de pruebas (por ejemplo, 25 de 25 casos pasaron). <strong className="text-fg">No indica que el desarrollo esté terminado</strong>: eso depende del estado del ticket y de la revisión.</p></>}>
                     <span className="inline-flex max-w-full min-w-0"><Badge tone="info">Pruebas {ticket.lastTest.resultado}</Badge></span>
