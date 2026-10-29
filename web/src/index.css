@@ -95,7 +95,8 @@
 }
 
 @layer components {
-  .prose-panel { @apply text-fg leading-7; }
+  /* min-w-0 + overflow-wrap: un texto largo (rutas, nombres de archivo) se ajusta a la columna en vez de salirse de ella. */
+  .prose-panel { @apply min-w-0 max-w-full text-fg leading-7 [overflow-wrap:anywhere]; }
   .prose-panel h1 { @apply mb-4 mt-2 text-3xl font-semibold tracking-tight; }
   .prose-panel h2 { @apply mb-3 mt-8 border-b border-line pb-2 text-2xl font-semibold tracking-tight; }
   .prose-panel h3 { @apply mb-2 mt-6 text-xl font-semibold; }
@@ -105,11 +106,12 @@
   .prose-panel ol { @apply my-3 list-decimal space-y-1 pl-6; }
   .prose-panel code { @apply rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-sm text-accent; }
   .prose-panel pre { @apply my-4 overflow-x-auto rounded-xl border border-line bg-surface p-4; }
-  .prose-panel pre code { @apply bg-transparent p-0 text-fg; }
+  .prose-panel pre code { @apply whitespace-pre bg-transparent p-0 text-fg [overflow-wrap:normal]; }
   .prose-panel blockquote { @apply my-4 border-l-4 border-accent/60 bg-surface-2 px-4 py-2 text-muted; }
-  .prose-panel table { @apply my-4 w-full border-collapse overflow-hidden rounded-xl border border-line text-left; }
-  .prose-panel th { @apply border-b border-line bg-surface-2 px-3 py-2 font-semibold; }
-  .prose-panel td { @apply border-b border-line px-3 py-2 align-top; }
+  /* La tabla conserva su ancho natural (el marco de MarkdownTable la desplaza); las celdas no se parten letra por letra. */
+  .prose-panel table { @apply m-0 w-max min-w-full border-collapse text-left [overflow-wrap:normal]; }
+  .prose-panel th { @apply min-w-[6rem] border-b border-line bg-surface-2 px-3 py-2 font-semibold; }
+  .prose-panel td { @apply min-w-[6rem] max-w-[26rem] border-b border-line px-3 py-2 align-top; }
   .prose-panel img { @apply my-4 max-w-full rounded-xl border border-line; }
   .prose-panel hr { @apply my-6 border-line; }
 }
