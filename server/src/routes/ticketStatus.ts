@@ -5,7 +5,7 @@ import { getManualTests } from '../services/checklists.js';
 import { fetchTicketMrs } from '../services/gitlab.js';
 import { readRepoStatus } from '../services/gitRepos.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
-import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip } from '../services/ticketStatus.js';
+import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
 import { requireConfig } from './helpers.js';
 
@@ -32,7 +32,7 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
     const { config, ticket } = loaded;
-    const repos = await readRepoStatus(config, undefined, ticket.meta?.repos ?? []);
+    const repos = withoutManagedEnv(await readRepoStatus(config, undefined, ticket.meta?.repos ?? []), config.envProfiles);
     const lastRun = lastRunOf(ticket.meta);
     return {
       baseBranch: config.git.baseBranch,
@@ -61,7 +61,7 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
     const { config, ticket } = loaded;
-    const repos = await readRepoStatus(config, undefined, ticket.meta?.repos ?? []);
+    const repos = withoutManagedEnv(await readRepoStatus(config, undefined, ticket.meta?.repos ?? []), config.envProfiles);
     const items = buildShipChecklist({
       meta: ticket.meta,
       docs: ticket.files.docs,

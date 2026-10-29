@@ -7,7 +7,7 @@ import type { CommandResult, Runner } from '../docker.js';
 import { fetchTicketMrs, clearGitlabCache, clearSshToken, mapMr, parseSshToken, mergeOrder, projectOfMr, refsForTicket, type Fetcher } from './gitlab.js';
 import type { RepoStatus } from './gitRepos.js';
 import { parseQueues, readServicesHealth, readTestDataReport } from './ticketHealth.js';
-import { buildShipChecklist, extractI18nBlocks, flattenKeys, lastRunOf, parseRunResult, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip } from './ticketStatus.js';
+import { withoutManagedEnv, buildShipChecklist, extractI18nBlocks, flattenKeys, lastRunOf, parseRunResult, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip } from './ticketStatus.js';
 
 const repo = (over: Partial<RepoStatus> = {}): RepoStatus => ({
   repo: 'front', exists: true, branch: 'feature/1-x', base: { name: 'desarrollo', ahead: 2, behind: 0 }, dirty: [], last: null, lastCommitAt: '2026-10-28T10:00:00-03:00',
@@ -43,6 +43,20 @@ describe('repoWarnings', () => {
     expect(repoWarnings(repo({ upstream: { name: 'o', ahead: 8, behind: 8 } }), undefined)[0]?.text).toContain('Divergió');
   });
   it('repo inexistente es error', () => expect(repoWarnings(repo({ exists: false }), undefined)[0]?.level).toBe('error'));
+});
+
+describe('withoutManagedEnv', () => {
+  const dirty = [{ status: 'M', path: '.env' }, { status: 'M', path: 'src/a.ts' }];
+  it('quita el .env de los repos con perfil y lo cuenta aparte', () => {
+    const [docs, front] = withoutManagedEnv([repo({ repo: 'documentos', dirty }), repo({ repo: 'front', dirty })], { documentos: { file: '.env' } });
+    expect(docs).toMatchObject({ ignored: ['.env'], dirty: [{ path: 'src/a.ts' }] });
+    expect(front).toMatchObject({ ignored: [], dirty });
+  });
+  it('un repo con solo el .env modificado queda limpio en el checklist', () => {
+    const repos = withoutManagedEnv([repo({ repo: 'documentos', dirty: [{ status: 'M', path: '.env' }] })], { documentos: { file: '.env' } });
+    const item = buildShipChecklist({ meta: { rama: 'feature/1-x', repos: ['documentos'] }, docs: [], repos, manual: { done: 0, total: 0 }, i18n: null }).find((entry) => entry.id === 'clean');
+    expect(item?.level).toBe('ok');
+  });
 });
 
 describe('reposChangedSince', () => {
