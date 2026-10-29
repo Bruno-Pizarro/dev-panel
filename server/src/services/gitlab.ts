@@ -1,4 +1,5 @@
 import type { DevPanelConfig } from '../config.js';
+import { run, type Runner } from '../docker.js';
 import type { Level } from './ticketStatus.js';
 import type { TicketMeta } from './tickets.js';
 
@@ -10,6 +11,52 @@ export class GitlabError extends Error {
 
 /** Token sin copiarlo a ningún lado: variable de entorno o `gitlab.token` del config.json local. */
 export const gitlabToken = (config: DevPanelConfig, env: NodeJS.ProcessEnv = process.env): string | null => env['GITLAB_TOKEN'] || config.gitlab.token || null;
+
+// ---------------------------------------------------------------- token de 1 día pedido por SSH
+/** "Token:   glpat-xxx.01.yyy" (los tokens nuevos llevan puntos: se toma toda la palabra, no un patrón). */
+export const parseSshToken = (output: string): string | null => /^Token:\s+(\S+)/m.exec(output)?.[1] ?? null;
+
+interface SshToken {
+  value: string;
+  at: number;
+}
+let sshToken: SshToken | null = null;
+let lastMintFailure = 0;
+/** Se reutiliza menos de lo que dura el token (1 día) y, tras una falla, no se reintenta enseguida (para no crear tokens en cadena). */
+const SSH_TOKEN_TTL_MS = 12 * 3_600_000;
+const SSH_RETRY_MS = 5 * 60_000;
+export const clearSshToken = (): void => {
+  sshToken = null;
+  lastMintFailure = 0;
+};
+
+/** Pide a GitLab, por SSH, un token `read_api` de 1 día. Devuelve el token o lanza con un mensaje para mostrar. */
+export const mintSshToken = async (config: DevPanelConfig, runner: Runner = run, now = Date.now()): Promise<string> => {
+  if (now - lastMintFailure < SSH_RETRY_MS && lastMintFailure > 0) throw new GitlabError('No se pudo pedir el token por SSH hace un momento; se reintenta en unos minutos', 502);
+  const host = config.gitlab.sshHost || new URL(config.gitlab.baseUrl).hostname;
+  const result = await runner('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', `git@${host}`, 'personal_access_token', 'dev-panel', 'read_api', '1'], 30_000);
+  const value = parseSshToken(`${result.stdout}\n${result.stderr}`);
+  if (!result.ok || !value) {
+    lastMintFailure = now;
+    throw new GitlabError(`No se pudo pedir un token por SSH a ${host} (¿clave SSH cargada y sin passphrase?)`, 502);
+  }
+  sshToken = { value, at: now };
+  lastMintFailure = 0;
+  return value;
+};
+
+/** Token vigente: el fijo (variable o config) manda; si no, el pedido por SSH (si está habilitado), reutilizado mientras dure. */
+const resolveToken = async (config: DevPanelConfig, env: NodeJS.ProcessEnv, runner: Runner, now: number): Promise<{ token: string | null; fixed: boolean; error: string | null }> => {
+  const fixed = gitlabToken(config, env);
+  if (fixed) return { token: fixed, fixed: true, error: null };
+  if (!config.gitlab.sshAuto) return { token: null, fixed: false, error: null };
+  if (sshToken && now - sshToken.at < SSH_TOKEN_TTL_MS) return { token: sshToken.value, fixed: false, error: null };
+  try {
+    return { token: await mintSshToken(config, runner, now), fixed: false, error: null };
+  } catch (error) {
+    return { token: null, fixed: false, error: (error as Error).message };
+  }
+};
 
 export interface MrRef {
   repo: string | null;
@@ -143,21 +190,32 @@ export const clearGitlabCache = (): void => cache.clear();
 export interface MrReport {
   configured: boolean;
   baseUrl: string;
+  /** Por qué no hay token aunque `sshAuto` esté activo. */
+  tokenError: string | null;
   mrs: MrInfo[];
 }
 
 /** Estado de cada MR del ticket. Una falla en uno (404, sin permiso) no tira los demás: queda como error de esa fila. */
-export const fetchTicketMrs = async (config: DevPanelConfig, meta: TicketMeta | null, fresh = false, fetcher: Fetcher = fetch as unknown as Fetcher, now = Date.now(), env: NodeJS.ProcessEnv = process.env): Promise<MrReport> => {
+export const fetchTicketMrs = async (config: DevPanelConfig, meta: TicketMeta | null, fresh = false, fetcher: Fetcher = fetch as unknown as Fetcher, now = Date.now(), env: NodeJS.ProcessEnv = process.env, runner: Runner = run): Promise<MrReport> => {
   const baseUrl = config.gitlab.baseUrl.replace(/\/$/, '');
-  const token = config.gitlab.enabled ? gitlabToken(config, env) : null;
-  if (!token) return { configured: false, baseUrl, mrs: [] };
+  const resolved = config.gitlab.enabled ? await resolveToken(config, env, runner, now) : { token: null, fixed: false, error: null };
+  let token = resolved.token;
+  if (!token) return { configured: false, baseUrl, tokenError: resolved.error, mrs: [] };
+  const get = async (url: string, current: string) => fetcher(url, { headers: { 'PRIVATE-TOKEN': current }, signal: AbortSignal.timeout(15_000) });
   const mrs = await Promise.all(
     refsForTicket(config, meta).map(async (ref): Promise<MrInfo> => {
       const key = `${ref.project}!${ref.iid}`;
       const hit = cache.get(key);
       if (!fresh && hit && now - hit.at < TTL_MS) return { ...hit.value, order: ref.order };
       try {
-        const response = await fetcher(`${baseUrl}/api/v4/projects/${encodeURIComponent(ref.project)}/merge_requests/${ref.iid}`, { headers: { 'PRIVATE-TOKEN': token }, signal: AbortSignal.timeout(15_000) });
+        const url = `${baseUrl}/api/v4/projects/${encodeURIComponent(ref.project)}/merge_requests/${ref.iid}`;
+        let response = await get(url, token!);
+        // El de SSH vence: si GitLab lo rechaza, se pide uno nuevo una sola vez y se reintenta.
+        if (response.status === 401 && !resolved.fixed && config.gitlab.sshAuto) {
+          clearSshToken();
+          token = await mintSshToken(config, runner, now);
+          response = await get(url, token);
+        }
         if (response.status === 401) throw new GitlabError('GitLab rechazó el token (vencido o sin permiso read_api)', 401);
         if (!response.ok) throw new GitlabError(response.status === 404 ? 'No existe o el token no lo ve' : `GitLab respondió ${response.status}`, response.status);
         const value = mapMr(ref, (await response.json()) as RawMr);
@@ -169,5 +227,5 @@ export const fetchTicketMrs = async (config: DevPanelConfig, meta: TicketMeta | 
       }
     }),
   );
-  return { configured: true, baseUrl, mrs: mrs.sort((a, b) => a.order - b.order || a.iid - b.iid) };
+  return { configured: true, baseUrl, tokenError: null, mrs: mrs.sort((a, b) => a.order - b.order || a.iid - b.iid) };
 };

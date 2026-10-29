@@ -67,6 +67,13 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
         {config.gitlab.tokenSet && (
           <button type="button" className="mt-3 text-sm text-danger hover:underline" onClick={() => setConfig({ ...config, gitlab: { ...config.gitlab, token: '', tokenSet: false, clearToken: true } })}>Quitar el token guardado (al guardar)</button>
         )}
+        <label className="mt-5 flex cursor-pointer items-start gap-3">
+          <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={config.gitlab.sshAuto} onChange={(event) => setConfig({ ...config, gitlab: { ...config.gitlab, sshAuto: event.target.checked } })} />
+          <span>
+            <span className="block font-medium">Pedir un token de 1 día por SSH (sin cargarlo a mano)</span>
+            <span className="block text-sm text-muted">Si no hay token fijo, el panel pide por SSH (con tu clave, sin passphrase) un token de solo lectura que vence en 1 día y lo guarda solo en memoria. Crea un token «dev-panel» en tu cuenta de GitLab cada vez que hace falta (como mucho cada 12 h, y de nuevo si el servidor lo rechaza).</span>
+          </span>
+        </label>
       </Card>
 
       <Card title="Rutas">

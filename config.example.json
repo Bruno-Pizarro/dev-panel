@@ -66,6 +66,8 @@
   "gitlab": {
     "enabled": true,
     "baseUrl": "https://git.icono-cloud.com",
+    "sshAuto": false,
+    "sshHost": "",
     "group": "e-sueldos-v3"
   },
   "claude": {

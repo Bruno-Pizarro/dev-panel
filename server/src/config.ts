@@ -108,6 +108,13 @@ export const configSchema = z.object({
       /** Opcional. Se guarda solo en config.json (fuera de git, permisos 600) y NUNCA se devuelve al navegador ni se registra. Vacío = usar la variable GITLAB_TOKEN. Alcanza con `read_api`. */
       token: z.string().trim().max(200).default(''),
       baseUrl: z.string().url().refine((value) => /^https?:\/\//i.test(value), 'Solo http o https').default('https://git.icono-cloud.com'),
+      /**
+       * Si no hay token, pide uno de solo lectura (read_api) y 1 día de vida por SSH (`personal_access_token`, con la clave SSH
+       * del usuario). Crea un token en su cuenta de GitLab, por eso viene apagado. El token queda solo en memoria.
+       */
+      sshAuto: z.boolean().default(false),
+      /** Servidor SSH de GitLab; vacío = el host de `baseUrl`. */
+      sshHost: z.string().regex(/^[A-Za-z0-9.-]*$/).default(''),
       /** Grupo donde viven los repos: se usa para armar el proyecto cuando el MR de ticket.json no trae la URL. */
       group: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('e-sueldos-v3'),
     })
@@ -196,7 +203,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
-  gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', group: 'e-sueldos-v3' },
+  gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
   claude: { binary: 'claude', liveUsage: true },
   workday: { entry: '', exit: '', punchUrl: '' },
   userName: '',

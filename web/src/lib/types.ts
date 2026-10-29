@@ -4,7 +4,7 @@ export interface DevPanelConfig {
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
   redmine: { enabled: boolean; apiKey: string; apiKeySet?: boolean; clearApiKey?: boolean; configFile: string; baseUrl: string; doneStatuses: string[] };
-  gitlab: { enabled: boolean; token: string; tokenSet?: boolean; clearToken?: boolean; baseUrl: string; group: string };
+  gitlab: { enabled: boolean; token: string; tokenSet?: boolean; clearToken?: boolean; baseUrl: string; sshAuto: boolean; sshHost: string; group: string };
   compose: { main: string; minio: string };
   mongo: { container: string };
   startup: {
@@ -396,7 +396,7 @@ export interface MrInfo {
   sourceBranch: string | null; targetBranch: string | null; notes: number; level: Level; summary: string;
   pipeline: { status: string; url: string | null } | null; error: string | null;
 }
-export interface MrReport { configured: boolean; baseUrl: string; mrs: MrInfo[] }
+export interface MrReport { configured: boolean; baseUrl: string; tokenError: string | null; mrs: MrInfo[] }
 export interface TicketDataReport {
   ticket: string | null;
   rows: Array<{ db: string; collection: string; field: string; count: number }>;

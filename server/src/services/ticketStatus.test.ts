@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '../config.js';
 import type { CommandResult, Runner } from '../docker.js';
-import { fetchTicketMrs, clearGitlabCache, mapMr, mergeOrder, projectOfMr, refsForTicket, type Fetcher } from './gitlab.js';
+import { fetchTicketMrs, clearGitlabCache, clearSshToken, mapMr, parseSshToken, mergeOrder, projectOfMr, refsForTicket, type Fetcher } from './gitlab.js';
 import type { RepoStatus } from './gitRepos.js';
 import { parseQueues, readServicesHealth, readTestDataReport } from './ticketHealth.js';
 import { buildShipChecklist, extractI18nBlocks, flattenKeys, lastRunOf, parseRunResult, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip } from './ticketStatus.js';
@@ -153,6 +153,70 @@ describe('gitlab', () => {
     const fetcher: Fetcher = async () => ({ ok: false, status: 401, json: async () => ({}) });
     const report = await fetchTicketMrs(config, { mrs: [{ repo: 'front', iid: 9 }] } as never, true, fetcher, 0, { GITLAB_TOKEN: 'x' });
     expect(report.mrs[0]).toMatchObject({ level: 'error', error: expect.stringContaining('token') });
+  });
+});
+
+describe('token de 1 día por SSH', () => {
+  const config = { ...defaultConfig('/work'), gitlab: { ...defaultConfig('/work').gitlab, sshAuto: true } };
+  const meta = { mrs: [{ repo: 'front', iid: 7 }] } as never;
+  const sshOutput = 'Token:   glpat-AbCd.01.0w1eq82ou\nScopes:  read_api\nExpires: 2026-10-31\n';
+  it('parseSshToken toma la palabra completa, con puntos', () => {
+    expect(parseSshToken(sshOutput)).toBe('glpat-AbCd.01.0w1eq82ou');
+    expect(parseSshToken('remote: Usage: personal_access_token <name>')).toBeNull();
+  });
+  it('sshAuto apagado: no usa SSH', async () => {
+    clearSshToken();
+    clearGitlabCache();
+    const calls: string[][] = [];
+    const runner: Runner = async (_file, args) => (calls.push(args), { ok: true, stdout: sshOutput, stderr: '' });
+    const fetcher: Fetcher = async () => ({ ok: true, status: 200, json: async () => ({ state: 'opened' }) });
+    const report = await fetchTicketMrs(defaultConfig('/work'), meta, true, fetcher, 0, {}, runner);
+    expect(report).toMatchObject({ configured: false, tokenError: null });
+    expect(calls).toHaveLength(0);
+  });
+  it('pide el token por SSH al host configurado, lo reutiliza y no lo devuelve', async () => {
+    clearSshToken();
+    clearGitlabCache();
+    const calls: string[][] = [];
+    const runner: Runner = async (file, args) => (calls.push([file, ...args]), { ok: true, stdout: sshOutput, stderr: '' });
+    const used: string[] = [];
+    const fetcher: Fetcher = async (_url, init) => (used.push(init.headers['PRIVATE-TOKEN'] ?? ''), { ok: true, status: 200, json: async () => ({ state: 'opened' }) });
+    const report = await fetchTicketMrs(config, meta, true, fetcher, 0, {}, runner);
+    expect(calls[0]).toEqual(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'git@git.icono-cloud.com', 'personal_access_token', 'dev-panel', 'read_api', '1']);
+    expect(used).toEqual(['glpat-AbCd.01.0w1eq82ou']);
+    expect(JSON.stringify(report)).not.toContain('glpat');
+    await fetchTicketMrs(config, meta, true, fetcher, 1000, {}, runner);
+    expect(calls).toHaveLength(1); // reutilizado
+  });
+  it('si GitLab rechaza el token pedido, pide uno nuevo una vez y reintenta', async () => {
+    clearSshToken();
+    clearGitlabCache();
+    let mints = 0;
+    const runner: Runner = async () => ({ ok: true, stdout: `Token:   glpat-${++mints === 1 ? 'viejo' : 'nuevo'}.01.x\n`, stderr: '' });
+    const fetcher: Fetcher = async (_url, init) => (init.headers['PRIVATE-TOKEN']?.includes('viejo') ? { ok: false, status: 401, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ state: 'merged' }) });
+    const report = await fetchTicketMrs(config, meta, true, fetcher, 0, {}, runner);
+    expect(mints).toBe(2);
+    expect(report.mrs[0]).toMatchObject({ state: 'merged', level: 'ok' });
+  });
+  it('si SSH falla, lo informa y no reintenta enseguida', async () => {
+    clearSshToken();
+    clearGitlabCache();
+    let calls = 0;
+    const runner: Runner = async () => (calls++, { ok: false, stdout: '', stderr: 'Permission denied (publickey)' });
+    const fetcher: Fetcher = async () => ({ ok: true, status: 200, json: async () => ({}) });
+    const first = await fetchTicketMrs(config, meta, true, fetcher, 10_000, {}, runner);
+    expect(first).toMatchObject({ configured: false, tokenError: expect.stringContaining('SSH') });
+    await fetchTicketMrs(config, meta, true, fetcher, 20_000, {}, runner);
+    expect(calls).toBe(1);
+  });
+  it('un token fijo (variable) manda sobre SSH', async () => {
+    clearSshToken();
+    clearGitlabCache();
+    let calls = 0;
+    const runner: Runner = async () => (calls++, { ok: true, stdout: sshOutput, stderr: '' });
+    const fetcher: Fetcher = async () => ({ ok: true, status: 200, json: async () => ({ state: 'opened' }) });
+    await fetchTicketMrs(config, meta, true, fetcher, 0, { GITLAB_TOKEN: 'fijo' }, runner);
+    expect(calls).toBe(0);
   });
 });
 

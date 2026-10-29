@@ -118,8 +118,10 @@ const Services = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
 const Gitlab = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
   <Section<MrReport> title="Merge requests en GitLab" url={`${base(dir)}/gitlab${refreshKey > 0 ? '?fresh=1' : ''}`} refreshKey={refreshKey}>
     {(data) =>
-      !data.configured ? (
-        <Hint>Falta el token de GitLab: cargalo en <Link className="text-accent hover:underline" to="/configuracion">Configuración → GitLab</Link> (o con la variable <span className="font-mono">GITLAB_TOKEN</span>). Solo se leen datos.</Hint>
+      !data.configured && data.tokenError ? (
+        <Hint>{data.tokenError}. Probá <span className="font-mono">ssh -T git@{new URL(data.baseUrl).hostname}</span> en una terminal, o cargá un token en <Link className="text-accent hover:underline" to="/configuracion">Configuración → GitLab</Link>.</Hint>
+      ) : !data.configured ? (
+        <Hint>Falta el token de GitLab: cargalo en <Link className="text-accent hover:underline" to="/configuracion">Configuración → GitLab</Link> (o con la variable <span className="font-mono">GITLAB_TOKEN</span>), o activá allí "Pedir un token de 1 día por SSH", que no hace falta renovar. Solo se leen datos.</Hint>
       ) : data.mrs.length === 0 ? (
         <Hint>El ticket no tiene MRs en <span className="font-mono">ticket.json</span>. Los registra la skill <span className="font-mono">ship</span> al crearlos.</Hint>
       ) : (
