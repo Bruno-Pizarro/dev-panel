@@ -10,6 +10,8 @@ import { Chip } from './Chip';
 import { Badge, toneOf } from './Badge';
 import { Tooltip } from './Tooltip';
 
+const originOf = (ticket: TicketSummary): 'propio' | 'revision' => (ticket.kind === 'revision' ? 'revision' : 'propio');
+
 /** Lista lateral de carpetas de la base de conocimiento, con búsqueda por número, título o rama. */
 export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tickets: TicketSummary[]; basePath: string; withTestFilters?: boolean }) => {
   const [query, setQuery] = useState('');
@@ -20,12 +22,10 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
   const [ticketKinds, setTicketKinds] = useStoredState<Array<'con' | 'sin'>>('devpanel.tickets.kinds', ['con']);
   // Propios (los desarrollo yo) o revisiones (código de otra persona): la conclusión y el checklist solo tienen sentido en estas últimas.
   const [origins, setOrigins] = useStoredState<Array<'propio' | 'revision'>>('devpanel.tickets.origins', ['propio', 'revision']);
-  const originOf = (ticket: TicketSummary): 'propio' | 'revision' => (ticket.kind === 'revision' ? 'revision' : 'propio');
-  const reviewFilters = (ticket: TicketSummary) => withTestFilters && ticket.testStatus !== undefined && originOf(ticket) === 'revision';
   const visible = useMemo(() => {
     const text = query.trim().toLowerCase();
     return tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).filter((ticket) => !withTestFilters || origins.includes(originOf(ticket))).filter((ticket) => {
-      if (reviewFilters(ticket) && ticket.testStatus) {
+      if (withTestFilters && ticket.testStatus && originOf(ticket) === 'revision') {
         if (!shown.includes(ticket.testStatus.conclusion)) return false;
         if (pendingOnly && ticket.testStatus.checklistDone >= ticket.testStatus.checklistTotal) return false;
       }
@@ -33,6 +33,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
     }).filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
   }, [tickets, query, shown, pendingOnly, withTestFilters, ticketKinds, origins]);
   const hiddenKind = tickets.filter((ticket) => !ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length;
+  const reviewFilters = (ticket: TicketSummary) => withTestFilters && ticket.testStatus !== undefined && originOf(ticket) === 'revision';
   const inOrigin = tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && (!withTestFilters || origins.includes(originOf(ticket))));
   const hidden = withTestFilters ? inOrigin.length - inOrigin.filter((ticket) => !reviewFilters(ticket) || (ticket.testStatus && shown.includes(ticket.testStatus.conclusion))).length : 0;
   const countOf = (origin: 'propio' | 'revision') => tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && originOf(ticket) === origin).length;
