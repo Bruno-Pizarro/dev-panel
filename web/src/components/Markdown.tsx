@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { assetUrl, resolveRelative } from '../lib/tickets';
 import { Mermaid } from './Mermaid';
+import { MarkdownTable } from './MarkdownTable';
 
 interface MarkdownProps {
   source: string;
@@ -29,6 +30,7 @@ export const Markdown = ({ source, ticket }: MarkdownProps) => (
           }
           return <pre>{children}</pre>;
         },
+        table: ({ children }) => <MarkdownTable>{children}</MarkdownTable>,
         a: ({ href, children }) => (
           <a href={href} target="_blank" rel="noreferrer noopener">{children}</a>
         ),
