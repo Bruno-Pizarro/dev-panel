@@ -1,8 +1,11 @@
-import { Save } from 'lucide-react';
+import { Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Rocket, Save, Ticket, User } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
+import { cn } from '../lib/cn';
+import { api } from '../lib/api';
 import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
@@ -13,6 +16,8 @@ interface ConfigEditorProps {
   saving: boolean;
   saveLabel: string;
   onSave: (config: DevPanelConfig) => void;
+  /** Muestra las secciones con un menú lateral (Configuración); sin esto, todo en una columna (asistente de primer arranque). */
+  sidebar?: boolean;
 }
 
 const exists = (detect: SetupDetect | null | undefined, key: string) => {
@@ -21,17 +26,28 @@ const exists = (detect: SetupDetect | null | undefined, key: string) => {
   return <span className={entry.exists ? 'text-sm text-success' : 'text-sm text-warning'}>{entry.exists ? 'existe' : 'no se encontró'}</span>;
 };
 
-export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: ConfigEditorProps) => {
+export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sidebar = false }: ConfigEditorProps) => {
   const [config, setConfig] = useState<DevPanelConfig>(initial);
   const startup = config.startup;
   const setStartup = (patch: Partial<DevPanelConfig['startup']>) => setConfig({ ...config, startup: { ...startup, ...patch } });
 
-  return (
-    <div className="space-y-6">
+  /** Carga el ejemplo que trae el panel para partir de él (se puede editar antes de guardar). */
+  const loadDefaultTemplate = async () => {
+    try {
+      const { template } = await api.get<{ template: string }>('/api/daily/weekly/default-template');
+      setConfig((current) => ({ ...current, weekly: { template } }));
+    } catch {
+      /* sin respuesta del servidor: la plantilla queda como estaba */
+    }
+  };
+
+  const sections = [
+    { id: 'perfil', label: 'Perfil', icon: User, content: (
       <Card title="Perfil">
         <Field label="Tu nombre" help="Se muestra debajo de “Dev Panel” en el menú. Si lo dejás vacío, no se muestra nada." mono={false} placeholder="Ej.: Neo" maxLength={60} value={config.userName} onChange={(userName) => setConfig({ ...config, userName })} />
       </Card>
-
+    ) },
+    { id: 'redmine', label: 'Redmine', icon: Ticket, content: (
       <Card title="Redmine">
         <div className="grid gap-5 md:grid-cols-2">
           <Field
@@ -49,7 +65,8 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           <button type="button" className="mt-3 text-sm text-danger hover:underline" onClick={() => setConfig({ ...config, redmine: { ...config.redmine, apiKey: '', apiKeySet: false, clearApiKey: true } })}>Quitar la key guardada (al guardar)</button>
         )}
       </Card>
-
+    ) },
+    { id: 'gitlab', label: 'GitLab', icon: GitBranch, content: (
       <Card title="GitLab">
         <div className="grid gap-5 md:grid-cols-2">
           <Field
@@ -75,7 +92,8 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           </span>
         </label>
       </Card>
-
+    ) },
+    { id: 'rutas', label: 'Rutas', icon: FolderOpen, content: (
       <Card title="Rutas">
         <div className="grid gap-5 md:grid-cols-2">
           <PathField label="Carpeta de proyectos" help="Contiene todos los repos." value={config.paths.projects} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, projects: value } })} />
@@ -91,7 +109,8 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           <TagEditor label="Carpetas que no son tickets" help="No aparecen en Pruebas, Desarrollo ni en los reportes. La carpeta del Daily se omite siempre." values={config.paths.ignoreDirs} onChange={(ignoreDirs) => setConfig({ ...config, paths: { ...config.paths, ignoreDirs } })} />
         </div>
       </Card>
-
+    ) },
+    { id: 'jornada', label: 'Jornada y marcación', icon: Clock, content: (
       <Card title="Jornada y marcación">
         <p className="mb-4 text-muted">Con tus horarios, el checklist de Inicio y de Daily pasa de ámbar a naranja y rojo cuanto más tarde es para marcar entrada o salida (hasta 15 min, hasta 1 h, más de 1 h). Dejá un horario vacío para no colorear. No colorea los fines de semana.</p>
         <div className="grid gap-5 md:grid-cols-2">
@@ -102,7 +121,8 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           <Field label="Enlace de marcación" help="Aparece como botón “Ir a marcar” debajo del checklist. Solo http o https." placeholder="https://…/control-horario/marcaciones/pin" value={config.workday.punchUrl} onChange={(punchUrl) => setConfig({ ...config, workday: { ...config.workday, punchUrl } })} />
         </div>
       </Card>
-
+    ) },
+    { id: 'levantado', label: 'Orden de levantado', icon: Rocket, content: (
       <Card title="Orden de levantado" action={<span className="text-sm text-muted">Nombres de servicio del compose</span>}>
         <div className="space-y-5">
           <TagEditor label="Etapa 1" help="Se levantan primero (MinIO de file-manager)." values={startup.stage1} onChange={(stage1) => setStartup({ stage1 })} />
@@ -116,15 +136,68 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave }: Con
           <TagEditor label="Opcionales" help="Aparecen como chips en la vista Levantado." values={startup.optional} onChange={(optional) => setStartup({ optional })} />
         </div>
       </Card>
-
+    ) },
+    { id: 'semanal', label: 'Resumen semanal', icon: FileText, content: (
+      <Card title="Resumen semanal" action={<span className="text-sm text-muted">{config.weekly.template.length}/8000</span>}>
+        <p className="mb-4 text-muted">Plantilla en la que se basa el pedido a Claude (botón «Copiar pedido semanal» del Daily y herramienta <span className="font-mono">weekly_report</span>). Pegá un resumen anterior que te haya gustado: Claude va a imitar su formato y su tono. Si la dejás vacía se usa el ejemplo que trae el panel.</p>
+        <textarea
+          value={config.weekly.template}
+          onChange={(event) => setConfig({ ...config, weekly: { template: event.target.value } })}
+          maxLength={8000}
+          rows={16}
+          spellCheck={false}
+          placeholder="Se avanzaron los tickets:&#10;- 32972 Título del ticket&#10;…"
+          className="w-full resize-y rounded-lg border border-line bg-bg p-3.5 font-mono text-sm leading-6 outline-none transition-colors placeholder:text-muted focus:border-accent/60"
+          data-testid="weekly-template"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button icon={<FileText className="size-4" />} onClick={() => void loadDefaultTemplate()}>Cargar el ejemplo por defecto</Button>
+          <Button icon={<Eraser className="size-4" />} disabled={!config.weekly.template} onClick={() => setConfig({ ...config, weekly: { template: '' } })}>Vaciar (usar el del panel)</Button>
+        </div>
+      </Card>
+    ) },
+    { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">
         <TagEditor label="Repos que maneja el panel" help="Para el editor de .env, el estado de ramas y el Daily." values={config.repos} onChange={(repos) => setConfig({ ...config, repos })} />
       </Card>
+    ) },
+  ];
+  const [params, setParams] = useSearchParams();
+  const active = sections.find((section) => section.id === params.get('seccion')) ?? sections[0]!;
 
-      <div className="flex justify-end">
-        <Button variant="primary" icon={<Save className="size-4" />} loading={saving} onClick={() => onSave(config)}>
-          {saveLabel}
-        </Button>
+  const saveButton = (
+    <div className="flex justify-end">
+      <Button variant="primary" icon={<Save className="size-4" />} loading={saving} onClick={() => onSave(config)}>
+        {saveLabel}
+      </Button>
+    </div>
+  );
+
+  // Asistente de primer arranque: una sola columna con todo. Configuración: menú de secciones a la izquierda y una por vez.
+  if (!sidebar) return <div className="space-y-6">{sections.map((section) => <div key={section.id}>{section.content}</div>)}{saveButton}</div>;
+  return (
+    <div className="gap-6 md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
+      <nav aria-label="Secciones de la configuración" className="mb-6 flex gap-1 overflow-x-auto md:sticky md:top-0 md:mb-0 md:flex-col md:self-start md:overflow-visible">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const selected = section.id === active.id;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              aria-current={selected ? 'page' : undefined}
+              onClick={() => setParams({ seccion: section.id }, { replace: true })}
+              className={cn('flex h-11 shrink-0 items-center gap-3 rounded-lg px-3.5 text-left text-sm font-medium transition-colors', selected ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-surface-2 hover:text-fg')}
+            >
+              <Icon className="size-4 shrink-0" aria-hidden />
+              <span className="truncate">{section.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div className="min-w-0 space-y-6">
+        {active.content}
+        {saveButton}
       </div>
     </div>
   );

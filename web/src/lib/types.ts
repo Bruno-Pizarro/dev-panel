@@ -16,6 +16,7 @@ export interface DevPanelConfig {
     groups: Record<string, { withStage2: string[] }>;
     presets: Array<{ name: string; services: string[] }>;
   };
+  weekly: { template: string };
   repos: string[];
 }
 
@@ -409,11 +410,13 @@ export interface TicketDataReport {
   notes: { descripcion?: string; siembra?: string; limpieza?: string; avisos?: string[] } | null;
 }
 
-export interface ChangedFile { path: string; status: string; added: number | null; deleted: number | null; binary: boolean; untracked: boolean }
+export type ViewedState = 'yes' | 'changed' | 'no';
+export interface ChangedFile { path: string; status: string; added: number | null; deleted: number | null; binary: boolean; untracked: boolean; signature: string; viewed: ViewedState }
 export interface RepoChanges {
   repo: string; exists: boolean; branch: string | null; base: string | null;
   commits: Array<{ hash: string; subject: string; when: string; author: string }>;
   committed: ChangedFile[]; working: ChangedFile[]; ignored: string[];
 }
-export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[] }
+export interface ViewedProgress { total: number; viewed: number; pending: Array<{ repo: string; count: number }> }
+export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress }
 export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
