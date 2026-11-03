@@ -1,4 +1,5 @@
-import { CircleAlert, CircleCheck, FolderTree, Rocket } from 'lucide-react';
+import { CircleAlert, CircleCheck, FolderTree, Moon, Rocket, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
@@ -9,6 +10,38 @@ import { StatusDot } from '../components/StatusDot';
 import { api } from '../lib/api';
 import type { Check, DevPanelConfig, SetupDetect } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { pickGreeting, slotOf, type Slot } from '../lib/greetings';
+
+const SLOT_ICONS: Record<Slot, LucideIcon> = { madrugada: Moon, manana: Sunrise, mediodia: Sun, tarde: Sunset, noche: Moon };
+const LAST_GREETING_KEY = 'dev-panel.greeting.last';
+
+/** Saludo simpático según la hora; una vez por visita, distinto del anterior. Las frases con nombre solo salen si hay nombre configurado. */
+const Greeting = ({ name }: { name: string }) => {
+  const [text] = useState(() => {
+    const now = new Date();
+    let last: string | null = null;
+    try {
+      last = window.localStorage.getItem(LAST_GREETING_KEY);
+    } catch {
+      /* sin almacenamiento */
+    }
+    const picked = pickGreeting(now, name, Math.random, last);
+    try {
+      window.localStorage.setItem(LAST_GREETING_KEY, picked);
+    } catch {
+      /* sin almacenamiento */
+    }
+    return picked;
+  });
+  const Icon = SLOT_ICONS[slotOf(new Date().getHours())];
+  if (!text) return null;
+  return (
+    <p className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-gradient-to-r from-accent/10 to-transparent px-5 py-4 text-lg font-medium" data-testid="greeting">
+      <Icon className="size-6 shrink-0 text-accent" aria-hidden />
+      <span>{text}</span>
+    </p>
+  );
+};
 
 export const Home = ({ config }: { config: DevPanelConfig }) => {
   const detect = useAsync(() => api.get<SetupDetect>('/api/setup/detect'));
@@ -18,6 +51,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
   return (
     <>
       <PageHeader title="Inicio" description="Estado del entorno de desarrollo." />
+      <Greeting name={config.userName} />
       <DailyChecklistCard />
       {detect.loading || !data ? (
         <div className="grid gap-4 md:grid-cols-3">

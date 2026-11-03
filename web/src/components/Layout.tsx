@@ -11,6 +11,7 @@ import { useHealth } from '../lib/useHealth';
 import { allNavItems } from '../lib/nav';
 import { GOTO_PREFIX, useShortcutMap } from '../lib/useShortcuts';
 import { ShortcutHelp } from './ShortcutHelp';
+import { AgentToast } from './AgentToast';
 
 export const Layout = ({ userName }: { userName: string }) => {
   const health = useHealth();
@@ -26,6 +27,7 @@ export const Layout = ({ userName }: { userName: string }) => {
   return (
     <div className="flex h-full">
       <ShortcutHelp />
+      <AgentToast />
       <Sidebar collapsed={collapsed} userName={userName} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">

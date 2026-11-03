@@ -38,6 +38,7 @@ const MAIN_DEFS: ShortcutDef[] = [
   { id: 'changes.next', label: 'Archivo siguiente', group: 'Pestaña Cambios', defaultKey: 'n', alt: [], context: 'main' },
   { id: 'changes.viewed', label: 'Marcar el archivo como visto (y pasar al siguiente sin ver)', group: 'Pestaña Cambios', defaultKey: 'v', alt: [], context: 'main' },
   { id: 'changes.expand', label: 'Expandir o contraer todos los archivos', group: 'Pestaña Cambios', defaultKey: 'e', alt: [], context: 'main' },
+  { id: 'agents.toggle', label: 'Mostrar u ocultar los agentes de Claude', group: 'Agentes', defaultKey: 'h', alt: [], context: 'main' },
   { id: GOTO_PREFIX_ID, label: 'Ir a… (después, la letra del destino)', group: 'Navegación', defaultKey: 'g', alt: [], context: 'main' },
   { id: HELP_ID, label: 'Mostrar los atajos', group: 'Navegación', defaultKey: '?', alt: [], context: 'main' },
 ];
