@@ -146,6 +146,8 @@ export const configSchema = z.object({
       daily: z.array(z.string().min(1).max(60)).default(['Marcar entrada', 'Marcar salida', 'Cargar horas']),
     })
     .default({}),
+  /** Resumen semanal: plantilla (por ejemplo, un resumen anterior) en la que se basa el pedido a Claude. Vacío = el ejemplo que trae el panel. */
+  weekly: z.object({ template: z.string().max(8000).default('') }).default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -209,6 +211,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
+  weekly: { template: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

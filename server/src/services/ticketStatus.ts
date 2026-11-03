@@ -175,12 +175,14 @@ export interface ShipInput {
   repos: RepoStatus[];
   manual: { done: number; total: number };
   i18n: I18nCheck | null;
+  /** Archivos de los cambios marcados como vistos; sin dato, el chequeo no se evalúa. */
+  viewed?: { total: number; viewed: number; pending: Array<{ repo: string; count: number }> } | null;
 }
 
 const list = (items: string[], max = 4): string => (items.length > max ? `${items.slice(0, max).join(', ')} y ${items.length - max} más` : items.join(', '));
 
 /** Semáforo de "¿se puede abrir el MR?": todo sale de lo que el panel ya sabe (ticket.json, git, pruebas manuales, claves i18n). */
-export const buildShipChecklist = ({ meta, docs, repos, manual, i18n }: ShipInput): ShipItem[] => {
+export const buildShipChecklist = ({ meta, docs, repos, manual, i18n, viewed }: ShipInput): ShipItem[] => {
   const items: ShipItem[] = [];
   const run = lastRunOf(meta);
 
@@ -209,6 +211,15 @@ export const buildShipChecklist = ({ meta, docs, repos, manual, i18n }: ShipInpu
     : /aprob/i.test(review.veredicto ?? '') ? { id: 'review', label: 'Code review', level: 'ok', detail: `Aprobado (${review.fecha ?? 's/f'})` }
     : { id: 'review', label: 'Code review', level: 'warn', detail: `${review.veredicto ?? 'sin veredicto'}${review.hallazgos !== undefined ? ` · ${review.hallazgos} hallazgos` : ''} (${review.fecha ?? 's/f'}): confirmá que los arreglos están hechos` },
   );
+
+  // Obligatorio: cada archivo de los cambios se lee y se marca como visto a mano (pestaña Cambios).
+  if (viewed) {
+    items.push(
+      viewed.total === 0 ? { id: 'viewed', label: 'Cambios revisados archivo por archivo', level: 'idle', detail: 'No hay cambios respecto de la rama base' }
+      : viewed.viewed === viewed.total ? { id: 'viewed', label: 'Cambios revisados archivo por archivo', level: 'ok', detail: `${viewed.viewed}/${viewed.total} archivos vistos` }
+      : { id: 'viewed', label: 'Cambios revisados archivo por archivo', level: 'error', detail: `${viewed.viewed}/${viewed.total} archivos vistos: faltan ${viewed.total - viewed.viewed} (${list(viewed.pending.map((entry) => `${entry.repo} ${entry.count}`))}). Marcalos en la pestaña Cambios` },
+    );
+  }
 
   items.push(docs.some((doc) => /EJECUCION/i.test(doc)) ? { id: 'report', label: 'Informe de ejecución', level: 'ok', detail: docs.find((doc) => /EJECUCION/i.test(doc)) ?? '' } : { id: 'report', label: 'Informe de ejecución', level: 'warn', detail: 'No hay un *_EJECUCION_*.md en la carpeta' });
 

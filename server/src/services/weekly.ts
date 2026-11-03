@@ -87,7 +87,7 @@ export const formatWeekData = (range: WeekRange, tickets: TicketWeek[]): string 
   return lines.join('\n');
 };
 
-/** Formato de los reportes semanales (el que el usuario entrega en el Google Doc). Fuente única: panel y MCP. */
+/** Ejemplo por defecto del formato de los reportes semanales (el que el usuario entrega en el Google Doc). Se reemplaza por la plantilla guardada en la configuración. */
 export const REPORT_EXAMPLE = `Se avanzaron los tickets:
 - 32972 Saldo de licencia en el formulario de carga
 - 32973 Advertencia de rechazos consecutivos de licencia
@@ -106,7 +106,10 @@ Finalmente se generó la estimación, análisis y definición del ticket:
 - 33347 Mantener los filtros en incidencias para administradores
 Ya en proceso de desarrollo`;
 
-export const buildReportPrompt = (range: WeekRange, data: string): string =>
+/** La plantilla guardada en la configuración (un resumen anterior, por ejemplo) o, si está vacía, el ejemplo por defecto. */
+export const effectiveTemplate = (template: string | undefined): string => (template ?? '').trim() || REPORT_EXAMPLE;
+
+export const buildReportPrompt = (range: WeekRange, data: string, template?: string): string =>
   [
     `Armame el resumen semanal de avances (${range.label}) para pegar en el Google Doc que nos piden al cierre de la semana.`,
     '',
@@ -122,7 +125,7 @@ export const buildReportPrompt = (range: WeekRange, data: string): string =>
     '',
     'Ejemplo del formato (de la semana anterior):',
     '```',
-    REPORT_EXAMPLE,
+    effectiveTemplate(template),
     '```',
     '',
     'Datos de la semana (de git, la base de conocimiento y Redmine):',
@@ -164,5 +167,5 @@ export const buildWeeklyReport = async (config: DevPanelConfig, choice: WeekChoi
     }),
   );
   const data = formatWeekData(range, tickets);
-  return { range: { start: range.start.toISOString(), end: range.end.toISOString(), label: range.label }, tickets, data, prompt: buildReportPrompt(range, data) };
+  return { range: { start: range.start.toISOString(), end: range.end.toISOString(), label: range.label }, tickets, data, prompt: buildReportPrompt(range, data, config.weekly.template) };
 };

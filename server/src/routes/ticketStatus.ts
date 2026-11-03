@@ -4,7 +4,9 @@ import type { DevPanelConfig } from '../config.js';
 import { getManualTests } from '../services/checklists.js';
 import { fetchTicketMrs } from '../services/gitlab.js';
 import { readRepoStatus } from '../services/gitRepos.js';
-import { readFileDiff, readTicketChanges, type ChangeScope } from '../services/ticketChanges.js';
+import { z } from 'zod';
+import { getViewed, setViewed, viewKey } from '../services/changeReview.js';
+import { readFileDiff, readFileSignature, readTicketChanges, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
@@ -46,7 +48,8 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir/changes', async (request, reply) => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
-    return { baseBranch: loaded.config.git.baseBranch, repos: await readTicketChanges(loaded.config, loaded.ticket.meta?.repos ?? []) };
+    const repos = await readTicketChanges(loaded.config, loaded.ticket.meta?.repos ?? [], undefined, getViewed(request.params.dir));
+    return { baseBranch: loaded.config.git.baseBranch, repos, progress: viewedProgress(repos) };
   });
 
   app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; scope?: string } }>('/api/tickets/:dir/changes/diff', async (request, reply) => {
@@ -58,6 +61,22 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     if (!(loaded.ticket.meta?.repos ?? []).includes(repo)) return reply.code(404).send({ error: 'Ese repo no pertenece al ticket' });
     const outcome = await readFileDiff(loaded.config, repo, path, scope as ChangeScope);
     return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
+  });
+
+  /** Marca o desmarca un archivo como visto. La huella la calcula el servidor (no se acepta la del navegador). */
+  app.put<{ Params: { dir: string } }>('/api/tickets/:dir/changes/viewed', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const body = z.object({ repo: z.string().min(1).max(100), path: z.string().min(1).max(500), scope: z.enum(['committed', 'working']), viewed: z.boolean() }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Datos inválidos' });
+    const { repo, path, scope, viewed } = body.data;
+    if (!(loaded.ticket.meta?.repos ?? []).includes(repo)) return reply.code(404).send({ error: 'Ese repo no pertenece al ticket' });
+    const key = viewKey(repo, scope, path);
+    if (!viewed) return { viewed: false, marks: Object.keys(setViewed(request.params.dir, key, null)).length };
+    const signature = await readFileSignature(loaded.config, repo, path, scope);
+    if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
+    setViewed(request.params.dir, key, signature.signature);
+    return { viewed: true, signature: signature.signature };
   });
 
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir/services', async (request, reply) => {
@@ -86,6 +105,7 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
       repos,
       manual: manualProgress(config, request.params.dir, ticket.meta),
       i18n: readI18nCheck(join(config.paths.extra, request.params.dir), config.paths.projects),
+      viewed: viewedProgress(await readTicketChanges(config, ticket.meta?.repos ?? [], undefined, getViewed(request.params.dir))),
     });
     return { items, summary: summarizeShip(items), lastRun: lastRunOf(ticket.meta) };
   });
