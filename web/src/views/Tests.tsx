@@ -23,6 +23,7 @@ import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useShortcut } from '../lib/useShortcuts';
 
 type Tab = 'cambios' | 'estado' | 'resumen' | 'manuales' | 'informes' | 'capturas';
 
@@ -95,6 +96,8 @@ export const Tests = () => {
   // "Actualizar" recarga el listado y avisa al ticket abierto para que vuelva a leer todo lo suyo.
   const [refreshKey, setRefreshKey] = useState(0);
   const refreshAll = () => (list.reload(), setRefreshKey((value) => value + 1));
+  // R: actualizar (el mismo botón de arriba).
+  useShortcut('refresh', refreshAll);
   return (
     <div className="md:flex md:h-full md:min-h-0 md:flex-col">
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} actions={<RefreshButton busy={list.loading} onRefresh={refreshAll} />} />

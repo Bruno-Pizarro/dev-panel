@@ -2,6 +2,18 @@ import { Terminal } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { navGroups } from '../lib/nav';
 import { cn } from '../lib/cn';
+import { GOTO_PREFIX_ID } from '../lib/shortcuts';
+import { GOTO_PREFIX, useKeyFor, useShortcutSettings } from '../lib/useShortcuts';
+import { Key } from './Key';
+
+/** La combinación "ir a…" de un destino del menú (por ejemplo G I), a la vista junto a su nombre. */
+const GotoKeys = ({ path }: { path: string }) => {
+  const { showKeys } = useShortcutSettings();
+  const prefix = useKeyFor(GOTO_PREFIX_ID);
+  const letter = useKeyFor(`${GOTO_PREFIX}${path}`);
+  if (!showKeys || !letter) return null;
+  return <Key className="h-5 min-w-5 shrink-0 gap-1.5 px-1.5" aria-hidden><span>{prefix}</span><span>{letter}</span></Key>;
+};
 
 export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName: string }) => (
   <aside className={cn('flex h-full shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200', collapsed ? 'w-[4.5rem]' : 'w-64')}>
@@ -38,6 +50,7 @@ export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName:
                 >
                   <item.icon className="size-5 shrink-0" aria-hidden />
                   {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                  {!collapsed && <GotoKeys path={item.path} />}
                   {!collapsed && item.phase !== null && <span className="rounded-md bg-surface-3 px-1.5 text-sm text-muted">F{item.phase}</span>}
                 </NavLink>
               </li>

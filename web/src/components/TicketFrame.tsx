@@ -5,6 +5,8 @@ import { api } from '../lib/api';
 import { Button } from './Button';
 import { Modal } from './Modal';
 import { Portal } from './Portal';
+import { ShortcutKey } from './Key';
+import { useShortcut } from '../lib/useShortcuts';
 import { RefreshButton } from './RefreshButton';
 import { useToast } from './Toast';
 
@@ -29,6 +31,8 @@ export const TicketFrame = ({ dir, listPath, header, onRefresh, children }: Tick
   const [deleting, setDeleting] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
+  // F: entra y sale de la pantalla completa.
+  useShortcut('frame.full', () => setFocus((value) => !value));
 
   useEffect(() => {
     if (!focus) return;
@@ -55,7 +59,7 @@ export const TicketFrame = ({ dir, listPath, header, onRefresh, children }: Tick
   const actions = (
     <div className="mb-4 flex flex-wrap justify-end gap-2">
       {onRefresh && <RefreshButton onRefresh={onRefresh} />}
-      <Button className="h-9" icon={focus ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />} onClick={() => setFocus(!focus)}>{focus ? 'Salir de pantalla completa' : 'Pantalla completa'}</Button>
+      <Button className="h-9" icon={focus ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />} onClick={() => setFocus(!focus)}>{focus ? 'Salir de pantalla completa' : 'Pantalla completa'}<ShortcutKey id="frame.full" /></Button>
       <Button className="h-9" variant="danger" icon={<Trash2 className="size-4" />} onClick={() => (setTyped(''), setDeleting(true))}>Eliminar carpeta</Button>
     </div>
   );

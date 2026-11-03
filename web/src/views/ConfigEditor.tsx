@@ -1,4 +1,4 @@
-import { Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Rocket, Save, Ticket, User } from 'lucide-react';
+import { Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
+import { ShortcutSettings } from './ShortcutSettings';
 
 interface ConfigEditorProps {
   initial: DevPanelConfig;
@@ -41,7 +42,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
     }
   };
 
-  const sections = [
+  const sections: Array<{ id: string; label: string; icon: LucideIcon; content: JSX.Element; noSave?: boolean }> = [
     { id: 'perfil', label: 'Perfil', icon: User, content: (
       <Card title="Perfil">
         <Field label="Tu nombre" help="Se muestra debajo de “Dev Panel” en el menú. Si lo dejás vacío, no se muestra nada." mono={false} placeholder="Ej.: Neo" maxLength={60} value={config.userName} onChange={(userName) => setConfig({ ...config, userName })} />
@@ -156,6 +157,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
         </div>
       </Card>
     ) },
+    { id: 'atajos', label: 'Atajos de teclado', icon: Keyboard, noSave: true, content: <ShortcutSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">
         <TagEditor label="Repos que maneja el panel" help="Para el editor de .env, el estado de ramas y el Daily." values={config.repos} onChange={(repos) => setConfig({ ...config, repos })} />
@@ -174,7 +176,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
   );
 
   // Asistente de primer arranque: una sola columna con todo. Configuración: menú de secciones a la izquierda y una por vez.
-  if (!sidebar) return <div className="space-y-6">{sections.map((section) => <div key={section.id}>{section.content}</div>)}{saveButton}</div>;
+  if (!sidebar) return <div className="space-y-6">{sections.filter((section) => !section.noSave).map((section) => <div key={section.id}>{section.content}</div>)}{saveButton}</div>;
   return (
     <div className="gap-6 md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
       <nav aria-label="Secciones de la configuración" className="mb-6 flex gap-1 overflow-x-auto md:sticky md:top-0 md:mb-0 md:flex-col md:self-start md:overflow-visible">
@@ -197,7 +199,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
       </nav>
       <div className="min-w-0 space-y-6">
         {active.content}
-        {saveButton}
+        {!active.noSave && saveButton}
       </div>
     </div>
   );
