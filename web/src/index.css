@@ -72,27 +72,29 @@
 
 /*
  * Visor de diffs de la pestaña Cambios: se ve como un editor de código y no como una tarjeta del panel. Los colores salen del
- * tema elegido (más oscuro que la superficie, o blanco en el claro), para que acompañe sin mezclarse con el resto.
+ * tema elegido, pero el editor es siempre oscuro y con borde y sombra propios para que se despegue del resto de la pantalla.
+ * En el tema claro usa la paleta oscura (igual que la consola).
  */
-.editor {
-  --ed-bg: color-mix(in srgb, rgb(var(--bg)) 55%, black);
-  --ed-bar: color-mix(in srgb, rgb(var(--bg)) 75%, black);
-  --ed-gutter: color-mix(in srgb, rgb(var(--bg)) 68%, black);
-  --ed-line: color-mix(in srgb, rgb(var(--line)) 55%, black);
-  --ed-fg: color-mix(in srgb, rgb(var(--fg)) 92%, rgb(var(--bg)));
-  --ed-dim: color-mix(in srgb, rgb(var(--muted)) 70%, rgb(var(--bg)));
-  --ed-add: rgb(var(--success) / 0.16);
-  --ed-add-gutter: rgb(var(--success) / 0.3);
-  --ed-del: rgb(var(--danger) / 0.16);
-  --ed-del-gutter: rgb(var(--danger) / 0.3);
-  --ed-hunk: color-mix(in srgb, rgb(var(--accent)) 12%, var(--ed-bg));
-}
 [data-theme='claro'] .editor {
-  --ed-bg: #ffffff; --ed-bar: #eef1f6; --ed-gutter: #f6f8fb; --ed-line: #d8dee8; --ed-fg: #1f2733; --ed-dim: #8a94a6;
-  --ed-add: rgb(var(--success) / 0.14); --ed-add-gutter: rgb(var(--success) / 0.26);
-  --ed-del: rgb(var(--danger) / 0.12); --ed-del-gutter: rgb(var(--danger) / 0.24);
+  color-scheme: dark;
+  --bg: 15 20 25; --surface: 22 27 34; --surface-3: 36 45 61; --line: 42 51 66;
+  --fg: 230 237 243; --muted: 139 152 169; --accent: 138 151 255;
+  --success: 63 185 128; --warning: 229 169 59; --danger: 240 98 108; --info: 86 182 232;
 }
-.editor { background: var(--ed-bg); color: var(--ed-fg); border: 1px solid var(--ed-line); border-radius: 0.5rem; overflow: hidden; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.5rem; }
+.editor {
+  --ed-bg: color-mix(in srgb, rgb(var(--accent)) 4%, color-mix(in srgb, rgb(var(--bg)) 35%, black));
+  --ed-bar: color-mix(in srgb, rgb(var(--accent)) 12%, rgb(var(--surface-3)));
+  --ed-gutter: color-mix(in srgb, rgb(var(--bg)) 20%, black);
+  --ed-line: color-mix(in srgb, rgb(var(--accent)) 35%, rgb(var(--line)));
+  --ed-fg: rgb(var(--fg));
+  --ed-dim: color-mix(in srgb, rgb(var(--muted)) 75%, rgb(var(--bg)));
+  --ed-add: rgb(var(--success) / 0.18);
+  --ed-add-gutter: rgb(var(--success) / 0.34);
+  --ed-del: rgb(var(--danger) / 0.18);
+  --ed-del-gutter: rgb(var(--danger) / 0.34);
+  --ed-hunk: color-mix(in srgb, rgb(var(--accent)) 16%, var(--ed-bg));
+}
+.editor { background: var(--ed-bg); color: var(--ed-fg); border: 1px solid var(--ed-line); border-radius: 0.5rem; overflow: hidden; box-shadow: 0 0 0 1px rgb(var(--accent) / 0.1), 0 10px 28px rgb(0 0 0 / 0.5); font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.5rem; }
 .editor-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.75rem; height: 2.25rem; background: var(--ed-bar); border-bottom: 1px solid var(--ed-line); color: var(--ed-dim); }
 .editor-code { overflow-x: auto; max-height: 36rem; overflow-y: auto; }
 .editor-row { display: grid; grid-template-columns: 3.5rem 3.5rem 1.5rem 1fr; min-width: max-content; }
@@ -103,6 +105,14 @@
 .editor-row.del { background: var(--ed-del); } .editor-row.del .editor-num { background: var(--ed-del-gutter); color: var(--ed-fg); } .editor-row.del .editor-sign { color: rgb(var(--danger)); }
 .editor-hunk { display: block; padding: 0 0.75rem; min-width: max-content; background: var(--ed-hunk); color: rgb(var(--accent)); border-block: 1px solid var(--ed-line); }
 .editor-note { padding: 0.75rem 1rem; color: var(--ed-dim); }
+/* Colores de sintaxis: derivados del tema, así acompañan al que se elija. */
+.tok-kw { color: rgb(var(--accent)); font-weight: 600; }
+.tok-str { color: rgb(var(--success)); }
+.tok-num { color: rgb(var(--warning)); }
+.tok-com { color: color-mix(in srgb, rgb(var(--muted)) 85%, rgb(var(--bg))); font-style: italic; }
+.tok-type { color: rgb(var(--info)); }
+.tok-fn { color: color-mix(in srgb, rgb(var(--info)) 55%, rgb(var(--accent))); }
+.tok-prop { color: color-mix(in srgb, rgb(var(--fg)) 65%, rgb(var(--info))); }
 
 @layer base {
   html, body, #root { height: 100%; }

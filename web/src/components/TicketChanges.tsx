@@ -1,10 +1,11 @@
 import { ChevronDown, ChevronRight, GitCompare } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useReloadOn } from '../lib/hooks';
 import type { ChangedFile, FileDiff, RepoChanges, TicketChangesReport } from '../lib/types';
 import { parseDiffLines } from '../lib/diff';
+import { languageOf, tokenizeLine } from '../lib/highlight';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Card } from './Card';
@@ -17,7 +18,8 @@ type Scope = 'committed' | 'working';
 const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path: string; scope: Scope }) => {
   const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/changes/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
   const slash = path.lastIndexOf('/');
-  const lines = diff.data?.diff ? parseDiffLines(diff.data.diff) : [];
+  const language = languageOf(path);
+  const lines = useMemo(() => (diff.data?.diff ? parseDiffLines(diff.data.diff) : []), [diff.data]);
   return (
     <div className="editor mb-3">
       <div className="editor-bar">
@@ -33,7 +35,7 @@ const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path:
                 <span className="editor-num">{line.old ?? ''}</span>
                 <span className="editor-num">{line.next ?? ''}</span>
                 <span className="editor-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
-                <span>{line.text || ' '}</span>
+                <span>{line.text ? tokenizeLine(line.text, language).map((token, position) => <span key={position} className={token.cls ? `tok-${token.cls}` : undefined}>{token.text}</span>) : ' '}</span>
               </div>
             )
           )}
