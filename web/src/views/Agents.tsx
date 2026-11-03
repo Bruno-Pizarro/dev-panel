@@ -65,7 +65,7 @@ const SessionNode = ({ session, now, ticketLink }: { session: AgentSession; now:
   );
 };
 
-/** Los subagentes que Claude delegó en las últimas 24 horas, como árbol: cada sesión de Claude con sus agentes. */
+/** Los subagentes que Claude delegó en los últimos 3 días, como árbol: cada sesión de Claude con sus agentes. */
 export const Agents = () => {
   const toast = useToast();
   const [runs, setRuns] = useState<AgentRun[] | null>(null);
@@ -108,7 +108,7 @@ export const Agents = () => {
     <>
       <PageHeader
         title="Agentes"
-        description="Los subagentes que Claude delegó en las últimas 24 horas, por sesión. Se actualiza solo."
+        description="Los subagentes que Claude delegó en los últimos 3 días, por sesión. Se actualiza solo."
         actions={<Button variant="danger" icon={<Trash2 className="size-4" />} disabled={total - running === 0} onClick={() => setConfirming(true)}>Borrar el historial</Button>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -118,7 +118,7 @@ export const Agents = () => {
       {runs === null ? (
         <Skeleton className="h-48" />
       ) : sessions.length === 0 ? (
-        <EmptyState icon={<Bot className="size-6" />} title={onlyActive ? 'Ningún agente trabajando' : 'Sin agentes en las últimas 24 horas'}>
+        <EmptyState icon={<Bot className="size-6" />} title={onlyActive ? 'Ningún agente trabajando' : 'Sin agentes en los últimos 3 días'}>
           {onlyActive ? 'Cuando Claude delegue una tarea, aparece acá y en el aviso de la esquina.' : 'Cuando Claude delegue una tarea a un subagente aparece acá. Si nunca aparece nada, falta activar los hooks: Configuración → Agentes de Claude.'}
         </EmptyState>
       ) : (

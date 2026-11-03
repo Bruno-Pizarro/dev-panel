@@ -51,7 +51,7 @@ describe('agentes delegados', () => {
     expect(store.list()).toEqual([]);
   });
 
-  it('el historial dura 24 horas; el que sigue trabajando pasadas 3 horas sin avisar se marca perdido', () => {
+  it('el historial dura 3 días; el que sigue trabajando pasadas 3 horas sin avisar se marca perdido', () => {
     let clock = 0;
     const store = createAgentStore(() => clock);
     store.handleHook(pre({ tool_use_id: 'ok' }));

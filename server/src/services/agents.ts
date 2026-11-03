@@ -6,7 +6,7 @@ import { paths } from '../config.js';
  * Agentes que Claude Code delega a un subagente, para mostrarlos en el panel mientras trabajan y en el árbol de la vista Agentes.
  * Los hooks de Claude Code (PreToolUse del Agent, SubagentStart y SubagentStop) mandan su entrada tal cual y acá se reduce a lo
  * mínimo que se muestra: tipo, descripción corta, tiempos, nombre de la carpeta y ticket. Nunca se guarda el prompt ni lo que
- * contesta el agente. Se guarda un historial de 24 horas (`data/agents-history.json`).
+ * contesta el agente. Se guarda un historial de 3 días (`data/agents-history.json`).
  */
 export interface AgentRun {
   id: string;
@@ -27,7 +27,7 @@ export interface AgentRun {
 }
 
 /** Cuánto dura el historial, cuánto puede figurar "trabajando" sin avisar que terminó y cuántos agentes se guardan como máximo. */
-export const HISTORY_MS = 24 * 60 * 60_000;
+export const HISTORY_MS = 3 * 24 * 60 * 60_000;
 export const RUNNING_MAX_MS = 3 * 60 * 60_000;
 export const MAX_RUNS = 200;
 
@@ -70,7 +70,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
   let counter = 0;
   const changed = (): void => onChange?.([...runs.values()]);
 
-  /** Pasado un día sale del historial; el que sigue "trabajando" pasadas 3 horas sin avisar se marca perdido; y se guardan como mucho 200. */
+  /** Pasados 3 días sale del historial; el que sigue "trabajando" pasadas 3 horas sin avisar se marca perdido; y se guardan como mucho 200. */
   const prune = (): void => {
     const current = now();
     for (const [id, run] of runs) {
@@ -182,5 +182,5 @@ const saveHistory = (runs: AgentRun[]): void => {
   }
 };
 
-/** La lista única del servidor, con su historial de 24 h en disco. */
+/** La lista única del servidor, con su historial de 3 días en disco. */
 export const agents = createAgentStore({ initial: loadHistory(), onChange: saveHistory });
