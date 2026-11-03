@@ -421,4 +421,4 @@ export interface ViewedProgress { total: number; viewed: number; pending: Array<
 export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress }
 export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
 
-export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done'; agentId: string | null }
+export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null }

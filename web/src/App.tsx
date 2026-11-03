@@ -15,6 +15,7 @@ import { Sessions } from './views/Sessions';
 import { Home } from './views/Home';
 import { Planning } from './views/Planning';
 import { Services } from './views/Services';
+import { Agents } from './views/Agents';
 import { Settings } from './views/Settings';
 import { Startup } from './views/Startup';
 import { Tests } from './views/Tests';
@@ -52,6 +53,7 @@ export const App = () => {
         <Route path="entorno" element={<Repos />} />
         <Route path="sesiones" element={<Sessions />} />
         <Route path="daily" element={<Daily />} />
+        <Route path="agentes" element={<Agents />} />
         <Route path="configuracion" element={<Settings config={config} onSaved={state.reload} />} />
         {allNavItems
           .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/entorno', '/daily', '/sesiones', '/claude', '/kanban'].includes(item.path))

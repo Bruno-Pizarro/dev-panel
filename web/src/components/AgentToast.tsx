@@ -1,6 +1,7 @@
 import { Bot, Check, ChevronLeft, ChevronRight, EyeOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { formatDuration } from '../lib/agentTree';
 import { AGENT_DEMO_EVENT, AGENT_DEMO_MS, demoRuns, isDemoRun } from '../lib/agentDemo';
 import { cn } from '../lib/cn';
 import { useServerEvent, useStoredState } from '../lib/hooks';
@@ -10,11 +11,6 @@ import { ShortcutKey } from './Key';
 
 /** Cuánto sigue a la vista un agente que ya terminó. */
 const DONE_VISIBLE_MS = 12_000;
-
-const clock = (ms: number): string => {
-  const total = Math.max(0, Math.round(ms / 1000));
-  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-};
 
 /**
  * Aviso en la esquina inferior derecha de los agentes que Claude delega mientras trabajan (los avisan los hooks de Claude Code,
@@ -55,7 +51,7 @@ export const AgentToast = () => {
   }, []);
 
   // Los terminados se retiran solos pasados unos segundos.
-  const visible = useMemo(() => [...runs, ...(demoActive ? demoRuns(demoStart).filter((run) => !removedDemo.includes(run.id)) : [])].filter((run) => run.status === 'running' || now - Date.parse(run.endedAt ?? run.startedAt) < (isDemoRun(run) ? AGENT_DEMO_MS : DONE_VISIBLE_MS)), [runs, now, demoActive, demoStart, removedDemo]);
+  const visible = useMemo(() => [...runs, ...(demoActive ? demoRuns(demoStart).filter((run) => !removedDemo.includes(run.id)) : [])].filter((run) => run.status === 'running' || (run.status === 'done' && now - Date.parse(run.endedAt ?? run.startedAt) < (isDemoRun(run) ? AGENT_DEMO_MS : DONE_VISIBLE_MS))), [runs, now, demoActive, demoStart, removedDemo]);
   const running = visible.filter((run) => run.status === 'running').length;
 
   // Cuando llega uno nuevo, el carrusel salta a él.
@@ -98,7 +94,7 @@ export const AgentToast = () => {
         <div className="flex items-center gap-2">
           <span className="rounded-md bg-surface-3 px-2 py-0.5 font-mono text-sm text-muted">{current.type}</span>
           {isDemoRun(current) && <span className="rounded-md bg-warning/15 px-2 py-0.5 text-sm font-medium text-warning">Vista previa</span>}
-          <span className={cn('ml-auto font-mono text-sm tabular-nums', done ? 'text-success' : 'text-accent')}>{clock(elapsed)}</span>
+          <span className={cn('ml-auto font-mono text-sm tabular-nums', done ? 'text-success' : 'text-accent')}>{formatDuration(elapsed)}</span>
         </div>
         <p className="line-clamp-3 break-words text-sm leading-snug" title={current.description}>{current.description}</p>
         {!done && <div className="h-1 overflow-hidden rounded-full bg-surface-3"><div className="h-full w-1/3 animate-shimmer rounded-full bg-accent/70" /></div>}

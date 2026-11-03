@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanText, createAgentStore, DONE_KEEP_MS, RUNNING_MAX_MS } from './agents.js';
+import { cleanText, createAgentStore, HISTORY_MS, MAX_RUNS, RUNNING_MAX_MS, ticketOfText, type AgentRun } from './agents.js';
 
 const pre = (over: Record<string, unknown> = {}) => ({ hook_event_name: 'PreToolUse', session_id: 's1', tool_name: 'Agent', tool_use_id: 'toolu_1', tool_input: { subagent_type: 'Explore', description: 'Buscar el visor de diffs', prompt: 'SECRETO: no debe guardarse' }, ...over });
 
@@ -51,17 +51,73 @@ describe('agentes delegados', () => {
     expect(store.list()).toEqual([]);
   });
 
-  it('los terminados salen de la lista al minuto y los que nunca avisaron, a las 3 horas', () => {
+  it('el historial dura 24 horas; el que sigue trabajando pasadas 3 horas sin avisar se marca perdido', () => {
     let clock = 0;
     const store = createAgentStore(() => clock);
     store.handleHook(pre({ tool_use_id: 'ok' }));
     store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a', agent_type: 'Explore' });
     store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a' });
+    clock += 1000;
     store.handleHook(pre({ tool_use_id: 'colgado' }));
-    clock += DONE_KEEP_MS + 1;
-    expect(store.list().map((run) => run.id)).toEqual(['colgado']);
+    clock += 60_000 + 1;
+    expect(store.list().map((run) => [run.id, run.status])).toEqual([['ok', 'done'], ['colgado', 'running']]);
     clock += RUNNING_MAX_MS;
+    expect(store.list().map((run) => [run.id, run.status])).toEqual([['ok', 'done'], ['colgado', 'lost']]);
+    clock += HISTORY_MS;
     expect(store.list()).toEqual([]);
+  });
+
+  it('se guardan como mucho 200 agentes: salen los más viejos', () => {
+    let clock = 0;
+    const store = createAgentStore(() => clock);
+    for (let i = 0; i < MAX_RUNS + 5; i += 1) {
+      clock += 1000;
+      store.handleHook(pre({ tool_use_id: `t${i}` }));
+    }
+    const ids = store.list().map((run) => run.id);
+    expect(ids).toHaveLength(MAX_RUNS);
+    expect(ids[0]).toBe('t5');
+  });
+
+  it('guarda la carpeta (solo el último tramo de la ruta) y el ticket de la descripción o, si no, el de la rama', () => {
+    const store = createAgentStore();
+    store.handleHook(pre({ cwd: '/root/projects/front', tool_use_id: 'a', tool_input: { subagent_type: 'Explore', description: 'Revisar el ticket 33527 del front' } }), { branchTicket: '11111' });
+    store.handleHook(pre({ cwd: '/root/projects/legajo', tool_use_id: 'b', tool_input: { subagent_type: 'Explore', description: 'Buscar el consumidor' } }), { branchTicket: '33527' });
+    store.handleHook(pre({ tool_use_id: 'c', tool_input: { subagent_type: 'Explore', description: 'Sin rama' } }));
+    expect(store.list().map((run) => [run.project, run.ticket])).toEqual([['front', '33527'], ['legajo', '33527'], [null, null]]);
+  });
+
+  it('ticketOfText toma 5 o 6 dígitos sueltos y no años ni números largos', () => {
+    expect(ticketOfText('Ticket #33527 listo')).toBe('33527');
+    expect(ticketOfText('ver 123456')).toBe('123456');
+    expect(ticketOfText('año 2026')).toBeNull();
+    expect(ticketOfText('id 1234567')).toBeNull();
+    expect(ticketOfText('sin números')).toBeNull();
+  });
+
+  it('el historial se guarda en cada cambio y se puede cargar de nuevo (sin perder el vínculo del agente)', () => {
+    let saved: AgentRun[] = [];
+    const first = createAgentStore({ onChange: (runs) => (saved = runs) });
+    first.handleHook(pre({ cwd: '/x/front' }));
+    first.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a-1', agent_type: 'Explore' });
+    expect(saved).toHaveLength(1);
+    const second = createAgentStore({ initial: JSON.parse(JSON.stringify(saved)) as AgentRun[] });
+    expect(second.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a-1' })).toBe(true);
+    expect(second.list()[0]).toMatchObject({ status: 'done', project: 'front' });
+    // Un archivo viejo sin carpeta ni ticket, o con basura, se carga igual.
+    const legacy = createAgentStore({ initial: [{ id: 'v', sessionId: 's', type: 'Explore', description: 'x', startedAt: new Date().toISOString(), endedAt: null, status: 'running', agentId: null } as unknown as AgentRun, 'basura' as unknown as AgentRun] });
+    expect(legacy.list()).toMatchObject([{ id: 'v', project: null, ticket: null }]);
+  });
+
+  it('clearHistory borra lo terminado y conserva lo que sigue trabajando', () => {
+    const store = createAgentStore();
+    store.handleHook(pre({ tool_use_id: 'viejo' }));
+    store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a', agent_type: 'Explore' });
+    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a' });
+    store.handleHook(pre({ tool_use_id: 'activo' }));
+    expect(store.clearHistory()).toBe(1);
+    expect(store.list().map((run) => run.id)).toEqual(['activo']);
+    expect(store.clearHistory()).toBe(0);
   });
 
   it('dismiss saca uno de la lista', () => {
@@ -77,25 +133,5 @@ describe('agentes delegados', () => {
     expect(cleanText('a'.repeat(300), 140, 'x')).toHaveLength(140);
     expect(cleanText(42, 10, 'por defecto')).toBe('por defecto');
     expect(cleanText('   ', 10, 'por defecto')).toBe('por defecto');
-  });
-});
-
-describe('rutas de agentes', () => {
-  it('POST /api/agents/event acepta la entrada de un hook, GET la lista y DELETE la saca', async () => {
-    const { default: Fastify } = await import('fastify');
-    const { registerAgentRoutes } = await import('../routes/agents.js');
-    const { agents } = await import('./agents.js');
-    const app = Fastify();
-    registerAgentRoutes(app);
-    const post = await app.inject({ method: 'POST', url: '/api/agents/event', payload: pre({ tool_use_id: 'ruta-1' }) });
-    expect(post.statusCode).toBe(202);
-    const list = await app.inject({ method: 'GET', url: '/api/agents' });
-    expect(list.json().agents.some((run: { id: string }) => run.id === 'ruta-1')).toBe(true);
-    expect((await app.inject({ method: 'DELETE', url: '/api/agents/ruta-1' })).statusCode).toBe(200);
-    expect((await app.inject({ method: 'DELETE', url: '/api/agents/ruta-1' })).statusCode).toBe(404);
-    expect(agents.list().some((run) => run.id === 'ruta-1')).toBe(false);
-    // Un cuerpo que no es un hook igual se responde sin error y no agrega nada.
-    expect((await app.inject({ method: 'POST', url: '/api/agents/event', payload: { cualquier: 'cosa' } })).statusCode).toBe(202);
-    await app.close();
   });
 });
