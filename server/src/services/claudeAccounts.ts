@@ -355,8 +355,8 @@ export const retryAfterMs = (header: string | null | undefined, now: number): nu
 };
 
 /**
- * Consulta el uso en vivo de una cuenta. **Solo se llama a mano** (botón de recargar): ninguna página ni refresco automático
- * lo dispara. Como mucho una vez cada 30 s y, si el servicio responde 429, no vuelve a consultar hasta que pase el
+ * Consulta el uso en vivo de una cuenta. Se llama a mano (botón de recargar) y desde el chequeo de `usageAutoRefresh`
+ * (una vez cada 10 min como mucho y solo con el panel en uso); ninguna página lo dispara por su cuenta. Como mucho una vez cada 30 s y, si el servicio responde 429, no vuelve a consultar hasta que pase el
  * `Retry-After` (o 5 min). Solo lectura: no renueva tokens ni escribe credenciales; únicamente se guardan los porcentajes.
  */
 export const refreshLiveUsage = async (config: DevPanelConfig, account: ClaudeAccount, fetcher: LiveFetcher = fetch as unknown as LiveFetcher, now = Date.now(), home: string = homedir()): Promise<LiveEntry> => {

@@ -6,6 +6,7 @@ import {
 import { join } from 'node:path';
 import { listSkills } from '../services/claudeSkills.js';
 import { paths } from '../config.js';
+import { markUsageSeen } from '../services/usageAutoRefresh.js';
 import { requireConfig } from './helpers.js';
 
 const fail = (reply: FastifyReply, error: unknown) => {
@@ -24,7 +25,7 @@ export const registerClaudeRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     const data = loadAccounts();
-    // Solo lectura local: el uso en vivo se actualiza a mano (POST /api/claude/usage/refresh), nunca desde acá.
+    // Solo lectura local: el uso en vivo se actualiza a mano (POST /api/claude/usage/refresh) o por el chequeo de 10 min (usageAutoRefresh), nunca desde acá.
     const usage = readUsage(data.accounts);
     const accounts = await Promise.all(
       data.accounts.map(async (account) => {
@@ -43,13 +44,14 @@ export const registerClaudeRoutes = (app: FastifyInstance): void => {
   app.get('/api/claude/active-usage', async (_request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
+    markUsageSeen();
     const data = loadAccounts();
     const account = data.accounts.find((item) => item.id === data.activeId) ?? null;
     // Solo lectura local (caché y último dato guardado): esta ruta se consulta seguido y NO llama a ningún servicio externo.
     return { account: account ? { id: account.id, label: account.label, color: account.color } : null, usage: account ? (readUsage([account])[account.id] ?? null) : null, problem: account ? liveProblemOf(account.id) : null };
   });
 
-  /** Recarga manual del uso en vivo (la única forma de consultar al servicio). Sin `id`, la cuenta activa. */
+  /** Recarga manual del uso en vivo (además del chequeo automático de 10 min). Sin `id`, la cuenta activa. */
   app.post('/api/claude/usage/refresh', async (request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
