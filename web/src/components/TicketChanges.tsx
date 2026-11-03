@@ -9,6 +9,8 @@ import { languageOf, tokenizeLine } from '../lib/highlight';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
+import { ShortcutKey } from './Key';
+import { useShortcutMap } from '../lib/useShortcuts';
 import { useToast } from './Toast';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
@@ -51,6 +53,8 @@ interface Review {
   dir: string;
   stateOf: (repo: string, scope: Scope, file: ChangedFile) => ViewedState;
   toggle: (repo: string, scope: Scope, file: ChangedFile, viewed: boolean) => Promise<boolean>;
+  /** El archivo en el que está parado el teclado (N / P / V): `repo|scope|ruta`. */
+  current: string | null;
   /** Cada "Expandir todo" o "Contraer todo" suma uno y trae el valor al que se llevan todos los archivos. */
   bulk: { open: boolean; tick: number };
 }
@@ -88,6 +92,17 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
   const [open, setOpen] = useState(viewed !== 'yes');
   const [busy, setBusy] = useState(false);
   const { ref, near } = useNearViewport();
+  const isCurrent = review.current === markKey(repo, scope, file.path);
+  // Marcar como visto (con el mouse o con V) contrae el archivo; desmarcarlo lo vuelve a abrir.
+  const previous = useRef(viewed);
+  useEffect(() => {
+    if (previous.current !== viewed && (viewed === 'yes' || previous.current === 'yes')) setOpen(viewed !== 'yes');
+    previous.current = viewed;
+  }, [viewed]);
+  // El archivo elegido con N / P se acerca a la pantalla.
+  useEffect(() => {
+    if (isCurrent) ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [isCurrent, ref]);
   const lastTick = useRef(review.bulk.tick);
   useEffect(() => {
     if (review.bulk.tick !== lastTick.current) {
@@ -98,13 +113,12 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
 
   const toggleViewed = async (next: boolean) => {
     setBusy(true);
-    const ok = await review.toggle(repo, scope, file, next);
+    await review.toggle(repo, scope, file, next);
     setBusy(false);
-    if (ok) setOpen(!next);
   };
 
   return (
-    <li ref={ref} id={`file-${repo}-${scope}-${file.path}`} className={cn('rounded-xl border bg-surface', viewed === 'yes' ? 'border-success/40' : viewed === 'changed' ? 'border-warning/60' : 'border-line')}>
+    <li ref={ref} id={`file-${repo}-${scope}-${file.path}`} className={cn('scroll-mt-4 rounded-xl border bg-surface', isCurrent && 'ring-2 ring-accent/60', viewed === 'yes' ? 'border-success/40' : viewed === 'changed' ? 'border-warning/60' : 'border-line')}>
       <div className="flex flex-wrap items-center gap-3 px-3 py-2">
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           {open ? <ChevronDown className="size-4 shrink-0" aria-hidden /> : <ChevronRight className="size-4 shrink-0" aria-hidden />}
@@ -117,6 +131,7 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
           <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={viewed === 'yes'} disabled={busy} onChange={(event) => void toggleViewed(event.target.checked)} />
           {viewed === 'yes' && <Check className="size-4" aria-hidden />}
           Visto
+          {isCurrent && <ShortcutKey id="changes.viewed" />}
         </label>
       </div>
       {open && <div className="px-3 pb-3">{near ? <DiffView dir={review.dir} repo={repo} path={file.path} scope={scope} /> : <Skeleton className="h-24" />}</div>}
@@ -131,6 +146,11 @@ const totals = (files: ChangedFile[]) => files.reduce((sum, file) => ({ added: s
 const Repo = ({ changes, baseBranch }: { changes: RepoChanges; baseBranch: string }) => {
   const review = useReview();
   const [open, setOpen] = useState(true);
+  // Si el teclado (N / P) llega a un archivo de un repo contraído, se abre.
+  const currentFile = review.current;
+  useEffect(() => {
+    if (currentFile?.startsWith(`${changes.repo}|`)) setOpen(true);
+  }, [currentFile, changes.repo]);
   const sum = totals(changes.committed);
   const files = [...changes.committed.map((file) => ({ file, scope: 'committed' as Scope })), ...changes.working.map((file) => ({ file, scope: 'working' as Scope }))];
   const seen = files.filter(({ file, scope }) => review.stateOf(changes.repo, scope, file) === 'yes').length;
@@ -197,7 +217,32 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
     },
     [dir, toast],
   );
-  const review = useMemo<Review>(() => ({ dir, stateOf, toggle, bulk }), [dir, stateOf, toggle, bulk]);
+  const [current, setCurrent] = useState<string | null>(null);
+  const review = useMemo<Review>(() => ({ dir, stateOf, toggle, bulk, current }), [dir, stateOf, toggle, bulk, current]);
+
+  // Todos los archivos en el orden en que se ven (por repo: primero lo commiteado y después lo sin commitear), para moverse con el teclado.
+  const flat = useMemo(
+    () => (state.data?.repos ?? []).flatMap((repo) => [...repo.committed.map((file) => ({ repo: repo.repo, scope: 'committed' as Scope, file })), ...repo.working.map((file) => ({ repo: repo.repo, scope: 'working' as Scope, file }))].map((item) => ({ ...item, key: markKey(item.repo, item.scope, item.file.path) }))),
+    [state.data],
+  );
+  const move = (delta: 1 | -1) => {
+    if (!flat.length) return;
+    const index = flat.findIndex((item) => item.key === current);
+    const target = index < 0 ? (delta > 0 ? 0 : flat.length - 1) : Math.min(flat.length - 1, Math.max(0, index + delta));
+    setCurrent(flat[target]!.key);
+  };
+  const toggleCurrent = async () => {
+    const index = flat.findIndex((item) => item.key === current);
+    // Sin archivo elegido, V solo elige el primero: marcar sin saber cuál sería un descuido.
+    if (index < 0) return move(1);
+    const item = flat[index]!;
+    const wasSeen = stateOf(item.repo, item.scope, item.file) === 'yes';
+    if (!(await toggle(item.repo, item.scope, item.file, !wasSeen)) || wasSeen) return;
+    // Al marcarlo pasa al siguiente que todavía no se vio.
+    const next = flat.slice(index + 1).find((candidate) => stateOf(candidate.repo, candidate.scope, candidate.file) !== 'yes');
+    if (next) setCurrent(next.key);
+  };
+  useShortcutMap({ 'changes.next': () => move(1), 'changes.prev': () => move(-1), 'changes.viewed': () => void toggleCurrent(), 'changes.expand': () => setBulk({ open: !bulk.open, tick: bulk.tick + 1 }) });
 
   if (state.loading && !state.data) return <Skeleton className="h-64" />;
   if (state.error || !state.data) return <p className="text-danger">{state.error}</p>;
@@ -215,8 +260,8 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
             <div className="h-2 overflow-hidden rounded-full bg-surface-3"><div className={cn('h-full rounded-full transition-all', seen === all.length ? 'bg-success' : 'bg-accent')} style={{ width: `${all.length ? Math.round((seen / all.length) * 100) : 0}%` }} /></div>
             <p className="mt-1.5 text-sm text-muted">Leé cada archivo y marcalo como visto: el Estado del ticket no da el visto bueno hasta que estén todos.</p>
           </div>
-          <Button icon={<ChevronsUpDown className="size-4" />} onClick={() => setBulk({ open: true, tick: bulk.tick + 1 })}>Expandir todo</Button>
-          <Button icon={<ChevronsDownUp className="size-4" />} onClick={() => setBulk({ open: false, tick: bulk.tick + 1 })}>Contraer todo</Button>
+          <span className="flex items-center gap-1.5 text-sm text-muted" title="Archivo anterior / siguiente">Archivo <ShortcutKey id="changes.prev" /><ShortcutKey id="changes.next" /></span>
+          <Button icon={bulk.open ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />} onClick={() => setBulk({ open: !bulk.open, tick: bulk.tick + 1 })}>{bulk.open ? 'Contraer todo' : 'Expandir todo'}<ShortcutKey id="changes.expand" /></Button>
         </div>
         {report.repos.map((repo) => <Repo key={repo.repo} changes={repo} baseBranch={report.baseBranch} />)}
       </div>

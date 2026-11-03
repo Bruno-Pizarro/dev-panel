@@ -11,6 +11,10 @@ describe('atajos de teclado', () => {
     expect(defaults['ticket.next']).toBe('s');
     expect(defaults['frame.full']).toBe('f');
     expect(defaults['refresh']).toBe('r');
+    expect(defaults['changes.next']).toBe('n');
+    expect(defaults['changes.prev']).toBe('p');
+    expect(defaults['changes.viewed']).toBe('v');
+    expect(defaults['changes.expand']).toBe('e');
     expect(defaults['goto.prefix']).toBe('g');
     expect(defaults['help']).toBe('?');
     expect(DEFS.filter((def) => def.context === 'goto').every((def) => def.defaultKey.length === 1)).toBe(true);
