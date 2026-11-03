@@ -8,7 +8,6 @@ import { parseDiffLines } from '../lib/diff';
 import { languageOf, tokenizeLine } from '../lib/highlight';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
-import { Card } from './Card';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
 
@@ -70,12 +69,14 @@ const Repo = ({ dir, changes, baseBranch }: { dir: string; changes: RepoChanges;
   const sum = totals(changes.committed);
   const none = changes.committed.length === 0 && changes.working.length === 0 && changes.commits.length === 0;
   return (
-    <Card
-      title={<button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex items-center gap-2">{open ? <ChevronDown className="size-4" aria-hidden /> : <ChevronRight className="size-4" aria-hidden />}<span className="font-mono">{changes.repo}</span></button>}
-      action={<div className="flex flex-wrap items-center justify-end gap-2">{changes.branch && <Badge>{changes.branch}</Badge>}<Badge tone={changes.committed.length ? 'accent' : 'neutral'}>{changes.committed.length} archivos · +{sum.added} -{sum.deleted}</Badge>{changes.working.length > 0 && <Badge tone="warning">{changes.working.length} sin commitear</Badge>}</div>}
-    >
-      {open && (!changes.exists ? <p className="text-danger">El repo no existe en esta máquina</p> : (
-        <div className="space-y-6">
+    <section className="rounded-2xl border border-line bg-surface">
+      {/* Toda la barra abre y cierra el repo, no solo el nombre. */}
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className={cn('flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors hover:bg-surface-2', open ? 'rounded-t-2xl border-b border-line' : 'rounded-2xl')}>
+        <span className="flex items-center gap-2 text-base font-semibold">{open ? <ChevronDown className="size-4" aria-hidden /> : <ChevronRight className="size-4" aria-hidden />}<span className="font-mono">{changes.repo}</span></span>
+        <span className="flex flex-wrap items-center justify-end gap-2">{changes.branch && <Badge>{changes.branch}</Badge>}<Badge tone={changes.committed.length ? 'accent' : 'neutral'}>{changes.committed.length} archivos · +{sum.added} -{sum.deleted}</Badge>{changes.working.length > 0 && <Badge tone="warning">{changes.working.length} sin commitear</Badge>}</span>
+      </button>
+      {open && (!changes.exists ? <p className="p-5 text-danger">El repo no existe en esta máquina</p> : (
+        <div className="space-y-6 p-5">
           {changes.base === null && <p className="text-sm text-warning">No se encontró la rama base {baseBranch}: solo se muestran los cambios sin commitear.</p>}
           {none && <p className="text-sm text-muted">Sin cambios respecto de {changes.base ?? baseBranch}.</p>}
           {changes.commits.length > 0 && (
@@ -93,7 +94,7 @@ const Repo = ({ dir, changes, baseBranch }: { dir: string; changes: RepoChanges;
           {changes.ignored.length > 0 && <p className="text-sm text-muted">No se cuentan: {changes.ignored.join(', ')} (lo administra el panel por el perfil de entorno).</p>}
         </div>
       ))}
-    </Card>
+    </section>
   );
 };
 
