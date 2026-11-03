@@ -96,14 +96,15 @@
 }
 .editor { background: var(--ed-bg); color: var(--ed-fg); border: 1px solid var(--ed-line); border-radius: 0.5rem; overflow: hidden; box-shadow: 0 0 0 1px rgb(var(--accent) / 0.1), 0 10px 28px rgb(0 0 0 / 0.5); font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.5rem; }
 .editor-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.75rem; height: 2.25rem; background: var(--ed-bar); border-bottom: 1px solid var(--ed-line); color: var(--ed-dim); }
-.editor-code { overflow-x: auto; max-height: 36rem; overflow-y: auto; }
-.editor-row { display: grid; grid-template-columns: 3.5rem 3.5rem 1.5rem 1fr; min-width: max-content; }
-.editor-row > span { white-space: pre; }
+.editor-code { overflow-x: hidden; max-height: 36rem; overflow-y: auto; }
+/* Las líneas largas continúan en la siguiente (sin número nuevo) en vez de ensanchar el editor: el fondo no se corta. */
+.editor-row { display: grid; grid-template-columns: 3.5rem 3.5rem 1.5rem minmax(0, 1fr); }
+.editor-row > span { white-space: pre-wrap; overflow-wrap: anywhere; }
 .editor-num { text-align: right; padding-right: 0.75rem; color: var(--ed-dim); background: var(--ed-gutter); user-select: none; }
 .editor-sign { text-align: center; color: var(--ed-dim); user-select: none; }
 .editor-row.add { background: var(--ed-add); } .editor-row.add .editor-num { background: var(--ed-add-gutter); color: var(--ed-fg); } .editor-row.add .editor-sign { color: rgb(var(--success)); }
 .editor-row.del { background: var(--ed-del); } .editor-row.del .editor-num { background: var(--ed-del-gutter); color: var(--ed-fg); } .editor-row.del .editor-sign { color: rgb(var(--danger)); }
-.editor-hunk { display: block; padding: 0 0.75rem; min-width: max-content; background: var(--ed-hunk); color: rgb(var(--accent)); border-block: 1px solid var(--ed-line); }
+.editor-hunk { display: block; padding: 0 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--ed-hunk); color: rgb(var(--accent)); border-block: 1px solid var(--ed-line); }
 .editor-note { padding: 0.75rem 1rem; color: var(--ed-dim); }
 /* Colores de sintaxis: derivados del tema, así acompañan al que se elija. */
 .tok-kw { color: rgb(var(--accent)); font-weight: 600; }
