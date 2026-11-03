@@ -57,6 +57,8 @@ export const ticketOfText = (text: string): string | null => /(?<!\d)(\d{5,6})(?
 /** Datos de la sesión que el servidor averigua por su cuenta (la rama de la carpeta) y le pasa al procesar un hook. */
 export interface HookContext {
   branchTicket?: string | null;
+  /** El informe final del agente cuando el hook no lo trae (se saca de su transcripción). */
+  response?: string | null;
 }
 
 interface StoreOptions {
@@ -151,7 +153,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
       if (!run) return false;
       run.status = 'done';
       run.endedAt = new Date(now()).toISOString();
-      if (saveContent()) run.response = cleanBlock(input['last_assistant_message']);
+      if (saveContent()) run.response = cleanBlock(input['last_assistant_message'] ?? context.response);
       changed();
       return true;
     }
