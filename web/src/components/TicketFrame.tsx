@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { Button } from './Button';
 import { Modal } from './Modal';
 import { Portal } from './Portal';
+import { RefreshButton } from './RefreshButton';
 import { useToast } from './Toast';
 
 interface TicketFrameProps {
@@ -12,6 +13,8 @@ interface TicketFrameProps {
   /** Ruta de la lista a la que se vuelve al eliminar (ej. "/pruebas"). */
   listPath: string;
   header: ReactNode;
+  /** Mismo "Actualizar" de la página, para tenerlo también en pantalla completa (donde el encabezado queda tapado). */
+  onRefresh?: () => void;
   children: ReactNode;
 }
 
@@ -19,7 +22,7 @@ interface TicketFrameProps {
  * Marco de un ticket: botón "Pantalla completa" (tapa menú, lista y buscador para concentrarse en el ticket) y
  * "Eliminar carpeta", que obliga a escribir el nombre exacto. Se dibuja en un portal para no quedar recortado por la página.
  */
-export const TicketFrame = ({ dir, listPath, header, children }: TicketFrameProps) => {
+export const TicketFrame = ({ dir, listPath, header, onRefresh, children }: TicketFrameProps) => {
   const toast = useToast();
   const navigate = useNavigate();
   const [focus, setFocus] = useState(false);
@@ -51,6 +54,7 @@ export const TicketFrame = ({ dir, listPath, header, children }: TicketFrameProp
 
   const actions = (
     <div className="mb-4 flex flex-wrap justify-end gap-2">
+      {onRefresh && <RefreshButton onRefresh={onRefresh} />}
       <Button className="h-9" icon={focus ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />} onClick={() => setFocus(!focus)}>{focus ? 'Salir de pantalla completa' : 'Pantalla completa'}</Button>
       <Button className="h-9" variant="danger" icon={<Trash2 className="size-4" />} onClick={() => (setTyped(''), setDeleting(true))}>Eliminar carpeta</Button>
     </div>

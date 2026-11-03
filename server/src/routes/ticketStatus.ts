@@ -4,6 +4,7 @@ import type { DevPanelConfig } from '../config.js';
 import { getManualTests } from '../services/checklists.js';
 import { fetchTicketMrs } from '../services/gitlab.js';
 import { readRepoStatus } from '../services/gitRepos.js';
+import { readFileDiff, readTicketChanges, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
@@ -40,6 +41,23 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
       repos: repos.map((repo) => ({ ...repo, warnings: repoWarnings(repo, ticket.meta?.rama) })),
       changedSinceLastRun: reposChangedSince(lastRun?.fecha ?? null, repos),
     };
+  });
+
+  app.get<{ Params: { dir: string } }>('/api/tickets/:dir/changes', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    return { baseBranch: loaded.config.git.baseBranch, repos: await readTicketChanges(loaded.config, loaded.ticket.meta?.repos ?? []) };
+  });
+
+  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; scope?: string } }>('/api/tickets/:dir/changes/diff', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const { repo, path, scope } = request.query;
+    if (!repo || !path || (scope !== 'committed' && scope !== 'working')) return reply.code(400).send({ error: 'Faltan repo, path o scope (committed | working)' });
+    // Solo los repos que declara el ticket.
+    if (!(loaded.ticket.meta?.repos ?? []).includes(repo)) return reply.code(404).send({ error: 'Ese repo no pertenece al ticket' });
+    const outcome = await readFileDiff(loaded.config, repo, path, scope as ChangeScope);
+    return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
   });
 
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir/services', async (request, reply) => {
