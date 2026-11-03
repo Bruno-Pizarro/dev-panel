@@ -1,4 +1,4 @@
-import { Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bot, Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
+import { AgentSettings } from './AgentSettings';
 import { ShortcutSettings } from './ShortcutSettings';
 
 interface ConfigEditorProps {
@@ -158,6 +159,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
       </Card>
     ) },
     { id: 'atajos', label: 'Atajos de teclado', icon: Keyboard, noSave: true, content: <ShortcutSettings /> },
+    { id: 'agentes', label: 'Agentes de Claude', icon: Bot, noSave: true, content: <AgentSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">
         <TagEditor label="Repos que maneja el panel" help="Para el editor de .env, el estado de ramas y el Daily." values={config.repos} onChange={(repos) => setConfig({ ...config, repos })} />

@@ -1,6 +1,7 @@
 import { Bot, Check, ChevronLeft, ChevronRight, EyeOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
+import { AGENT_DEMO_EVENT, AGENT_DEMO_MS, demoRuns, isDemoRun } from '../lib/agentDemo';
 import { cn } from '../lib/cn';
 import { useServerEvent, useStoredState } from '../lib/hooks';
 import type { AgentRun } from '../lib/types';
@@ -26,18 +27,35 @@ export const AgentToast = () => {
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const known = useRef(new Set<string>());
+  // Vista previa pedida desde Configuración: agentes de ejemplo que se muestran unos segundos, aunque el aviso esté oculto.
+  const [demoUntil, setDemoUntil] = useState(0);
+  const [demoStart, setDemoStart] = useState(0);
+  const [removedDemo, setRemovedDemo] = useState<string[]>([]);
 
   useEffect(() => {
     api.get<{ agents: AgentRun[] }>('/api/agents').then((result) => setRuns(result.agents), () => undefined);
   }, []);
   useServerEvent<AgentRun[]>('agents', setRuns);
   useEffect(() => {
+    const start = () => {
+      // Pedir la vista previa es pedir ver el aviso: si estaba oculto, vuelve a mostrarse (y se puede volver a ocultar).
+      setHidden(false);
+      known.current.clear();
+      setRemovedDemo([]);
+      setDemoStart(Date.now());
+      setDemoUntil(Date.now() + AGENT_DEMO_MS);
+    };
+    window.addEventListener(AGENT_DEMO_EVENT, start);
+    return () => window.removeEventListener(AGENT_DEMO_EVENT, start);
+  }, [setHidden]);
+  const demoActive = demoUntil > now;
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
   // Los terminados se retiran solos pasados unos segundos.
-  const visible = useMemo(() => runs.filter((run) => run.status === 'running' || now - Date.parse(run.endedAt ?? run.startedAt) < DONE_VISIBLE_MS), [runs, now]);
+  const visible = useMemo(() => [...runs, ...(demoActive ? demoRuns(demoStart).filter((run) => !removedDemo.includes(run.id)) : [])].filter((run) => run.status === 'running' || now - Date.parse(run.endedAt ?? run.startedAt) < (isDemoRun(run) ? AGENT_DEMO_MS : DONE_VISIBLE_MS)), [runs, now, demoActive, demoStart, removedDemo]);
   const running = visible.filter((run) => run.status === 'running').length;
 
   // Cuando llega uno nuevo, el carrusel salta a él.
@@ -79,6 +97,7 @@ export const AgentToast = () => {
       <div className="space-y-2 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="rounded-md bg-surface-3 px-2 py-0.5 font-mono text-sm text-muted">{current.type}</span>
+          {isDemoRun(current) && <span className="rounded-md bg-warning/15 px-2 py-0.5 text-sm font-medium text-warning">Vista previa</span>}
           <span className={cn('ml-auto font-mono text-sm tabular-nums', done ? 'text-success' : 'text-accent')}>{clock(elapsed)}</span>
         </div>
         <p className="line-clamp-3 break-words text-sm leading-snug" title={current.description}>{current.description}</p>
@@ -90,7 +109,7 @@ export const AgentToast = () => {
           <span className="min-w-12 text-center text-sm tabular-nums text-muted" aria-live="polite">{position + 1} / {visible.length}</span>
           <button type="button" onClick={() => move(1)} disabled={visible.length < 2} aria-label="Agente siguiente" className="flex size-7 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-30"><ChevronRight className="size-4" aria-hidden /></button>
         </div>
-        <button type="button" onClick={() => void api.del(`/api/agents/${encodeURIComponent(current.id)}`)} aria-label="Quitar de la lista" title="Quitar de la lista (por si quedó colgado)" className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"><X className="size-4" aria-hidden />Quitar</button>
+        <button type="button" onClick={() => (isDemoRun(current) ? setRemovedDemo((list) => [...list, current.id]) : void api.del(`/api/agents/${encodeURIComponent(current.id)}`))} aria-label="Quitar de la lista" title="Quitar de la lista (por si quedó colgado)" className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg"><X className="size-4" aria-hidden />Quitar</button>
       </footer>
     </section>
   );
