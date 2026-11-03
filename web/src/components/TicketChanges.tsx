@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useReloadOn } from '../lib/hooks';
 import type { ChangedFile, FileDiff, RepoChanges, TicketChangesReport } from '../lib/types';
+import { parseDiffLines } from '../lib/diff';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Card } from './Card';
@@ -12,24 +13,31 @@ import { Skeleton } from './Skeleton';
 
 type Scope = 'committed' | 'working';
 
-const lineClass = (line: string) =>
-  line.startsWith('+') && !line.startsWith('+++')
-    ? 'bg-success/15 text-success'
-    : line.startsWith('-') && !line.startsWith('---')
-      ? 'bg-danger/15 text-danger'
-      : line.startsWith('@@')
-        ? 'bg-info/10 text-info'
-        : 'text-muted';
-
 /** Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento. */
 const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path: string; scope: Scope }) => {
   const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/changes/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
+  const slash = path.lastIndexOf('/');
+  const lines = diff.data?.diff ? parseDiffLines(diff.data.diff) : [];
   return (
-    <div className="mb-3 overflow-x-auto rounded-lg border border-line bg-bg">
-      {diff.loading && !diff.data ? <Skeleton className="h-20" /> : diff.error || !diff.data ? <p className="p-3 text-danger">{diff.error}</p> : diff.data.reason ? <p className="p-3 text-sm text-muted">{diff.data.reason}</p> : !diff.data.diff ? <p className="p-3 text-sm text-muted">Sin diferencias de contenido.</p> : (
-        <pre className="min-w-max font-mono text-sm leading-6">
-          {diff.data.diff.split('\n').map((line, index) => <div key={index} className={cn('whitespace-pre px-3', lineClass(line))}>{line || ' '}</div>)}
-        </pre>
+    <div className="editor mb-3">
+      <div className="editor-bar">
+        <span className="min-w-0 truncate"><span>{slash >= 0 ? path.slice(0, slash + 1) : ''}</span><span className="font-semibold" style={{ color: 'var(--ed-fg)' }}>{path.slice(slash + 1)}</span></span>
+      </div>
+      {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : lines.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
+        <div className="editor-code">
+          {lines.map((line, index) =>
+            line.kind === 'hunk' ? (
+              <div key={index} className="editor-hunk">{line.text}</div>
+            ) : (
+              <div key={index} className={cn('editor-row', line.kind !== 'ctx' && line.kind)}>
+                <span className="editor-num">{line.old ?? ''}</span>
+                <span className="editor-num">{line.next ?? ''}</span>
+                <span className="editor-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
+                <span>{line.text || ' '}</span>
+              </div>
+            )
+          )}
+        </div>
       )}
     </div>
   );

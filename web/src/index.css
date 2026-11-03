@@ -69,6 +69,41 @@
   --success: 63 185 128; --warning: 229 169 59; --danger: 240 98 108; --info: 86 182 232;
 }
 
+
+/*
+ * Visor de diffs de la pestaña Cambios: se ve como un editor de código y no como una tarjeta del panel. Los colores salen del
+ * tema elegido (más oscuro que la superficie, o blanco en el claro), para que acompañe sin mezclarse con el resto.
+ */
+.editor {
+  --ed-bg: color-mix(in srgb, rgb(var(--bg)) 55%, black);
+  --ed-bar: color-mix(in srgb, rgb(var(--bg)) 75%, black);
+  --ed-gutter: color-mix(in srgb, rgb(var(--bg)) 68%, black);
+  --ed-line: color-mix(in srgb, rgb(var(--line)) 55%, black);
+  --ed-fg: color-mix(in srgb, rgb(var(--fg)) 92%, rgb(var(--bg)));
+  --ed-dim: color-mix(in srgb, rgb(var(--muted)) 70%, rgb(var(--bg)));
+  --ed-add: rgb(var(--success) / 0.16);
+  --ed-add-gutter: rgb(var(--success) / 0.3);
+  --ed-del: rgb(var(--danger) / 0.16);
+  --ed-del-gutter: rgb(var(--danger) / 0.3);
+  --ed-hunk: color-mix(in srgb, rgb(var(--accent)) 12%, var(--ed-bg));
+}
+[data-theme='claro'] .editor {
+  --ed-bg: #ffffff; --ed-bar: #eef1f6; --ed-gutter: #f6f8fb; --ed-line: #d8dee8; --ed-fg: #1f2733; --ed-dim: #8a94a6;
+  --ed-add: rgb(var(--success) / 0.14); --ed-add-gutter: rgb(var(--success) / 0.26);
+  --ed-del: rgb(var(--danger) / 0.12); --ed-del-gutter: rgb(var(--danger) / 0.24);
+}
+.editor { background: var(--ed-bg); color: var(--ed-fg); border: 1px solid var(--ed-line); border-radius: 0.5rem; overflow: hidden; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.5rem; }
+.editor-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.75rem; height: 2.25rem; background: var(--ed-bar); border-bottom: 1px solid var(--ed-line); color: var(--ed-dim); }
+.editor-code { overflow-x: auto; max-height: 36rem; overflow-y: auto; }
+.editor-row { display: grid; grid-template-columns: 3.5rem 3.5rem 1.5rem 1fr; min-width: max-content; }
+.editor-row > span { white-space: pre; }
+.editor-num { text-align: right; padding-right: 0.75rem; color: var(--ed-dim); background: var(--ed-gutter); user-select: none; }
+.editor-sign { text-align: center; color: var(--ed-dim); user-select: none; }
+.editor-row.add { background: var(--ed-add); } .editor-row.add .editor-num { background: var(--ed-add-gutter); color: var(--ed-fg); } .editor-row.add .editor-sign { color: rgb(var(--success)); }
+.editor-row.del { background: var(--ed-del); } .editor-row.del .editor-num { background: var(--ed-del-gutter); color: var(--ed-fg); } .editor-row.del .editor-sign { color: rgb(var(--danger)); }
+.editor-hunk { display: block; padding: 0 0.75rem; min-width: max-content; background: var(--ed-hunk); color: rgb(var(--accent)); border-block: 1px solid var(--ed-line); }
+.editor-note { padding: 0.75rem 1rem; color: var(--ed-dim); }
+
 @layer base {
   html, body, #root { height: 100%; }
   body {
