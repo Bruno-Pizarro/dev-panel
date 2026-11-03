@@ -44,7 +44,10 @@ export const ClaudeUsageBar = () => {
       {usage && (usage.fiveHour || usage.sevenDay) ? (
         <>
           <UsageBar label="Sesión 5 h" window={usage.fiveHour} compact />
-          <UsageBar label="Semana" window={usage.sevenDay} compact />
+          {/* Mismo punto de corte que los labels del navbar (xl): en pantallas chicas queda solo la sesión de 5 h. */}
+          <span className="hidden xl:block">
+            <UsageBar label="Semana" window={usage.sevenDay} compact />
+          </span>
           <span className={usage.ageSeconds > STALE_SECONDS ? 'whitespace-nowrap text-sm text-warning' : 'whitespace-nowrap text-sm text-muted'}>{ago(usage.ageSeconds)}</span>
         </>
       ) : (

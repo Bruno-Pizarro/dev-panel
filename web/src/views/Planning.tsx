@@ -12,6 +12,7 @@ import { Tabs } from '../components/Tabs';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
+import { TicketChanges } from '../components/TicketChanges';
 import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
@@ -22,7 +23,7 @@ import { assetUrl, classifyDocs, diagramFile, fileUrl, planDoc, referenceImage }
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
-type Tab = 'estado' | 'plan' | 'diagrama' | 'referencia' | 'documentos';
+type Tab = 'cambios' | 'estado' | 'plan' | 'diagrama' | 'referencia' | 'documentos';
 
 const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: string; refreshKey: number; children: (content: string) => React.ReactNode }) => {
   const doc = useAsync(() => api.get<{ content: string }>(fileUrl(dir, file)));
@@ -32,7 +33,7 @@ const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: stri
   return <>{children(doc.data.content)}</>;
 };
 
-const Detail = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+const Detail = ({ dir, refreshKey, onRefresh }: { dir: string; refreshKey: number; onRefresh: () => void }) => {
   const [tab, setTab] = useState<Tab>('plan');
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   useReloadOn(refreshKey, detail.reload);
@@ -47,9 +48,10 @@ const Detail = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
   const groups = classifyDocs(data.files.docs);
 
   return (
-    <TicketFrame dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="desarrollo" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'estado', label: 'Estado' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
+    <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="desarrollo" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }]} />
       {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
+      {tab === 'cambios' && <TicketChanges dir={dir} refreshKey={refreshKey} />}
       {tab === 'plan' &&
         (plan ? (
           <Card><FileText dir={dir} file={plan} refreshKey={refreshKey}>{(content) => <Markdown source={content} ticket={{ dir, file: plan }} />}</FileText></Card>
@@ -83,15 +85,16 @@ export const Planning = () => {
   const list = useAsync(() => api.get<{ tickets: TicketSummary[] }>('/api/tickets'));
   // "Actualizar" recarga el listado y avisa al ticket abierto para que vuelva a leer todo lo suyo.
   const [refreshKey, setRefreshKey] = useState(0);
+  const refreshAll = () => (list.reload(), setRefreshKey((value) => value + 1));
   return (
     <div className="md:flex md:h-full md:min-h-0 md:flex-col">
-      <PageHeader title="Desarrollo" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." actions={<RefreshButton busy={list.loading} onRefresh={() => (list.reload(), setRefreshKey((value) => value + 1))} />} />
+      <PageHeader title="Desarrollo" description="Análisis, plan, diagrama de flujo y referencia visual de cada desarrollo." actions={<RefreshButton busy={list.loading} onRefresh={refreshAll} />} />
       <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="relative min-h-0 md:h-full">
           {list.loading && !list.data ? <Skeleton className="h-96" /> : <TicketList tickets={(list.data?.tickets ?? []).filter((ticket) => ticket.kind !== 'revision')} basePath="/planificacion" />}
         </div>
         <div className="relative min-w-0 md:h-full md:overflow-y-auto md:pr-2">
-          {dir ? <Detail key={dir} dir={dir} refreshKey={refreshKey} /> : <EmptyState icon={<Layers className="size-6" />} title="Elegí un desarrollo">Acá vas a entender una funcionalidad sin leer todo el análisis: ticket, rama, plan abreviado, diagrama y cómo debería verse.</EmptyState>}
+          {dir ? <Detail key={dir} dir={dir} refreshKey={refreshKey} onRefresh={refreshAll} /> : <EmptyState icon={<Layers className="size-6" />} title="Elegí un desarrollo">Acá vas a entender una funcionalidad sin leer todo el análisis: ticket, rama, plan abreviado, diagrama y cómo debería verse.</EmptyState>}
         </div>
       </div>
     </div>
