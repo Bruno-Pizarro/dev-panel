@@ -21,10 +21,22 @@ const lineClass = (line: string) =>
         ? 'bg-info/10 text-info'
         : 'text-muted';
 
-/** El diff se pide recién al abrir el archivo, para no traer todo el árbol de cambios de golpe. */
+/** Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento. */
+const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path: string; scope: Scope }) => {
+  const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/changes/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
+  return (
+    <div className="mb-3 overflow-x-auto rounded-lg border border-line bg-bg">
+      {diff.loading && !diff.data ? <Skeleton className="h-20" /> : diff.error || !diff.data ? <p className="p-3 text-danger">{diff.error}</p> : diff.data.reason ? <p className="p-3 text-sm text-muted">{diff.data.reason}</p> : !diff.data.diff ? <p className="p-3 text-sm text-muted">Sin diferencias de contenido.</p> : (
+        <pre className="min-w-max font-mono text-sm leading-6">
+          {diff.data.diff.split('\n').map((line, index) => <div key={index} className={cn('whitespace-pre px-3', lineClass(line))}>{line || ' '}</div>)}
+        </pre>
+      )}
+    </div>
+  );
+};
+
 const FileRow = ({ dir, repo, file, scope }: { dir: string; repo: string; file: ChangedFile; scope: Scope }) => {
   const [open, setOpen] = useState(false);
-  const diff = useAsync(() => (open ? api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/changes/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(file.path)}&scope=${scope}`) : Promise.resolve(null)));
   return (
     <li>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 px-1 py-2.5 text-left hover:bg-surface-2">
@@ -33,15 +45,7 @@ const FileRow = ({ dir, repo, file, scope }: { dir: string; repo: string; file: 
         <span className="min-w-0 flex-1 break-all font-mono text-sm">{file.path}</span>
         {file.binary ? <span className="text-sm text-muted">binario</span> : file.added !== null && <span className="whitespace-nowrap font-mono text-sm"><span className="text-success">+{file.added}</span> <span className="text-danger">-{file.deleted}</span></span>}
       </button>
-      {open && (
-        <div className="mb-3 overflow-x-auto rounded-lg border border-line bg-bg">
-          {diff.loading && !diff.data ? <Skeleton className="h-20" /> : diff.error ? <p className="p-3 text-danger">{diff.error}</p> : diff.data?.reason ? <p className="p-3 text-sm text-muted">{diff.data.reason}</p> : !diff.data?.diff ? <p className="p-3 text-sm text-muted">Sin diferencias de contenido.</p> : (
-            <pre className="min-w-max font-mono text-sm leading-6">
-              {diff.data.diff.split('\n').map((line, index) => <div key={index} className={cn('whitespace-pre px-3', lineClass(line))}>{line || ' '}</div>)}
-            </pre>
-          )}
-        </div>
-      )}
+      {open && <DiffView dir={dir} repo={repo} path={file.path} scope={scope} />}
     </li>
   );
 };
