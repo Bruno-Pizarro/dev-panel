@@ -1,4 +1,4 @@
-import { Bot, Check, ChevronDown, ChevronRight, CircleHelp, FolderGit2, Trash2 } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronRight, CircleHelp, Copy, FolderGit2, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '../components/Badge';
@@ -13,7 +13,8 @@ import { api } from '../lib/api';
 import { formatDuration, groupSessions, type AgentSession } from '../lib/agentTree';
 import { cn } from '../lib/cn';
 import { useServerEvent } from '../lib/hooks';
-import type { AgentRun, TicketSummary } from '../lib/types';
+import type { AgentDetail, AgentRun, TicketSummary } from '../lib/types';
+import { useAsync } from '../lib/useAsync';
 
 const hour = (iso: string) => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
 const day = (iso: string) => {
@@ -27,18 +28,47 @@ const StatusIcon = ({ status }: { status: AgentRun['status'] }) =>
   : status === 'done' ? <span className="flex size-6 items-center justify-center rounded-full bg-success/15 text-success"><Check className="size-4" aria-hidden /></span>
   : <span className="flex size-6 items-center justify-center rounded-full bg-surface-3 text-muted" title="Nunca avisó que terminó"><CircleHelp className="size-4" aria-hidden /></span>;
 
+/** Un texto largo (pedido o respuesta) con su botón de copiar. */
+const TextBlock = ({ title, text }: { title: string; text: string | null }) => {
+  const toast = useToast();
+  return (
+    <section>
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted">{title}</h4>
+        {text && <Button variant="ghost" className="h-8 px-2" icon={<Copy className="size-4" />} onClick={() => void navigator.clipboard.writeText(text).then(() => toast('success', `${title} copiado.`))}>Copiar</Button>}
+      </div>
+      {text ? <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-bg p-3.5 font-mono text-sm leading-6">{text}</pre> : <p className="rounded-lg border border-dashed border-line px-3.5 py-3 text-sm text-muted">No se guardó. {title === 'Respuesta' ? 'Puede que el agente siga trabajando, que se haya cortado la sesión o que el guardado estuviera apagado.' : 'El guardado de textos estaba apagado o es un agente anterior a esta función.'}</p>}
+    </section>
+  );
+};
+
+/** Pedido y respuesta de un agente; se piden recién al abrirlo (la lista no los trae porque pueden ser largos). */
+const AgentContent = ({ id }: { id: string }) => {
+  const detail = useAsync(() => api.get<AgentDetail>(`/api/agents/${encodeURIComponent(id)}`));
+  if (detail.loading && !detail.data) return <Skeleton className="h-24" />;
+  if (detail.error || !detail.data) return <p className="text-danger">{detail.error}</p>;
+  return <div className="space-y-4"><TextBlock title="Pedido" text={detail.data.request} /><TextBlock title="Respuesta" text={detail.data.response} /></div>;
+};
+
 const AgentNode = ({ run, now }: { run: AgentRun; now: number }) => {
+  const [open, setOpen] = useState(false);
   const end = run.status === 'running' ? now : run.endedAt ? Date.parse(run.endedAt) : null;
+  const hasText = run.hasRequest || run.hasResponse;
   return (
     <li className="relative pl-6 before:absolute before:left-0 before:top-5 before:h-px before:w-5 before:bg-line" data-testid="agent-node">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface px-4 py-2.5">
-        <StatusIcon status={run.status} />
-        <Badge>{run.type}</Badge>
-        <span className="min-w-0 flex-1 break-words">{run.description}</span>
-        <span className="flex items-center gap-3 text-sm text-muted">
-          {run.status === 'lost' ? <span>sin aviso de fin</span> : end !== null && <span className={cn('font-mono tabular-nums', run.status === 'running' ? 'text-accent' : 'text-success')}>{formatDuration(end - Date.parse(run.startedAt))}</span>}
-          <span title={new Date(run.startedAt).toLocaleString('es-AR')}>{hour(run.startedAt)}</span>
-        </span>
+      <div className="rounded-xl border border-line bg-surface">
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-surface-2">
+          {open ? <ChevronDown className="size-4 shrink-0" aria-hidden /> : <ChevronRight className="size-4 shrink-0" aria-hidden />}
+          <StatusIcon status={run.status} />
+          <Badge>{run.type}</Badge>
+          <span className="min-w-0 flex-1 break-words">{run.description}</span>
+          <span className="flex items-center gap-3 text-sm text-muted">
+            {!hasText && <span title="No se guardó lo que pidió ni lo que contestó">sin texto</span>}
+            {run.status === 'lost' ? <span>sin aviso de fin</span> : end !== null && <span className={cn('font-mono tabular-nums', run.status === 'running' ? 'text-accent' : 'text-success')}>{formatDuration(end - Date.parse(run.startedAt))}</span>}
+            <span title={new Date(run.startedAt).toLocaleString('es-AR')}>{hour(run.startedAt)}</span>
+          </span>
+        </button>
+        {open && <div className="border-t border-line px-4 py-3"><AgentContent id={run.id} key={`${run.id}-${run.hasResponse}`} /></div>}
       </div>
     </li>
   );

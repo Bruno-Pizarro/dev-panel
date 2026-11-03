@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatDuration, groupSessions } from './agentTree';
 import type { AgentRun } from './types';
 
-const run = (over: Partial<AgentRun>): AgentRun => ({ id: 'r', sessionId: 's1', type: 'Explore', description: 'x', startedAt: '2026-11-03T12:00:00Z', endedAt: null, status: 'running', agentId: null, project: null, ticket: null, ...over });
+const run = (over: Partial<AgentRun>): AgentRun => ({ id: 'r', sessionId: 's1', type: 'Explore', description: 'x', startedAt: '2026-11-03T12:00:00Z', endedAt: null, status: 'running', agentId: null, project: null, ticket: null, hasRequest: false, hasResponse: false, ...over });
 
 describe('árbol de agentes', () => {
   it('agrupa por sesión, la más reciente primero, con sus agentes en orden de arranque', () => {

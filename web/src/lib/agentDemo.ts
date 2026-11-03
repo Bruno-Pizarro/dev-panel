@@ -15,8 +15,8 @@ export const isDemoRun = (run: Pick<AgentRun, 'id'>): boolean => run.id.startsWi
 export const demoRuns = (now: number): AgentRun[] => {
   const at = (msAgo: number) => new Date(now - msAgo).toISOString();
   return [
-    { id: 'demo-1', sessionId: 'demo', type: 'Explore', description: 'Buscar dónde se define el visor de diffs de la pestaña Cambios', startedAt: at(47_000), endedAt: null, status: 'running', agentId: null, project: null, ticket: null },
-    { id: 'demo-2', sessionId: 'demo', type: 'general-purpose', description: 'Revisar los tests del servidor y resumir los que fallan', startedAt: at(12_000), endedAt: null, status: 'running', agentId: null, project: null, ticket: null },
-    { id: 'demo-3', sessionId: 'demo', type: 'Plan', description: 'Armar el plan de la pantalla de atajos de teclado', startedAt: at(95_000), endedAt: at(5_000), status: 'done', agentId: null, project: null, ticket: null },
+    { id: 'demo-1', sessionId: 'demo', type: 'Explore', description: 'Buscar dónde se define el visor de diffs de la pestaña Cambios', startedAt: at(47_000), endedAt: null, status: 'running', agentId: null, project: null, ticket: null, hasRequest: false, hasResponse: false },
+    { id: 'demo-2', sessionId: 'demo', type: 'general-purpose', description: 'Revisar los tests del servidor y resumir los que fallan', startedAt: at(12_000), endedAt: null, status: 'running', agentId: null, project: null, ticket: null, hasRequest: false, hasResponse: false },
+    { id: 'demo-3', sessionId: 'demo', type: 'Plan', description: 'Armar el plan de la pantalla de atajos de teclado', startedAt: at(95_000), endedAt: at(5_000), status: 'done', agentId: null, project: null, ticket: null, hasRequest: false, hasResponse: false },
   ];
 };

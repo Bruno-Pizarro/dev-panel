@@ -36,4 +36,31 @@ describe('rutas de agentes', () => {
     expect(agents.list().map((run) => run.id)).toEqual(['h-2']);
     await app.close();
   });
+
+  it('el detalle de un agente trae pedido y respuesta; el interruptor y el borrado de textos funcionan', async () => {
+    const { default: Fastify } = await import('fastify');
+    const { registerAgentRoutes } = await import('./agents.js');
+    const app = Fastify();
+    registerAgentRoutes(app);
+    await app.inject({ method: 'POST', url: '/api/agents/event', payload: pre({ session_id: 'sdet', tool_use_id: 'det-1', tool_input: { subagent_type: 'Explore', description: 'Con detalle', prompt: 'Hacé X' } }) });
+    await app.inject({ method: 'POST', url: '/api/agents/event', payload: { hook_event_name: 'SubagentStart', session_id: 'sdet', agent_id: 'det', agent_type: 'Explore' } });
+    await app.inject({ method: 'POST', url: '/api/agents/event', payload: { hook_event_name: 'SubagentStop', agent_id: 'det', last_assistant_message: 'Hecho X' } });
+    const list = (await app.inject({ method: 'GET', url: '/api/agents' })).json().agents.find((run: { id: string }) => run.id === 'det-1');
+    expect(list).toMatchObject({ hasRequest: true, hasResponse: true });
+    expect(list.request).toBeUndefined();
+    const detail = await app.inject({ method: 'GET', url: '/api/agents/det-1' });
+    expect(detail.json()).toMatchObject({ request: 'Hacé X', response: 'Hecho X' });
+    expect((await app.inject({ method: 'GET', url: '/api/agents/nadie' })).statusCode).toBe(404);
+
+    expect((await app.inject({ method: 'GET', url: '/api/agents/settings' })).json()).toEqual({ saveContent: true });
+    expect((await app.inject({ method: 'PUT', url: '/api/agents/settings', payload: { saveContent: false } })).json()).toEqual({ saveContent: false });
+    expect((await app.inject({ method: 'PUT', url: '/api/agents/settings', payload: { saveContent: 'si' } })).statusCode).toBe(400);
+    await app.inject({ method: 'POST', url: '/api/agents/event', payload: pre({ session_id: 'sdet', tool_use_id: 'det-2', tool_input: { subagent_type: 'Explore', description: 'Sin guardar', prompt: 'No guardar' } }) });
+    expect((await app.inject({ method: 'GET', url: '/api/agents/det-2' })).json().request).toBeNull();
+    await app.inject({ method: 'PUT', url: '/api/agents/settings', payload: { saveContent: true } });
+
+    expect((await app.inject({ method: 'DELETE', url: '/api/agents/content' })).json().cleared).toBeGreaterThanOrEqual(1);
+    expect((await app.inject({ method: 'GET', url: '/api/agents/det-1' })).json()).toMatchObject({ request: null, response: null });
+    await app.close();
+  });
 });

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { REDACTED } from './redact.js';
 import { cleanText, createAgentStore, HISTORY_MS, MAX_RUNS, RUNNING_MAX_MS, ticketOfText, type AgentRun } from './agents.js';
 
-const pre = (over: Record<string, unknown> = {}) => ({ hook_event_name: 'PreToolUse', session_id: 's1', tool_name: 'Agent', tool_use_id: 'toolu_1', tool_input: { subagent_type: 'Explore', description: 'Buscar el visor de diffs', prompt: 'SECRETO: no debe guardarse' }, ...over });
+const pre = (over: Record<string, unknown> = {}) => ({ hook_event_name: 'PreToolUse', session_id: 's1', tool_name: 'Agent', tool_use_id: 'toolu_1', tool_input: { subagent_type: 'Explore', description: 'Buscar el visor de diffs', prompt: 'Buscá el visor de diffs.\nUsá password=ValorInventado1 si hace falta.' }, ...over });
 
 describe('agentes delegados', () => {
   it('un agente nuevo se anuncia, arranca y termina', () => {
@@ -18,11 +19,49 @@ describe('agentes delegados', () => {
     expect(store.list()[0]).toMatchObject({ status: 'done', endedAt: '2026-11-03T12:00:07.000Z' });
   });
 
-  it('nunca guarda el prompt ni lo que contesta el agente', () => {
+  it('guarda lo que se le pidió y lo que contestó, con los secretos tapados, y la lista no trae los textos', () => {
     const store = createAgentStore();
     store.handleHook(pre());
-    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'x', last_assistant_message: 'TOKEN-123' });
-    expect(JSON.stringify(store.list())).not.toMatch(/SECRETO|TOKEN-123/);
+    store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a-1', agent_type: 'Explore' });
+    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a-1', last_assistant_message: 'Listo.\nEncontré el visor.\nSERVICE_TOKEN=valorinventado' });
+    const [item] = store.list();
+    expect(item).toMatchObject({ hasRequest: true, hasResponse: true });
+    expect(JSON.stringify(store.list())).not.toMatch(/Buscá el visor|Encontré el visor|ValorInventado1|valorinventado/);
+    const full = store.get('toolu_1')!;
+    expect(full.request).toBe(`Buscá el visor de diffs.\nUsá password=${REDACTED} si hace falta.`);
+    expect(full.response).toBe(`Listo.\nEncontré el visor.\nSERVICE_TOKEN=${REDACTED}`);
+    expect(JSON.stringify(full)).not.toMatch(/ValorInventado1|valorinventado/);
+  });
+
+  it('con el interruptor apagado no guarda ni el pedido ni la respuesta', () => {
+    let save = false;
+    const store = createAgentStore({ saveContent: () => save });
+    store.handleHook(pre());
+    store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a-1', agent_type: 'Explore' });
+    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a-1', last_assistant_message: 'texto' });
+    expect(store.get('toolu_1')).toMatchObject({ request: null, response: null });
+    expect(store.list()[0]).toMatchObject({ hasRequest: false, hasResponse: false });
+    save = true;
+    store.handleHook(pre({ tool_use_id: 'toolu_2' }));
+    expect(store.get('toolu_2')!.request).not.toBeNull();
+  });
+
+  it('clearContent borra los textos guardados y deja el resto del historial', () => {
+    const store = createAgentStore();
+    store.handleHook(pre());
+    store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a-1', agent_type: 'Explore' });
+    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a-1', last_assistant_message: 'texto' });
+    expect(store.clearContent()).toBe(1);
+    expect(store.get('toolu_1')).toMatchObject({ request: null, response: null, status: 'done', description: 'Buscar el visor de diffs' });
+    expect(store.clearContent()).toBe(0);
+  });
+
+  it('get de un agente que no existe da undefined, y los textos viajan al disco con el resto', () => {
+    let saved: AgentRun[] = [];
+    const store = createAgentStore({ onChange: (runs) => (saved = runs) });
+    expect(store.get('nadie')).toBeUndefined();
+    store.handleHook(pre());
+    expect(saved[0]!.request).toContain('Buscá el visor');
   });
 
   it('dos agentes en paralelo se unen a su anuncio por sesión y tipo, en orden', () => {

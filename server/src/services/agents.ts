@@ -1,12 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { paths } from '../config.js';
+import { cleanBlock } from './redact.js';
 
 /**
  * Agentes que Claude Code delega a un subagente, para mostrarlos en el panel mientras trabajan y en el árbol de la vista Agentes.
  * Los hooks de Claude Code (PreToolUse del Agent, SubagentStart y SubagentStop) mandan su entrada tal cual y acá se reduce a lo
- * mínimo que se muestra: tipo, descripción corta, tiempos, nombre de la carpeta y ticket. Nunca se guarda el prompt ni lo que
- * contesta el agente. Se guarda un historial de 3 días (`data/agents-history.json`).
+ * mínimo que se muestra: tipo, descripción corta, tiempos, nombre de la carpeta y ticket. Además, si el interruptor está activo
+ * (`saveContent`), se guardan lo que se le pidió al agente y lo que contestó, con los secretos obvios tapados (`redact.ts`) y
+ * recortados. Esos textos no viajan en la lista ni por SSE: se piden de a uno. Historial de 3 días en `data/agents-history.json`.
  */
 export interface AgentRun {
   id: string;
@@ -24,7 +26,13 @@ export interface AgentRun {
   project: string | null;
   /** Ticket que se deduce de la descripción o de la rama de la carpeta. */
   ticket: string | null;
+  /** Lo que se le pidió al agente y lo que contestó (con los secretos tapados); null si no se guardó. */
+  request: string | null;
+  response: string | null;
 }
+
+/** Lo que se muestra en la lista y viaja por SSE: sin los textos largos, solo si los hay. */
+export type AgentSummary = Omit<AgentRun, 'request' | 'response'> & { hasRequest: boolean; hasResponse: boolean };
 
 /** Cuánto dura el historial, cuánto puede figurar "trabajando" sin avisar que terminó y cuántos agentes se guardan como máximo. */
 export const HISTORY_MS = 3 * 24 * 60 * 60_000;
@@ -57,6 +65,8 @@ interface StoreOptions {
   initial?: AgentRun[];
   /** Se llama después de cada cambio con la lista completa, para guardarla. */
   onChange?: (runs: AgentRun[]) => void;
+  /** Si hay que guardar el pedido y la respuesta de los agentes (por defecto sí). */
+  saveContent?: () => boolean;
 }
 
 const isRun = (value: unknown): value is AgentRun => {
@@ -65,8 +75,8 @@ const isRun = (value: unknown): value is AgentRun => {
 };
 
 export const createAgentStore = (options: StoreOptions | (() => number) = {}) => {
-  const { now = Date.now, initial = [], onChange } = typeof options === 'function' ? ({ now: options } as StoreOptions) : options;
-  const runs = new Map<string, AgentRun>(initial.filter(isRun).map((run) => [run.id, { ...run, project: run.project ?? null, ticket: run.ticket ?? null }]));
+  const { now = Date.now, initial = [], onChange, saveContent = () => true } = typeof options === 'function' ? ({ now: options } as StoreOptions) : options;
+  const runs = new Map<string, AgentRun>(initial.filter(isRun).map((run) => [run.id, { ...run, project: run.project ?? null, ticket: run.ticket ?? null, request: run.request ?? null, response: run.response ?? null }]));
   let counter = 0;
   const changed = (): void => onChange?.([...runs.values()]);
 
@@ -81,14 +91,23 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
     if (extra > 0) [...runs.values()].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt)).slice(0, extra).forEach((run) => runs.delete(run.id));
   };
 
-  const list = (): AgentRun[] => {
+  const sorted = (): AgentRun[] => {
     prune();
     return [...runs.values()].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt) || a.id.localeCompare(b.id));
   };
 
-  const open = (sessionId: string, type: string, description: string, agentId: string | null, project: string | null, ticket: string | null, id?: string): AgentRun => {
+  const summary = ({ request, response, ...rest }: AgentRun): AgentSummary => ({ ...rest, hasRequest: request !== null, hasResponse: response !== null });
+  /** La lista que ve el navegador: sin los textos largos. */
+  const list = (): AgentSummary[] => sorted().map(summary);
+  /** Un agente completo, con su pedido y su respuesta. */
+  const get = (id: string): AgentRun | undefined => {
+    prune();
+    return runs.get(id);
+  };
+
+  const open = (sessionId: string, type: string, description: string, agentId: string | null, project: string | null, ticket: string | null, request: string | null, id?: string): AgentRun => {
     counter += 1;
-    const run: AgentRun = { id: id ?? `run-${counter}-${now()}`, sessionId, type, description, startedAt: new Date(now()).toISOString(), endedAt: null, status: 'running', agentId, project, ticket };
+    const run: AgentRun = { id: id ?? `run-${counter}-${now()}`, sessionId, type, description, startedAt: new Date(now()).toISOString(), endedAt: null, status: 'running', agentId, project, ticket, request, response: null };
     runs.set(run.id, run);
     return run;
   };
@@ -110,7 +129,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
       if (tool !== 'Agent' && tool !== 'Task') return false;
       const toolInput = asRecord(input['tool_input']);
       const description = cleanText(toolInput['description'], MAX_DESCRIPTION, 'Tarea delegada');
-      open(sessionId, cleanText(toolInput['subagent_type'], MAX_TYPE, 'general-purpose'), description, null, project, ticketOfText(description) ?? context.branchTicket ?? null, cleanText(input['tool_use_id'], 80, '') || undefined);
+      open(sessionId, cleanText(toolInput['subagent_type'], MAX_TYPE, 'general-purpose'), description, null, project, ticketOfText(description) ?? context.branchTicket ?? null, saveContent() ? cleanBlock(toolInput['prompt']) : null, cleanText(input['tool_use_id'], 80, '') || undefined);
       changed();
       return true;
     }
@@ -118,11 +137,11 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
       const agentId = cleanText(input['agent_id'], 80, '');
       if (!agentId) return false;
       const type = cleanText(input['agent_type'], MAX_TYPE, 'general-purpose');
-      const announced = list().find((run) => run.agentId === null && run.status === 'running' && run.sessionId === sessionId && run.type === type);
+      const announced = sorted().find((run) => run.agentId === null && run.status === 'running' && run.sessionId === sessionId && run.type === type);
       if (announced) {
         announced.agentId = agentId;
         announced.project ??= project;
-      } else open(sessionId, type, 'Agente en segundo plano', agentId, project, context.branchTicket ?? null);
+      } else open(sessionId, type, 'Agente en segundo plano', agentId, project, context.branchTicket ?? null, null);
       changed();
       return true;
     }
@@ -132,6 +151,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
       if (!run) return false;
       run.status = 'done';
       run.endedAt = new Date(now()).toISOString();
+      if (saveContent()) run.response = cleanBlock(input['last_assistant_message']);
       changed();
       return true;
     }
@@ -158,29 +178,65 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
     return count;
   };
 
-  return { list, handleHook, dismiss, clearHistory };
+  /** Borra el pedido y la respuesta guardados de todos los agentes (el resto del historial se conserva). */
+  const clearContent = (): number => {
+    let count = 0;
+    for (const run of runs.values()) {
+      if (run.request !== null || run.response !== null) {
+        run.request = null;
+        run.response = null;
+        count += 1;
+      }
+    }
+    if (count) changed();
+    return count;
+  };
+
+  return { list, get, handleHook, dismiss, clearHistory, clearContent };
 };
 
 const historyFile = () => join(paths.data, 'agents-history.json');
+const settingsFile = () => join(paths.data, 'agents-settings.json');
 
 const loadHistory = (): AgentRun[] => {
   try {
     const parsed: unknown = existsSync(historyFile()) ? JSON.parse(readFileSync(historyFile(), 'utf8')) : [];
-    return Array.isArray(parsed) ? parsed.filter(isRun) : [];
+    return Array.isArray(parsed) ? (parsed.filter(isRun) as AgentRun[]) : [];
   } catch {
     return [];
   }
 };
 
-const saveHistory = (runs: AgentRun[]): void => {
+const writeJson = (file: string, value: unknown): void => {
   try {
     mkdirSync(paths.data, { recursive: true });
-    writeFileSync(`${historyFile()}.tmp`, JSON.stringify(runs), { mode: 0o600 });
-    renameSync(`${historyFile()}.tmp`, historyFile());
+    writeFileSync(`${file}.tmp`, JSON.stringify(value), { mode: 0o600 });
+    renameSync(`${file}.tmp`, file);
   } catch {
-    /* sin disco: el historial vale solo hasta reiniciar el panel */
+    /* sin disco: vale solo hasta reiniciar el panel */
   }
 };
 
+/** Preferencias del aviso de agentes (propias del panel, no de la máquina: viven en `data/`). */
+export interface AgentSettings {
+  /** Guardar lo que se le pidió a cada agente y lo que contestó. Por defecto, sí. */
+  saveContent: boolean;
+}
+
+export const getAgentSettings = (): AgentSettings => {
+  try {
+    const parsed = existsSync(settingsFile()) ? (JSON.parse(readFileSync(settingsFile(), 'utf8')) as Partial<AgentSettings>) : {};
+    return { saveContent: parsed.saveContent !== false };
+  } catch {
+    return { saveContent: true };
+  }
+};
+
+export const setAgentSettings = (patch: Partial<AgentSettings>): AgentSettings => {
+  const next = { ...getAgentSettings(), ...(typeof patch.saveContent === 'boolean' ? { saveContent: patch.saveContent } : {}) };
+  writeJson(settingsFile(), next);
+  return next;
+};
+
 /** La lista única del servidor, con su historial de 3 días en disco. */
-export const agents = createAgentStore({ initial: loadHistory(), onChange: saveHistory });
+export const agents = createAgentStore({ initial: loadHistory(), onChange: (runs) => writeJson(historyFile(), runs), saveContent: () => getAgentSettings().saveContent });

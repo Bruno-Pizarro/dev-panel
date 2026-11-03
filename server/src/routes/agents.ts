@@ -2,7 +2,8 @@ import { resolve, sep } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { loadConfig } from '../config.js';
 import { run } from '../docker.js';
-import { agents } from '../services/agents.js';
+import { z } from 'zod';
+import { agents, getAgentSettings, setAgentSettings } from '../services/agents.js';
 import { ticketFromBranch } from '../services/gitRepos.js';
 import { publish } from '../sse.js';
 
@@ -25,13 +26,34 @@ const branchTicketOf = async (cwd: unknown): Promise<string | null> => {
 export const registerAgentRoutes = (app: FastifyInstance): void => {
   app.get('/api/agents', async () => ({ agents: agents.list() }));
 
-  app.post('/api/agents/event', { bodyLimit: 256 * 1024 }, async (request, reply) => {
+  app.post('/api/agents/event', { bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
     const body = request.body as { hook_event_name?: unknown; cwd?: unknown } | null;
     // La rama solo hace falta cuando se abre un agente (anuncio o arranque).
     const opens = body?.hook_event_name === 'PreToolUse' || body?.hook_event_name === 'SubagentStart';
     const changed = agents.handleHook(request.body, { branchTicket: opens ? await branchTicketOf(body?.cwd) : null });
     if (changed) publish('agents', agents.list());
     return reply.code(202).send({ ok: true });
+  });
+
+  /** Preferencias: si se guarda lo que se le pide a cada agente y lo que contesta. */
+  app.get('/api/agents/settings', async () => getAgentSettings());
+  app.put('/api/agents/settings', async (request, reply) => {
+    const body = z.object({ saveContent: z.boolean() }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Datos inválidos' });
+    return setAgentSettings(body.data);
+  });
+
+  /** Borra el pedido y la respuesta guardados de todos los agentes (el historial queda). */
+  app.delete('/api/agents/content', async () => {
+    const cleared = agents.clearContent();
+    publish('agents', agents.list());
+    return { cleared };
+  });
+
+  /** Un agente con su pedido y su respuesta (la lista no los trae: pueden ser largos). */
+  app.get<{ Params: { id: string } }>('/api/agents/:id', async (request, reply) => {
+    const found = agents.get(request.params.id);
+    return found ?? reply.code(404).send({ error: 'Agente inexistente' });
   });
 
   /** Borra el historial (lo terminado); lo que sigue trabajando se conserva. */
