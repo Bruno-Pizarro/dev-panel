@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
 import { listContainers, readTscStatus } from './containers.js';
+import { compareAllEnvs } from './envCompare.js';
 import { MongoClient } from './mongo.js';
 import { readEnvValue } from './session.js';
 
@@ -26,6 +27,7 @@ const HINTS: Record<string, string> = {
   'shared-secret': 'Este valor debe ser idéntico en todos los servicios que se hablan entre sí. Si falta o difiere, las llamadas internas fallan con 401/403. Se compara por hash: nunca se muestra el valor.',
   'firma-ca': 'El servicio de firma necesita la CA (rootCA.pem y rootCA.key) para generar y validar certificados. Sin ella, o vencida, no arranca. Se genera con openssl y no se sube a git.',
   paths: 'Alguna ruta de la configuración no existe en esta máquina. Corregila en Configuración.',
+  'env-vars': 'El .env de un repo no tiene variables que su .env.example sí define (por ejemplo, una que agregó un cambio nuevo). Sin ellas el servicio usa un valor por defecto o falla. Mirá Repos y .env → Variables: el panel muestra solo los nombres, nunca los valores.',
 };
 const check = (id: string, title: string, status: CheckStatus, detail: string): Check => ({ id, title, status, detail, ...(status !== 'ok' && HINTS[id] ? { hint: HINTS[id] } : {}) });
 const hashOf = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 8);
@@ -94,6 +96,10 @@ export const runChecks = async (config: DevPanelConfig, runner: Runner = run): P
   checks.push(compareSharedSecret(values, key));
 
   checks.push(await certificateCheck(config, runner));
+
+  // Variables que el .env de un repo no tiene respecto de su .env.example: solo aparece si falta algo (el detalle está en Repos y .env).
+  const withMissing = compareAllEnvs(config).filter((entry) => entry.comparable && entry.missing.length > 0);
+  if (withMissing.length) checks.push(check('env-vars', 'Variables de .env', 'warn', withMissing.map((entry) => `${entry.repo}: falta ${entry.missing.slice(0, 3).join(', ')}${entry.missing.length > 3 ? ` y ${entry.missing.length - 3} más` : ''}`).join(' · ')));
 
   const missingPaths = [config.paths.extra, config.compose.main, config.compose.minio].filter((path) => !existsSync(path));
   checks.push(check('paths', 'Rutas configuradas', missingPaths.length ? 'error' : 'ok', missingPaths.length ? `No existen: ${missingPaths.join(', ')}` : 'Todas existen'));

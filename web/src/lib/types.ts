@@ -432,3 +432,5 @@ export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' |
 export interface ReminderItem { id: string; text: string; at: string | null; createdAt: string; done: boolean; doneAt: string | null }
 export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; fromCache: boolean }
 export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
+
+export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }

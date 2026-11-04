@@ -11,6 +11,7 @@ import { pillStyle, serviceColor, tint } from '../lib/colors';
 import { usePolling } from '../lib/hooks';
 import type { RepoStatus } from '../lib/types';
 import { EnvRepos } from './EnvRepos';
+import { EnvVariables } from './EnvVariables';
 
 /** Color y explicación según el tipo de rama. */
 const branchKind = (branch: string | null, base: string): { rgb: string; label: string } => {
@@ -138,12 +139,14 @@ const Branches = () => {
 };
 
 export const Repos = () => {
-  const [tab, setTab] = useState<'ramas' | 'env'>('ramas');
+  const [tab, setTab] = useState<'ramas' | 'env' | 'variables'>('ramas');
   return (
     <>
       <PageHeader title="Repos y .env" description="Estado de las ramas y perfiles de MinIO local o S3 remoto." />
-      <Tabs value={tab} onChange={setTab} items={[{ id: 'ramas', label: 'Ramas' }, { id: 'env', label: '.env' }]} />
-      {tab === 'ramas' ? <Branches /> : <EnvRepos />}
+      <Tabs value={tab} onChange={setTab} items={[{ id: 'ramas', label: 'Ramas' }, { id: 'env', label: '.env' }, { id: 'variables', label: 'Variables' }]} />
+      {tab === 'ramas' && <Branches />}
+      {tab === 'env' && <EnvRepos />}
+      {tab === 'variables' && <EnvVariables />}
     </>
   );
 };

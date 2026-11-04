@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { paths, type DevPanelConfig } from '../config.js';
 import { restartContainer } from '../services/containers.js';
+import { compareAllEnvs } from '../services/envCompare.js';
 import { EnvProfileError, applyProfile, inspectEnv } from '../services/envProfiles.js';
 import { requireConfig } from './helpers.js';
 
@@ -30,6 +31,12 @@ const backupEnv = (repo: string, source: string): string => {
 };
 
 export const registerEnvRoutes = (app: FastifyInstance): void => {
+  /** Variables que le faltan o le sobran al .env de cada repo respecto de su .env.example (solo nombres, nunca valores). */
+  app.get('/api/env/compare', async (_request, reply) => {
+    const config = requireConfig(reply);
+    return config ? { repos: compareAllEnvs(config) } : reply;
+  });
+
   /** Estado de cada repo configurado: qué perfil tiene hoy (local/remoto/mixto) y sus líneas, enmascaradas. */
   app.get('/api/env', async (_request, reply) => {
     const config = requireConfig(reply);
