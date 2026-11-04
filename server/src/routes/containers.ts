@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { loadConfig } from '../config.js';
-import { NAME_PATTERN, listContainers, readLogs, readTscStatus, restartContainer, type TscStatus } from '../services/containers.js';
+import { NAME_PATTERN, listContainers, readLogs, readTscStatus, restartContainer, stopContainer, type TscStatus } from '../services/containers.js';
 
 const tailSchema = z.coerce.number().int().min(1).max(5000).default(300);
 const confirmSchema = z.object({ confirm: z.literal(true) });
@@ -68,5 +68,13 @@ export const registerContainerRoutes = (app: FastifyInstance): void => {
     if (!name) return reply;
     const result = await restartContainer(name);
     return result.ok ? { ok: true } : reply.code(500).send({ error: result.stderr || 'No se pudo reiniciar' });
+  });
+
+  app.post<{ Params: { name: string } }>('/api/containers/:name/stop', async (request, reply) => {
+    if (!confirmSchema.safeParse(request.body).success) return reply.code(400).send({ error: 'Falta la confirmación' });
+    const name = await existingContainer(request.params.name, reply);
+    if (!name) return reply;
+    const result = await stopContainer(name);
+    return result.ok ? { ok: true } : reply.code(500).send({ error: result.stderr || 'No se pudo detener' });
   });
 };
