@@ -29,7 +29,7 @@ describe('getNotices (una revisión por día)', () => {
     calls.push(path);
     const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
     if (path.startsWith('/users/current')) return json({ user: { id: 1, firstname: 'Bruno', lastname: 'Pizarro' } });
-    if (path.startsWith('/issues.json?assigned_to_id=me&status_id=open')) return json({ issues: [{ id: 33527, subject: '[8 SP] Firmas por legajo', status: { name: 'Desarrollo' }, tracker: { name: 'Nueva funcionalidad' }, due_date: '2026-11-05', updated_on: '2026-11-04T09:00:00Z' }] });
+    if (path.startsWith('/issues.json?assigned_to_id=me&status_id=open')) return json({ issues: [{ id: 33527, subject: '[8 SP] Firmas por legajo', status: { name: 'Desarrollo' }, tracker: { name: 'Nueva funcionalidad' }, due_date: '2026-11-05', updated_on: '2026-11-04T09:00:00Z' }, { id: 30392, subject: 'Ticket viejo perdido', status: { name: 'Análisis' }, tracker: { name: 'Nueva funcionalidad' }, due_date: '2025-10-17', updated_on: '2025-10-17T09:00:00Z' }] });
     if (path.startsWith('/issues/33527.json?include=journals,children')) return json({ issue: { journals: [{ user: { name: 'Mariano Buglio' }, created_on: '2026-11-04T08:00:00Z', notes: 'Probé y está bien' }], children: [{ id: 33945 }] } });
     if (path.startsWith('/issues/33945.json')) return json({ issue: { subject: 'Testing 33527', tracker: { name: 'Control QA' }, journals: [] } });
     if (path.startsWith('/issues.json?tracker_id=22')) return json({ issues: [{ id: 40000, subject: 'ICONO - Requerimientos semana del 02/11/2026 al 06/11/2026' }, { id: 33677, subject: 'Sprint Semana 02/11/26 al 06/11/26' }] });
@@ -48,6 +48,8 @@ describe('getNotices (una revisión por día)', () => {
     expect(report.errors).toEqual([]);
     const ids = report.notices.map((n) => n.id);
     expect(ids).toEqual(expect.arrayContaining(['due-33527', 'review-33527', 'mr-conflict-front!171', 'sprint-33677']));
+    // El ticket viejo (vencido, pero fuera del sprint actual) no genera aviso.
+    expect(ids).not.toContain('due-30392');
     const levels = report.notices.map((n) => n.level);
     expect(levels.indexOf('info')).toBeGreaterThan(levels.lastIndexOf('important'));
     expect(report.notices.find((n) => n.id === 'sprint-33677')!.detail).toContain('8 de 8 SP entregados');
@@ -87,5 +89,16 @@ describe('getNotices (una revisión por día)', () => {
     const empty = await home.getNotices(off, { refresh: true }, noon, deps());
     expect(empty.notices).toEqual([]);
     expect(empty.routines).toEqual([]);
+  });
+
+  it('sin un sprint actual no se avisan vencimientos y se aclara por qué', async () => {
+    const noSprint = (async (url: string) => {
+      const path = url.replace('https://r.example', '');
+      if (path.startsWith('/issues.json?tracker_id=22')) return { ok: true, status: 200, json: async () => ({ issues: [{ id: 1, subject: 'Sprint Semana 26/10/26 al 30/10/26' }] }) };
+      return (fake as unknown as (u: string) => Promise<unknown>)(url);
+    }) as never;
+    const report = await home.getNotices(config, { refresh: true, hoursLoaded: true }, noon, { ...deps(), fetcher: noSprint });
+    expect(report.notices.some((n) => n.kind === 'due')).toBe(false);
+    expect(report.errors.map((e) => e.source)).toContain('Vencimientos');
   });
 });

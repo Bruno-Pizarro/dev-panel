@@ -59,15 +59,16 @@ export const plainNote = (text: string): string =>
   );
 
 // ---------------------------------------------------------------- 1. vencimientos
-/** Un vencimiento de hace más de esto se considera un ticket abandonado y no se avisa (ruido en vez de aviso). */
-export const MAX_OVERDUE_DAYS = 30;
-
-/** Tickets míos abiertos que ya vencieron (hasta hace 30 días) o vencen en `dueDays` días o menos. Los ya entregados (estado "listo") no se avisan. */
-export const dueNotices = (issues: RedmineIssue[], today: string, dueDays: number, doneStatuses: string[]): Notice[] =>
+/**
+ * Tickets míos abiertos que ya vencieron o vencen en `dueDays` días o menos, **solo los del sprint actual** (`sprintIds`): hay tickets
+ * viejos, sin especificación, que quedaron perdidos en el tiempo y no sirven como aviso. Los ya entregados (estado "listo") no se avisan.
+ * Sin sprint actual (`null`) no se avisa ninguno.
+ */
+export const dueNotices = (issues: RedmineIssue[], today: string, dueDays: number, doneStatuses: string[], sprintIds: ReadonlySet<number> | null): Notice[] =>
   issues
-    .filter((issue) => issue.dueDate && issue.statusClosed !== true && !doneStatuses.includes(issue.status))
+    .filter((issue) => sprintIds?.has(issue.id) === true && issue.dueDate && issue.statusClosed !== true && !doneStatuses.includes(issue.status))
     .map((issue) => ({ issue, left: dayNumber(issue.dueDate!) - dayNumber(today) }))
-    .filter(({ left }) => left <= dueDays && left >= -MAX_OVERDUE_DAYS)
+    .filter(({ left }) => left <= dueDays)
     .sort((a, b) => a.left - b.left || a.issue.id - b.issue.id)
     .map(({ issue, left }): Notice => ({
       id: `due-${issue.id}`,
@@ -270,7 +271,7 @@ export const computeNotices = async (config: DevPanelConfig, saved: Saved | null
   const credentials = loadCredentials(config);
   if ((config.home.due || config.home.reviews || config.home.sprint) && credentials) {
     try {
-      await redmineNotices(config, credentials, fetcher, now, today, reviewSince, doneStatuses, notices);
+      await redmineNotices(config, credentials, fetcher, now, today, reviewSince, doneStatuses, notices, errors);
     } catch (error) {
       fail('Redmine', error);
     }
@@ -304,7 +305,8 @@ export const computeNotices = async (config: DevPanelConfig, saved: Saved | null
   return { report: { date: today, generatedAt: now.toISOString(), notices, errors }, mrNotes, reviewSince };
 };
 
-const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, fetcher: JsonFetcher, now: Date, today: string, since: string, doneStatuses: string[], out: Notice[]): Promise<void> => {
+const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, fetcher: JsonFetcher, now: Date, today: string, since: string, doneStatuses: string[], out: Notice[], notes: NoticeError[]): Promise<void> => {
+  let noSprint = false;
   const get = async (path: string): Promise<unknown> => {
     let response;
     try {
@@ -320,8 +322,6 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
   const listed = (await get('/issues.json?assigned_to_id=me&status_id=open&limit=100&sort=updated_on:desc')) as { issues?: Parameters<typeof mapIssue>[0][] };
   const mine = (listed.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl));
 
-  if (config.home.due) out.push(...dueNotices(mine, today, config.home.dueDays, doneStatuses));
-
   if (config.home.reviews) {
     const items: IssueWithJournals[] = [];
     for (const issue of mine.filter((item) => item.updatedOn > since).slice(0, REVIEW_MAX_ISSUES)) {
@@ -335,10 +335,12 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
     out.push(...reviewNotices(items, since, myName));
   }
 
-  if (config.home.sprint) {
+  // El sprint actual hace falta para los vencimientos (solo los de este sprint) y para el aviso del sprint.
+  let sprintIds: Set<number> | null = null;
+  if (config.home.sprint || config.home.due) {
     const sprints = (await get('/issues.json?tracker_id=22&status_id=*&limit=50&sort=id:desc')) as { issues?: Array<{ id: number; subject?: string }> };
     // Entre los sprints de hoy se elige el que tiene tickets míos relacionados (si ninguno, el primero).
-    let chosen: { sprint: Sprint; tickets: RedmineIssue[] } | null = null;
+    let chosen: { sprint: Sprint; tickets: RedmineIssue[]; related: number[] } | null = null;
     for (const sprint of sprintsOfToday((sprints.issues ?? []).map((item) => ({ id: item.id, subject: item.subject ?? '' })), today).slice(0, 4)) {
       const detail = (await get(`/issues/${sprint.id}.json?include=relations`)) as { issue?: { relations?: Array<{ issue_id: number; issue_to_id: number }> } };
       const ids = [...new Set((detail.issue?.relations ?? []).flatMap((relation) => [relation.issue_id, relation.issue_to_id]).filter((id) => id !== sprint.id))];
@@ -348,13 +350,23 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
         tickets.push(...(related.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl)).filter((ticket) => ticket.tracker !== 'Control QA'));
         await applyStoryPoints(tickets, credentials, fetcher);
       }
-      chosen ??= { sprint, tickets };
+      chosen ??= { sprint, tickets, related: ids };
       if (tickets.length) {
-        chosen = { sprint, tickets };
+        chosen = { sprint, tickets, related: ids };
         break;
       }
     }
-    if (chosen) out.push(sprintNotice(chosen.sprint, chosen.tickets, doneStatuses, today, `${credentials.baseUrl}/issues/${chosen.sprint.id}`));
+    if (chosen) {
+      sprintIds = new Set(chosen.related);
+      if (config.home.sprint) out.push(sprintNotice(chosen.sprint, chosen.tickets, doneStatuses, today, `${credentials.baseUrl}/issues/${chosen.sprint.id}`));
+    } else if (config.home.due) {
+      noSprint = true;
+    }
+  }
+
+  if (config.home.due) {
+    if (noSprint) notes.push({ source: 'Vencimientos', message: 'No se encontró el sprint actual: sin él no se avisan vencimientos (solo cuentan los tickets del sprint).' });
+    else out.push(...dueNotices(mine, today, config.home.dueDays, doneStatuses, sprintIds));
   }
 };
 
