@@ -13,6 +13,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
+import { dailyToShow, dayLabel } from '../lib/dailyShown';
 import type { DailyList } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 
@@ -32,7 +33,8 @@ export const Daily = () => {
 
   const today = list.data?.today ?? null;
   const dates = list.data?.dates ?? [];
-  const shown = date ?? today;
+  // Primero el último daily guardado si todavía no hay uno de hoy (un lunes, el del viernes): es el que hay que tener a mano.
+  const { shown, fallback } = dailyToShow(date, today, dates);
   const hasFile = shown ? dates.includes(shown) : false;
   const dirty = content !== saved;
 
@@ -128,6 +130,13 @@ export const Daily = () => {
       <Tabs<'daily' | 'historial'> value={view} onChange={setView} items={[{ id: 'daily', label: 'Daily' }, { id: 'historial', label: 'Historial (5 días)' }]} />
       {view === 'historial' ? <ActivityHistory /> : (
         <>
+      {fallback && shown && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3" data-testid="daily-fallback">
+          <CalendarDays className="size-5 shrink-0 text-accent" aria-hidden />
+          <p className="min-w-0 flex-1">Todavía no generaste el daily de hoy: este es el último que guardaste, del <strong>{dayLabel(shown)}</strong>.</p>
+          {today && <Button variant="primary" icon={<Sparkles className="size-4" />} onClick={() => setDate(today)}>Ir al de hoy</Button>}
+        </div>
+      )}
       <div className="mb-5 flex flex-wrap items-center gap-2">
         {[...new Set([today, ...dates])].filter((item): item is string => Boolean(item)).map((item) => (
           <Chip key={item} selected={item === shown} onToggle={() => setDate(item)} hint={item === today ? 'Hoy' : undefined}>{item}{item === today ? ' · hoy' : ''}</Chip>
