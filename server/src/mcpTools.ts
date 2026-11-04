@@ -58,6 +58,12 @@ export const mcpTools: McpToolDef[] = [
     shape: { week: z.enum(['current', 'previous']).default('current').describe('"current" = esta semana (lunes a hoy), "previous" = la semana pasada') },
     run: (args, call) => call('POST', '/api/daily/weekly', { week: args['week'] }),
   },
+  {
+    name: 'ticket_notes',
+    description: 'La nota libre que el usuario dejó en un ticket del panel (pendientes, a quién esperar, qué falta probar). Solo lectura.',
+    shape: { dir: z.string().describe('Nombre de la carpeta, ej. 33526-pendientes-firma') },
+    run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}/notes`),
+  },
   { name: 'reminders', description: 'Recordatorios del panel (los pendientes primero): texto, fecha u hora si tienen, y si ya están hechos.', shape: {}, run: (_a, call) => call('GET', '/api/reminders') },
   {
     name: 'reminder_add',

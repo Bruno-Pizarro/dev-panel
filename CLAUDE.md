@@ -19,6 +19,9 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 
 Desarrollo y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). Los **story points** no vienen en `/issues.json`: los guarda el plugin Agile y se leen de `/issues/<id>/agile_data.json` (se piden una vez por ticket y versión y se guardan en `data/sp-cache.json`; si falla, se usa el `[N SP]` del título). La API key se lee (ver la tabla de credenciales) de `REDMINE_API_KEY`, de `redmine.apiKey` o de la skill `redmine-drive`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
 
+## Notas por ticket
+Pestaña **Notas** en Pruebas y Desarrollo (`components/TicketNotes.tsx`, `services/ticketNotes.ts`, `/api/tickets/:dir/notes`, `data/ticket-notes.json`): texto libre de hasta 5.000 caracteres con Markdown, que se guarda solo; son locales (no van a Redmine ni a git). Claude las lee con la herramienta MCP `ticket_notes` (solo lectura).
+
 ## Recordatorios
 `data/reminders.json` (`services/reminders.ts`, rutas `/api/reminders`): texto de una línea (200 caracteres) con un día, un día y hora, o sin fecha (un pendiente que se muestra hasta marcarlo hecho). Aparecen en «Para tener en cuenta» del Inicio cuando les toca (se calculan al pedir los avisos, no con la revisión diaria), se marcan «Hecho» desde el aviso y se administran con el botón «Recordatorios» (`components/RemindersModal.tsx`). Claude puede crearlos con la herramienta MCP `reminder_add` («recordame mañana probar X»); los hechos se borran solos a la semana.
 
@@ -152,7 +155,7 @@ Vistas pendientes (marcadas F1…F3 en el menú) se construyen por fases según 
 yarn build
 claude mcp add dev-panel -- node /ruta/a/dev-panel/server/dist/mcp.js
 ```
-Usar `node` directo (no `yarn`): yarn imprime banners por stdout y rompe el protocolo. Herramientas: `checks`, `reminders`, `reminder_add`, `containers`, `startup_plan`, `startup_run`, `startup_state`, `tickets`, `ticket_detail`, `repos`, `env_status`, `daily_draft`, `weekly_report`, `activity`, `daily_checklist`, `redmine_issue`, `kanban`, `sp_history`, `snapshots`, `testdata`. **A propósito no expone nada destructivo** (la única herramienta que escribe es `reminder_add`, que solo AGREGA un recordatorio, un dato local del panel; no hay forma de borrar ni editar desde el MCP) (restaurar datos, resetear contraseñas, sesiones, limpiar datos, reiniciar contenedores, cambiar `.env`, detener): eso queda en la interfaz, con confirmación. Lo comprueba un test (`mcpTools.test.ts`); no agregar herramientas destructivas.
+Usar `node` directo (no `yarn`): yarn imprime banners por stdout y rompe el protocolo. Herramientas: `checks`, `ticket_notes`, `reminders`, `reminder_add`, `containers`, `startup_plan`, `startup_run`, `startup_state`, `tickets`, `ticket_detail`, `repos`, `env_status`, `daily_draft`, `weekly_report`, `activity`, `daily_checklist`, `redmine_issue`, `kanban`, `sp_history`, `snapshots`, `testdata`. **A propósito no expone nada destructivo** (la única herramienta que escribe es `reminder_add`, que solo AGREGA un recordatorio, un dato local del panel; no hay forma de borrar ni editar desde el MCP) (restaurar datos, resetear contraseñas, sesiones, limpiar datos, reiniciar contenedores, cambiar `.env`, detener): eso queda en la interfaz, con confirmación. Lo comprueba un test (`mcpTools.test.ts`); no agregar herramientas destructivas.
 
 ## Seguridad (no relajar)
 - Solo escucha en `127.0.0.1`; valida `Host` y `Origin`; toda escritura exige la cabecera `X-Dev-Panel: 1` (`web/src/lib/api.ts` ya la pone).

@@ -40,7 +40,8 @@ describe('herramientas MCP', () => {
     const spy: CallApi = async (_method, path) => (paths.push(path), {});
     await find('startup_plan').run({ services: ['firma', 'leia'] }, spy);
     await find('ticket_detail').run({ dir: '33526-pendientes firma/../x' }, spy);
-    expect(paths).toEqual(['/api/startup/plan?services=firma%2Cleia', '/api/tickets/33526-pendientes%20firma%2F..%2Fx']);
+    await find('ticket_notes').run({ dir: '33527-x' }, spy);
+    expect(paths).toEqual(['/api/startup/plan?services=firma%2Cleia', '/api/tickets/33526-pendientes%20firma%2F..%2Fx', '/api/tickets/33527-x/notes']);
   });
 
   it('valida el número de ticket antes de llamar', () => {

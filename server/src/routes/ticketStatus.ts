@@ -6,6 +6,7 @@ import { fetchTicketMrs } from '../services/gitlab.js';
 import { readRepoStatus } from '../services/gitRepos.js';
 import { z } from 'zod';
 import { getViewed, setViewed, viewKey } from '../services/changeReview.js';
+import { getNote, setNote, MAX_NOTE } from '../services/ticketNotes.js';
 import { readFileDiff, readFileSignature, readTicketChanges, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
@@ -77,6 +78,20 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
     setViewed(request.params.dir, key, signature.signature);
     return { viewed: true, signature: signature.signature };
+  });
+
+  /** Nota libre del ticket (solo local). */
+  app.get<{ Params: { dir: string } }>('/api/tickets/:dir/notes', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    return loaded ? getNote(request.params.dir) : reply;
+  });
+
+  app.put<{ Params: { dir: string } }>('/api/tickets/:dir/notes', { bodyLimit: 64 * 1024 }, async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const body = z.object({ text: z.string().max(MAX_NOTE * 2) }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Datos inválidos' });
+    return setNote(request.params.dir, body.data.text);
   });
 
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir/services', async (request, reply) => {
