@@ -78,7 +78,7 @@ const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; on
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
+    <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} preferQa={data.kind === 'revision'} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
       {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
       {tab === 'cambios' && <TicketChanges dir={dir} refreshKey={refreshKey} />}

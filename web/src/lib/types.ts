@@ -277,6 +277,7 @@ export interface RedmineIssue {
   updatedOn: string;
   closedOn: string | null;
   relations: number;
+  qaTickets: Array<{ id: number; title: string }>;
   description: string;
   lastNotes: Array<{ user: string; date: string; notes: string }>;
 }

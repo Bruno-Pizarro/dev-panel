@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { textileToMarkdown } from '../lib/textile';
 import { useReloadOn } from '../lib/hooks';
+import { activeTicket } from '../lib/qaTicket';
 import { timeAgo } from '../lib/tickets';
 import type { RedmineIssue } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -28,8 +29,8 @@ const Fact = ({ icon: Icon, label, children }: { icon: typeof Timer; label: stri
   </div>
 );
 
-/** Datos en vivo del ticket desde Redmine (solo lectura). Si no hay API key, se oculta sin molestar. */
-export const RedmineCard = ({ ticket, refreshKey = 0 }: { ticket: string | null; refreshKey?: number }) => {
+/** Datos en vivo de un ticket de Redmine (solo lectura). Si no hay API key, se oculta sin molestar. */
+const RedmineIssueCard = ({ ticket, refreshKey = 0, header }: { ticket: string | null; refreshKey?: number; header?: React.ReactNode }) => {
   const [notesOpen, setNotesOpen] = useState(false);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   // Tras "Actualizar" se pide con `fresh=1`: el servidor se salta lo que tenía guardado de Redmine.
@@ -50,6 +51,7 @@ export const RedmineCard = ({ ticket, refreshKey = 0 }: { ticket: string | null;
       title={<span className="inline-flex items-center gap-3">Redmine <Badge tone={data.statusClosed ? 'neutral' : toneOf(data.status)}>{data.status}</Badge></span>}
       action={<a href={data.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline">Abrir #{data.id} <ExternalLink className="size-4" aria-hidden /></a>}
     >
+      {header}
       <p className="mb-4 font-medium leading-snug">{data.title}</p>
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
         <Fact icon={UserRound} label="Asignado a">{data.assignedTo ?? 'Sin asignar'}<span className="block text-sm font-normal text-muted">Autor: {data.author ?? '—'}</span></Fact>
@@ -90,4 +92,25 @@ export const RedmineCard = ({ ticket, refreshKey = 0 }: { ticket: string | null;
       )}
     </Card>
   );
+};
+
+/**
+ * El ticket de Redmine con su ticket de QA: si el ticket tiene subtareas de tipo Control QA se puede cambiar entre los dos
+ * (cada uno con su descripción y comentarios). En un ticket de solo revisión se abre primero el de QA.
+ */
+export const RedmineCard = ({ ticket, refreshKey = 0, preferQa = false }: { ticket: string | null; refreshKey?: number; preferQa?: boolean }) => {
+  const main = useAsync(() => (ticket ? api.get<RedmineIssue>(`/api/redmine/issues/${ticket}`) : Promise.reject(new Error('sin ticket'))));
+  useReloadOn(refreshKey, main.reload);
+  const qa = main.data?.qaTickets ?? [];
+  const [chosen, setChosen] = useState<string | null>(null);
+  // La elección del usuario manda; si no eligió, un ticket de solo revisión empieza en su QA.
+  const active = activeTicket(ticket, qa.map((item) => item.id), chosen, preferQa);
+  const switcher = qa.length > 0 ? (
+    <div className="mb-4 flex flex-wrap items-center gap-2" role="tablist" aria-label="Ticket de Redmine">
+      {[{ id: ticket!, label: `Ticket #${ticket}` }, ...qa.map((item) => ({ id: String(item.id), label: `QA #${item.id}` }))].map((option) => (
+        <button key={option.id} type="button" role="tab" aria-selected={active === option.id} onClick={() => setChosen(option.id)} className={cn('h-8 rounded-full border px-3.5 text-sm font-medium transition-colors', active === option.id ? 'border-accent/60 bg-accent/15 text-accent' : 'border-line text-muted hover:text-fg')}>{option.label}</button>
+      ))}
+    </div>
+  ) : null;
+  return <RedmineIssueCard key={active} ticket={active} refreshKey={refreshKey} header={switcher} />;
 };
