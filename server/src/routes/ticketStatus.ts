@@ -9,6 +9,7 @@ import { getViewed, setViewed, viewKey } from '../services/changeReview.js';
 import { getNote, setNote, MAX_NOTE } from '../services/ticketNotes.js';
 import { readFileDiff, readFileSignature, readTicketChanges, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
+import { buildClosing } from '../services/ticketClosing.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
 import { requireConfig } from './helpers.js';
@@ -123,5 +124,19 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
       viewed: viewedProgress(await readTicketChanges(config, ticket.meta?.repos ?? [], undefined, getViewed(request.params.dir))),
     });
     return { items, summary: summarizeShip(items), lastRun: lastRunOf(ticket.meta) };
+  });
+
+  /** Checklist de cierre + pedido para Claude. Solo lectura: el panel no escribe nada en Redmine ni en GitLab. */
+  app.get<{ Params: { dir: string } }>('/api/tickets/:dir/closing', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const { config, ticket } = loaded;
+    const [repos, mrReport, testData] = await Promise.all([
+      readRepoStatus(config, undefined, ticket.meta?.repos ?? []).then((all) => withoutManagedEnv(all, config.envProfiles)),
+      fetchTicketMrs(config, ticket.meta).catch(() => null),
+      readTestDataReport(config, ticket.meta, ticket.ticket).catch(() => null),
+    ]);
+    const repoIssues = repos.flatMap((repo) => repoWarnings(repo, undefined).filter((warning) => /sin commitear|sin push|no está publicada/.test(warning.text)).map((warning) => `${repo.repo}: ${warning.text}`));
+    return buildClosing({ ticket: ticket.ticket, title: ticket.title, mrs: mrReport?.mrs ?? [], mrsAvailable: Boolean(mrReport?.configured), testData, repoIssues, note: getNote(request.params.dir).text });
   });
 };

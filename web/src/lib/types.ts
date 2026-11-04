@@ -381,6 +381,7 @@ export interface RunSegment { label: string | null; passed: number; total: numbe
 export interface LastRun { fecha: string | null; resultado: string | null; resumen: string | null; archivo: string | null; segments: RunSegment[]; passed: number; total: number; allPassed: boolean }
 export interface ShipItem { id: string; label: string; level: Level; detail: string }
 export interface ShipReport { items: ShipItem[]; summary: { ready: boolean; ok: number; warn: number; error: number }; lastRun: LastRun | null }
+export interface ClosingReport { items: ShipItem[]; summary: { done: number; pending: number }; request: string }
 export interface TicketRepoStatus {
   repo: string;
   exists: boolean;

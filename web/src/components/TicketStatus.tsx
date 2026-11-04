@@ -1,11 +1,13 @@
-import { Check, X } from 'lucide-react';
+import { Check, ClipboardCopy, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
-import type { MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
+import type { ClosingReport, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
+import { Button } from './Button';
 import { Card } from './Card';
+import { useToast } from './Toast';
 import { Skeleton } from './Skeleton';
 import { StatusDot } from './StatusDot';
 
@@ -190,6 +192,44 @@ const TestData = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
   </Section>
 );
 
+/** Cierre: lo que queda después de abrir los MRs. El panel no redacta: copia un pedido listo para pegarle a Claude. */
+const Closing = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+  const toast = useToast();
+  const copy = async (request: string) => {
+    try {
+      await navigator.clipboard.writeText(request);
+      toast('success', 'Pedido copiado: pegalo en Claude.');
+    } catch {
+      toast('error', 'No se pudo copiar al portapapeles.');
+    }
+  };
+  return (
+    <Section<ClosingReport>
+      title="Cierre del ticket"
+      url={`${base(dir)}/closing`}
+      refreshKey={refreshKey}
+      action={(data) => <Badge tone={data.summary.pending ? 'warning' : 'success'}>{data.summary.pending ? `${data.summary.pending} pendientes` : 'Sin pendientes'}</Badge>}
+    >
+      {(data) => (
+        <div className="space-y-4">
+          <ul className="divide-y divide-line">
+            {data.items.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-start gap-x-4 gap-y-1 py-2.5">
+                <span className="w-64 shrink-0"><StatusDot status={item.level} label={item.label} labelClassName="text-fg" /></span>
+                <span className="min-w-0 flex-1 text-muted">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" icon={<ClipboardCopy className="size-4" />} onClick={() => copy(data.request)}>Copiar pedido para Claude</Button>
+            <Hint>El panel no escribe el comentario de cierre ni las horas: eso lo redacta Claude con este material.</Hint>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+};
+
 /** Pestaña Estado: lo que hay que mirar antes de pasar un ticket a MR. Todo es solo lectura. */
 export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
   <div className="space-y-6">
@@ -198,5 +238,6 @@ export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: num
     <Gitlab dir={dir} refreshKey={refreshKey} />
     <Services dir={dir} refreshKey={refreshKey} />
     <TestData dir={dir} refreshKey={refreshKey} />
+    <Closing dir={dir} refreshKey={refreshKey} />
   </div>
 );
