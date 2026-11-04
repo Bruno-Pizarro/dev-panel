@@ -15,6 +15,9 @@ describe('atajos de teclado', () => {
     expect(defaults['changes.prev']).toBe('p');
     expect(defaults['changes.viewed']).toBe('v');
     expect(defaults['changes.expand']).toBe('e');
+    expect(defaults['dnd.toggle']).toBe('z');
+    expect(defaults['agents.next']).toBe('j');
+    expect(defaults['home.recheck']).toBe('b');
     expect(defaults['goto.prefix']).toBe('g');
     expect(defaults['help']).toBe('?');
     expect(DEFS.filter((def) => def.context === 'goto').every((def) => def.defaultKey.length === 1)).toBe(true);
@@ -38,7 +41,7 @@ describe('atajos de teclado', () => {
   it('matchAction resuelve la tecla (sin distinguir mayúsculas), las flechas alternativas y el contexto', () => {
     expect(matchAction(DEFS, defaults, 'main', 'A')?.id).toBe('tabs.prev');
     expect(matchAction(DEFS, defaults, 'main', 'ArrowRight')?.id).toBe('tabs.next');
-    expect(matchAction(DEFS, defaults, 'main', 'x')).toBeNull();
+    expect(matchAction(DEFS, defaults, 'main', '=')).toBeNull();
     expect(matchAction(DEFS, defaults, 'goto', 'i')?.id).toBe('go:/');
     expect(matchAction(DEFS, defaults, 'goto', 'w')).toBeNull();
     const custom = resolveBindings(DEFS, { 'tabs.prev': 'q' });
@@ -50,7 +53,7 @@ describe('atajos de teclado', () => {
     expect(findConflict(DEFS, defaults, 'tabs.prev', 'd')?.id).toBe('tabs.next');
     expect(findConflict(DEFS, defaults, 'ticket.prev', 'ArrowLeft')?.id).toBe('tabs.prev');
     expect(findConflict(DEFS, defaults, 'tabs.prev', 'a')).toBeNull();
-    expect(findConflict(DEFS, defaults, 'tabs.prev', 'z')).toBeNull();
+    expect(findConflict(DEFS, defaults, 'tabs.prev', '=')).toBeNull();
     // 's' es "ticket siguiente" (main) y "Servicios" (después de g): no chocan.
     expect(findConflict(DEFS, defaults, 'go:/claude', 's')?.id).toBe('go:/servicios');
     expect(findConflict(DEFS, defaults, 'go:/claude', 'w')).toBeNull();

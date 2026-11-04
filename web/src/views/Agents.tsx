@@ -1,5 +1,5 @@
 import { Bot, Check, ChevronDown, ChevronRight, CircleHelp, Copy, FolderGit2, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -14,6 +14,8 @@ import { formatDuration, groupSessions, type AgentSession } from '../lib/agentTr
 import { cn } from '../lib/cn';
 import { useServerEvent } from '../lib/hooks';
 import type { AgentDetail, AgentRun, TicketSummary } from '../lib/types';
+import { useShortcutMap } from '../lib/useShortcuts';
+import { ShortcutKey } from '../components/Key';
 import { useAsync } from '../lib/useAsync';
 
 const hour = (iso: string) => new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -50,14 +52,18 @@ const AgentContent = ({ id }: { id: string }) => {
   return <div className="space-y-4"><TextBlock title="Pedido" text={detail.data.request} /><TextBlock title="Respuesta" text={detail.data.response} /></div>;
 };
 
-const AgentNode = ({ run, now }: { run: AgentRun; now: number }) => {
-  const [open, setOpen] = useState(false);
+const AgentNode = ({ run, now, open, onToggle, focused }: { run: AgentRun; now: number; open: boolean; onToggle: () => void; focused: boolean }) => {
+  const ref = useRef<HTMLLIElement | null>(null);
+  // El agente elegido con el teclado (J / K) se acerca a la pantalla.
+  useEffect(() => {
+    if (focused) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [focused]);
   const end = run.status === 'running' ? now : run.endedAt ? Date.parse(run.endedAt) : null;
   const hasText = run.hasRequest || run.hasResponse;
   return (
-    <li className="relative pl-6 before:absolute before:left-0 before:top-5 before:h-px before:w-5 before:bg-line" data-testid="agent-node">
-      <div className="rounded-xl border border-line bg-surface">
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-surface-2">
+    <li ref={ref} className="relative pl-6 before:absolute before:left-0 before:top-5 before:h-px before:w-5 before:bg-line" data-testid="agent-node" data-focused={focused || undefined}>
+      <div className={cn('rounded-xl border bg-surface', focused ? 'border-accent ring-2 ring-accent/40' : 'border-line')}>
+        <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-surface-2">
           {open ? <ChevronDown className="size-4 shrink-0" aria-hidden /> : <ChevronRight className="size-4 shrink-0" aria-hidden />}
           <StatusIcon status={run.status} />
           <Badge>{run.type}</Badge>
@@ -74,7 +80,7 @@ const AgentNode = ({ run, now }: { run: AgentRun; now: number }) => {
   );
 };
 
-const SessionNode = ({ session, now, ticketLink }: { session: AgentSession; now: number; ticketLink: (ticket: string) => string | null }) => {
+const SessionNode = ({ session, now, ticketLink, openIds, toggle, focusId }: { session: AgentSession; now: number; ticketLink: (ticket: string) => string | null; openIds: Set<string>; toggle: (id: string) => void; focusId: string | null }) => {
   const [open, setOpen] = useState(true);
   const link = session.ticket ? ticketLink(session.ticket) : null;
   return (
@@ -90,7 +96,7 @@ const SessionNode = ({ session, now, ticketLink }: { session: AgentSession; now:
         {session.ticket && (link ? <Link to={link} className="rounded-full bg-accent/15 px-2.5 py-0.5 text-sm font-medium text-accent hover:bg-accent/25" title="Abrir el ticket">#{session.ticket}</Link> : <Badge tone="accent">#{session.ticket}</Badge>)}
         <Badge tone={session.running > 0 ? 'accent' : 'neutral'}>{session.runs.length} agente{session.runs.length === 1 ? '' : 's'}{session.running > 0 ? ` · ${session.running} trabajando` : ''}</Badge>
       </div>
-      {open && <ul className="ml-6 mt-2 space-y-2 border-l border-line pb-1">{session.runs.map((run) => <AgentNode key={run.id} run={run} now={now} />)}</ul>}
+      {open && <ul className="ml-6 mt-2 space-y-2 border-l border-line pb-1">{session.runs.map((run) => <AgentNode key={run.id} run={run} now={now} open={openIds.has(run.id)} onToggle={() => toggle(run.id)} focused={focusId === run.id} />)}</ul>}
     </li>
   );
 };
@@ -115,6 +121,21 @@ export const Agents = () => {
   }, []);
 
   const sessions = useMemo(() => groupSessions((runs ?? []).filter((run) => !onlyActive || run.status === 'running')), [runs, onlyActive]);
+  // Teclado: J / K recorren los agentes tal como se ven, O abre o cierra el elegido y T deja solo los que trabajan.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setOpenIds((current) => {
+    const next = new Set(current);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+  const order = useMemo(() => sessions.flatMap((session) => session.runs.map((run) => run.id)), [sessions]);
+  const move = (delta: 1 | -1) => {
+    if (!order.length) return;
+    const index = focusId ? order.indexOf(focusId) : -1;
+    setFocusId(order[index < 0 ? (delta > 0 ? 0 : order.length - 1) : Math.min(order.length - 1, Math.max(0, index + delta))]!);
+  };
+  useShortcutMap({ 'agents.next': () => move(1), 'agents.prev': () => move(-1), 'agents.open': () => focusId && toggle(focusId), 'agents.active': () => setOnlyActive((value) => !value) });
   const total = (runs ?? []).length;
   const running = (runs ?? []).filter((run) => run.status === 'running').length;
   // El chip del ticket lleva a su pantalla: Pruebas si solo se lo revisa, Desarrollo si es propio.
@@ -142,6 +163,7 @@ export const Agents = () => {
         actions={<Button variant="danger" icon={<Trash2 className="size-4" />} disabled={total - running === 0} onClick={() => setConfirming(true)}>Borrar el historial</Button>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1 text-sm text-muted" title="Recorrer los agentes con el teclado"><ShortcutKey id="agents.prev" /><ShortcutKey id="agents.next" /><ShortcutKey id="agents.open" /></span>
         <Chip selected={!onlyActive} onToggle={() => setOnlyActive(false)}>Todos ({total})</Chip>
         <Chip selected={onlyActive} onToggle={() => setOnlyActive(true)}>Trabajando ({running})</Chip>
       </div>
@@ -152,7 +174,7 @@ export const Agents = () => {
           {onlyActive ? 'Cuando Claude delegue una tarea, aparece acá y en el aviso de la esquina.' : 'Cuando Claude delegue una tarea a un subagente aparece acá. Si nunca aparece nada, falta activar los hooks: Configuración → Agentes de Claude.'}
         </EmptyState>
       ) : (
-        <ul className="space-y-4">{sessions.map((session) => <SessionNode key={session.sessionId} session={session} now={now} ticketLink={ticketLink} />)}</ul>
+        <ul className="space-y-4">{sessions.map((session) => <SessionNode key={session.sessionId} session={session} now={now} ticketLink={ticketLink} openIds={openIds} toggle={toggle} focusId={focusId} />)}</ul>
       )}
       <ConfirmModal open={confirming} title="Borrar el historial" confirmLabel="Borrar" danger onConfirm={() => void clear()} onCancel={() => setConfirming(false)}>
         Se borran los agentes que ya terminaron. Los que siguen trabajando se conservan. Solo se pierde el historial del panel: no afecta a Claude Code.

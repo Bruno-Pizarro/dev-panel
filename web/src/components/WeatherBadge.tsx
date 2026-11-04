@@ -4,7 +4,9 @@ import { api } from '../lib/api';
 import { useStoredState } from '../lib/hooks';
 import type { WeatherNow } from '../lib/types';
 import { weatherIcon, weatherTip, type WeatherIcon } from '../lib/weatherTips';
+import { useShortcut } from '../lib/useShortcuts';
 import { Button } from './Button';
+import { ShortcutKey } from './Key';
 
 const ICONS: Record<WeatherIcon, LucideIcon> = { sun: Sun, moon: Moon, 'cloud-sun': CloudSun, cloud: Cloud, fog: CloudFog, drizzle: CloudDrizzle, rain: CloudRain, snow: CloudSnow, storm: CloudLightning };
 
@@ -60,10 +62,13 @@ export const WeatherBadge = () => {
     );
   };
 
+  // C: pide la ubicación si todavía no hay (si ya hay clima, no hace nada).
+  useShortcut('home.weather', ask, !place);
+
   if (!place) {
     return (
       <div className="flex flex-col items-end gap-1" data-testid="weather-ask">
-        <Button className="h-9" icon={<LocateFixed className="size-4" />} loading={asking} onClick={ask} title="Pide la ubicación al navegador, una sola vez. Al servidor solo viajan las coordenadas, redondeadas a ~1 km, para consultar a Open-Meteo.">Ver el clima</Button>
+        <Button className="h-9" icon={<LocateFixed className="size-4" />} loading={asking} onClick={ask} title="Pide la ubicación al navegador, una sola vez. Al servidor solo viajan las coordenadas, redondeadas a ~1 km, para consultar a Open-Meteo.">Ver el clima<ShortcutKey id="home.weather" /></Button>
         {problem && <span className="text-sm text-warning">{problem}</span>}
       </div>
     );

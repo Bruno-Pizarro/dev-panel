@@ -2,6 +2,7 @@ import { Bot, Check, ChevronLeft, ChevronRight, EyeOff, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { formatDuration } from '../lib/agentTree';
+import { useDnd } from '../lib/dnd';
 import { AGENT_DEMO_EVENT, AGENT_DEMO_MS, demoRuns, isDemoRun } from '../lib/agentDemo';
 import { cn } from '../lib/cn';
 import { useServerEvent, useStoredState } from '../lib/hooks';
@@ -24,6 +25,7 @@ export const AgentToast = () => {
   const [now, setNow] = useState(() => Date.now());
   const known = useRef(new Set<string>());
   // Vista previa pedida desde Configuración: agentes de ejemplo que se muestran unos segundos, aunque el aviso esté oculto.
+  const dnd = useDnd();
   const [demoUntil, setDemoUntil] = useState(0);
   const [demoStart, setDemoStart] = useState(0);
   const [removedDemo, setRemovedDemo] = useState<string[]>([]);
@@ -65,7 +67,8 @@ export const AgentToast = () => {
 
   useShortcut('agents.toggle', () => setHidden(!hidden), visible.length > 0);
 
-  if (visible.length === 0 || !current) return null;
+  // No molestar silencia el aviso (la vista previa de Configuración se muestra igual: es lo que se pidió ver).
+  if (visible.length === 0 || !current || (dnd.active && !demoActive)) return null;
 
   if (hidden) {
     return (

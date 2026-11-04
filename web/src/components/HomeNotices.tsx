@@ -1,5 +1,8 @@
-import { Bell, CalendarClock, Check, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
+import { Bell, BellOff, CalendarClock, Check, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { setDnd, useDnd } from '../lib/dnd';
+import { useShortcutMap } from '../lib/useShortcuts';
+import { ShortcutKey } from './Key';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/cn';
 import { useStoredState } from '../lib/hooks';
@@ -48,13 +51,28 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
   const { report, failed, busy, load } = state;
   const [dismissed, setDismissed] = useStoredState<Dismissed>('dev-panel.home.dismissed', { date: today(), ids: [] });
 
+  const dnd = useDnd();
+  const [peek, setPeek] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const markDone = (id: string) => void api.put(`/api/reminders/${id}`, { done: true }).catch(() => undefined);
   const hidden = useMemo(() => (dismissed.date === today() ? dismissed.ids : []), [dismissed]);
   const visible = useMemo(() => [...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
+  const dismissFirst = () => {
+    const first = visible[0];
+    if (first) setDismissed({ date: today(), ids: [...hidden, first.id] });
+  };
+  useShortcutMap({ 'home.dismiss': dismissFirst, 'home.recheck': () => load(true), 'home.reminders': () => setRemindersOpen(true) });
   const hiddenCount = (report ? report.reminders.length + report.routines.length + report.notices.length : 0) - visible.length;
   const checkedAt = report ? new Date(report.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
+  // No molestar: los avisos quedan silenciados (siguen guardados); se pueden mirar igual con un clic.
+  if (dnd.active && !peek) {
+    return (
+      <Card className="mb-6" title="Para tener en cuenta" action={<Button className="h-9" onClick={() => setPeek(true)}>Mirar igual</Button>}>
+        <p className="flex flex-wrap items-center gap-3 text-muted" data-testid="home-dnd"><BellOff className="size-5 shrink-0 text-warning" aria-hidden />No molestar activo {dnd.label}: los avisos están silenciados. <button type="button" className="text-accent hover:underline" onClick={() => setDnd(null)}>Apagar</button></p>
+      </Card>
+    );
+  }
   return (
     <Card
       className="mb-6"
@@ -62,8 +80,8 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
       action={
         <div className="flex items-center gap-3">
           {report && <span className="hidden text-sm text-muted sm:inline">{report.fromCache ? 'Revisado' : 'Recién revisado'} hoy a las {checkedAt}</span>}
-          <Button className="h-9" icon={<Bell className="size-4" />} onClick={() => setRemindersOpen(true)} title="Ver y agregar recordatorios">Recordatorios</Button>
-          <Button className="h-9" icon={<RefreshCw className={cn('size-4', busy && 'animate-spin')} />} disabled={busy} onClick={() => load(true)} title="Vuelve a consultar Redmine, GitLab y los feriados (se revisan solos una vez por día)">Volver a revisar</Button>
+          <Button className="h-9" icon={<Bell className="size-4" />} onClick={() => setRemindersOpen(true)} title="Ver y agregar recordatorios">Recordatorios<ShortcutKey id="home.reminders" /></Button>
+          <Button className="h-9" icon={<RefreshCw className={cn('size-4', busy && 'animate-spin')} />} disabled={busy} onClick={() => load(true)} title="Vuelve a consultar Redmine, GitLab y los feriados (se revisan solos una vez por día)">Volver a revisar<ShortcutKey id="home.recheck" /></Button>
         </div>
       }
     >

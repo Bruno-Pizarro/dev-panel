@@ -1,10 +1,13 @@
-import { Terminal } from 'lucide-react';
+import { BellOff, Bell, Terminal } from 'lucide-react';
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { navGroups } from '../lib/nav';
 import { cn } from '../lib/cn';
 import { GOTO_PREFIX_ID } from '../lib/shortcuts';
 import { GOTO_PREFIX, useKeyFor, useShortcutSettings } from '../lib/useShortcuts';
-import { Key } from './Key';
+import { Key, ShortcutKey } from './Key';
+import { setDnd, untilTomorrow, useDnd } from '../lib/dnd';
+import { useShortcut } from '../lib/useShortcuts';
 
 /** La combinación "ir a…" de un destino del menú (por ejemplo G I), a la vista junto a su nombre. */
 const GotoKeys = ({ path }: { path: string }) => {
@@ -13,6 +16,41 @@ const GotoKeys = ({ path }: { path: string }) => {
   const letter = useKeyFor(`${GOTO_PREFIX}${path}`);
   if (!showKeys || !letter) return null;
   return <Key className="h-5 min-w-5 shrink-0 gap-1.5 px-1.5" aria-hidden><span>{prefix}</span><span>{letter}</span></Key>;
+};
+
+const HOUR_MS = 3_600_000;
+
+/** Pie del menú: "No molestar" silencia el aviso de agentes y los avisos del Inicio por una hora, hasta mañana o hasta apagarlo. */
+const DoNotDisturb = ({ collapsed }: { collapsed: boolean }) => {
+  const dnd = useDnd();
+  const [open, setOpen] = useState(false);
+  // Z: enciende (una hora) o apaga.
+  useShortcut('dnd.toggle', () => (dnd.active ? setDnd(null) : setDnd({ until: Date.now() + HOUR_MS })));
+  const choose = (state: Parameters<typeof setDnd>[0]) => (setDnd(state), setOpen(false));
+  return (
+    <div className={cn('relative border-t border-line', collapsed ? 'p-2' : 'p-3')}>
+      {open && (
+        <div className="absolute bottom-full left-3 right-3 z-20 mb-2 space-y-1 rounded-xl border border-line bg-surface p-2 shadow-pop" role="menu" aria-label="No molestar">
+          {[{ label: 'Una hora', state: { until: Date.now() + HOUR_MS } }, { label: 'Hasta mañana', state: { until: untilTomorrow() } }, { label: 'Hasta que lo apague', state: { forever: true as const } }].map((option) => (
+            <button key={option.label} type="button" role="menuitem" onClick={() => choose(option.state)} className="flex h-9 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-surface-2">{option.label}</button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => (dnd.active ? setDnd(null) : setOpen(!open))}
+        aria-label={dnd.active ? `No molestar activo ${dnd.label}: tocá para apagarlo` : 'Activar No molestar'}
+        aria-pressed={dnd.active}
+        title={dnd.active ? `No molestar ${dnd.label}: tocá para apagarlo` : 'No molestar: silencia el aviso de agentes y los avisos del Inicio'}
+        data-testid="dnd-button"
+        className={cn('flex h-10 w-full items-center rounded-lg text-sm font-medium transition-colors', collapsed ? 'justify-center' : 'gap-3 px-3', dnd.active ? 'bg-warning/15 text-warning' : 'text-muted hover:bg-surface-2 hover:text-fg')}
+      >
+        {dnd.active ? <BellOff className="size-5 shrink-0" aria-hidden /> : <Bell className="size-5 shrink-0" aria-hidden />}
+        {!collapsed && <span className="min-w-0 flex-1 truncate text-left">{dnd.active ? `No molestar · ${dnd.label}` : 'No molestar'}</span>}
+        {!collapsed && <ShortcutKey id="dnd.toggle" />}
+      </button>
+    </div>
+  );
 };
 
 export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName: string }) => (
@@ -59,5 +97,6 @@ export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName:
         </div>
       ))}
     </nav>
+    <DoNotDisturb collapsed={collapsed} />
   </aside>
 );

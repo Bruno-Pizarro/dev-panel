@@ -1,6 +1,8 @@
 import { Bot, Clock, Eraser, Home, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useShortcut } from '../lib/useShortcuts';
+import { ShortcutKey } from '../components/Key';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
@@ -192,6 +194,14 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
   ];
   const [params, setParams] = useSearchParams();
   const active = sections.find((section) => section.id === params.get('seccion')) ?? sections[0]!;
+  // A / D (o las flechas) cambian de sección, como en las pestañas; se quedan en los extremos.
+  const goSection = (delta: number) => {
+    const index = sections.findIndex((section) => section.id === active.id);
+    const target = sections[Math.min(sections.length - 1, Math.max(0, index + delta))]!;
+    if (target.id !== active.id) setParams({ seccion: target.id }, { replace: true });
+  };
+  useShortcut('tabs.prev', () => goSection(-1), sidebar);
+  useShortcut('tabs.next', () => goSection(1), sidebar);
 
   const saveButton = (
     <div className="flex justify-end">
@@ -206,6 +216,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
   return (
     <div className="gap-6 md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
       <nav aria-label="Secciones de la configuración" className="mb-6 flex gap-1 overflow-x-auto md:sticky md:top-0 md:mb-0 md:flex-col md:self-start md:overflow-visible">
+        <div className="mb-1 hidden items-center gap-1 px-3.5 text-sm text-muted md:flex" title="Cambiar de sección con el teclado"><ShortcutKey id="tabs.prev" /><ShortcutKey id="tabs.next" /></div>
         {sections.map((section) => {
           const Icon = section.icon;
           const selected = section.id === active.id;
