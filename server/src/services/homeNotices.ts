@@ -257,9 +257,6 @@ export const collectMrs = async (config: DevPanelConfig): Promise<MrWithTicket[]
 
 const REVIEW_MAX_ISSUES = 25;
 
-/** Estados finales: un ticket terminado o entregado ya no es trabajo en curso, así que sus comentarios no se avisan. */
-export const FINISHED_STATUSES = ['Terminado', 'Entregado', 'Rechazado', 'Baja'];
-
 /** Calcula todos los avisos que consultan algo afuera. Cada fuente que falla queda en `errors` y no tira abajo a las demás. */
 export const computeNotices = async (config: DevPanelConfig, saved: Saved | null, now: Date, deps: NoticeDeps = {}): Promise<{ report: NoticesReport; mrNotes: MrNotes; reviewSince: string }> => {
   const today = dayOf(now);
@@ -325,9 +322,22 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
   const listed = (await get('/issues.json?assigned_to_id=me&status_id=open&limit=100&sort=updated_on:desc')) as { issues?: Parameters<typeof mapIssue>[0][] };
   const mine = (listed.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl));
 
+  if (config.home.reviews) {
+    const items: IssueWithJournals[] = [];
+    for (const issue of mine.filter((item) => item.updatedOn > since).slice(0, REVIEW_MAX_ISSUES)) {
+      const detail = (await get(`/issues/${issue.id}.json?include=journals,children`)) as { issue?: { journals?: RawJournalItem[]; children?: Array<{ id: number }> } };
+      items.push({ id: issue.id, title: issue.title, tracker: issue.tracker, url: issue.url, parentId: null, journals: toJournals(detail.issue?.journals) });
+      for (const child of (detail.issue?.children ?? []).slice(0, 5)) {
+        const sub = (await get(`/issues/${child.id}.json?include=journals`)) as { issue?: { subject?: string; tracker?: { name: string }; journals?: RawJournalItem[] } };
+        items.push({ id: child.id, title: sub.issue?.subject ?? '', tracker: sub.issue?.tracker?.name ?? 'Ticket', url: `${credentials.baseUrl}/issues/${child.id}`, parentId: issue.id, journals: toJournals(sub.issue?.journals) });
+      }
+    }
+    out.push(...reviewNotices(items, since, myName));
+  }
+
   // El sprint actual hace falta para los vencimientos (solo los de este sprint) y para el aviso del sprint.
   let sprintIds: Set<number> | null = null;
-  if (config.home.sprint || config.home.due || config.home.reviews) {
+  if (config.home.sprint || config.home.due) {
     const sprints = (await get('/issues.json?tracker_id=22&status_id=*&limit=50&sort=id:desc')) as { issues?: Array<{ id: number; subject?: string }> };
     // Entre los sprints de hoy se elige el que tiene tickets míos relacionados (si ninguno, el primero).
     let chosen: { sprint: Sprint; tickets: RedmineIssue[]; related: number[] } | null = null;
@@ -349,25 +359,10 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
     if (chosen) {
       sprintIds = new Set(chosen.related);
       if (config.home.sprint) out.push(sprintNotice(chosen.sprint, chosen.tickets, doneStatuses, today, `${credentials.baseUrl}/issues/${chosen.sprint.id}`));
-    } else if (config.home.due || config.home.reviews) {
+    } else if (config.home.due) {
       noSprint = true;
     }
   }
-
-  if (config.home.reviews && !noSprint) {
-    const items: IssueWithJournals[] = [];
-    for (const issue of mine.filter((item) => sprintIds?.has(item.id) === true && !FINISHED_STATUSES.includes(item.status) && item.updatedOn > since).slice(0, REVIEW_MAX_ISSUES)) {
-      const detail = (await get(`/issues/${issue.id}.json?include=journals,children`)) as { issue?: { journals?: RawJournalItem[]; children?: Array<{ id: number }> } };
-      items.push({ id: issue.id, title: issue.title, tracker: issue.tracker, url: issue.url, parentId: null, journals: toJournals(detail.issue?.journals) });
-      for (const child of (detail.issue?.children ?? []).slice(0, 5)) {
-        const sub = (await get(`/issues/${child.id}.json?include=journals`)) as { issue?: { subject?: string; tracker?: { name: string }; journals?: RawJournalItem[] } };
-        items.push({ id: child.id, title: sub.issue?.subject ?? '', tracker: sub.issue?.tracker?.name ?? 'Ticket', url: `${credentials.baseUrl}/issues/${child.id}`, parentId: issue.id, journals: toJournals(sub.issue?.journals) });
-      }
-    }
-    out.push(...reviewNotices(items, since, myName));
-  }
-
-  if (config.home.reviews && noSprint) notes.push({ source: 'Comentarios', message: 'No se encontró el sprint actual: sin él no se avisan comentarios nuevos (solo cuentan los tickets del sprint).' });
 
   if (config.home.due) {
     if (noSprint) notes.push({ source: 'Vencimientos', message: 'No se encontró el sprint actual: sin él no se avisan vencimientos (solo cuentan los tickets del sprint).' });

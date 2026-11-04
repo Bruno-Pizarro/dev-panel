@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MrInfo } from './gitlab.js';
-import { currentSprint, dayOf, FINISHED_STATUSES, plainNote, sprintsOfToday, dueNotices, holidayNotices, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
+import { currentSprint, dayOf, plainNote, sprintsOfToday, dueNotices, holidayNotices, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
 import { mapIssue, type RedmineIssue } from './redmine.js';
 
 const issue = (over: Record<string, unknown> = {}): RedmineIssue =>
@@ -85,14 +85,6 @@ describe('plainNote', () => {
     expect(plainNote('h3. Segunda revisión\n\n* Menú funciona\n* Revisé @b3d3ab412@ y el "front !165":https://g/mr/165#note_1')).toBe('Segunda revisión Menú funciona Revisé b3d3ab412 y el front !165');
     expect(plainNote('Probé *todo* y _anda_')).toBe('Probé todo y anda');
     expect(plainNote('  sin formato  ')).toBe('sin formato');
-  });
-});
-
-describe('estados finales', () => {
-  it('Terminado, Entregado, Rechazado y Baja son trabajo que ya no está en curso; Revisión y Testeado todavía sí', () => {
-    expect(FINISHED_STATUSES).toEqual(expect.arrayContaining(['Terminado', 'Entregado', 'Rechazado', 'Baja']));
-    expect(FINISHED_STATUSES).not.toContain('Revisión');
-    expect(FINISHED_STATUSES).not.toContain('Testeado');
   });
 });
 
