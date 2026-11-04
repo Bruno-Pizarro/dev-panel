@@ -9,12 +9,30 @@ describe('herramientas MCP', () => {
     expect(names).not.toMatch(/restore|reset|password|session|clean|restart|apply|stop|revoke|delete/);
   });
 
-  it('el único POST que modifica el entorno es el levantado en orden (los otros solo calculan y devuelven datos)', async () => {
+  it('la única herramienta que escribe algo propio del panel es reminder_add, y solo agrega (no hay forma de borrar ni editar)', () => {
+    const names = mcpTools.map((tool) => tool.name);
+    expect(names).toEqual(expect.arrayContaining(['reminders', 'reminder_add']));
+    expect(names.filter((name) => /reminder/.test(name)).sort()).toEqual(['reminder_add', 'reminders']);
+  });
+
+  it('reminder_add manda el texto y la fecha (si hay) al panel y valida el texto', async () => {
+    const calls: Array<[string, string, unknown]> = [];
+    const spy: CallApi = async (method, path, body) => (calls.push([method, path, body]), {});
+    await find('reminder_add').run({ text: 'Probar lo de Mariano', at: '2026-11-06' }, spy);
+    await find('reminder_add').run({ text: 'Sin fecha' }, spy);
+    expect(calls).toEqual([['POST', '/api/reminders', { text: 'Probar lo de Mariano', at: '2026-11-06' }], ['POST', '/api/reminders', { text: 'Sin fecha' }]]);
+    const schema = find('reminder_add').shape['text'] as { safeParse: (value: unknown) => { success: boolean } };
+    expect(schema.safeParse('ok').success).toBe(true);
+    expect(schema.safeParse('').success).toBe(false);
+    expect(schema.safeParse('x'.repeat(201)).success).toBe(false);
+  });
+
+  it('el único POST que modifica el entorno es el levantado en orden (los otros solo calculan y devuelven datos o agregan un recordatorio)', async () => {
     const calls: Array<[string, string]> = [];
     const spy: CallApi = async (method, path) => (calls.push([method, path]), {});
-    for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today' }, spy);
+    for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today', text: 'recordar' }, spy);
     const posts = calls.filter(([method]) => method === 'POST').map(([, path]) => path);
-    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/startup/run']);
+    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/reminders', '/api/startup/run']);
   });
 
   it('arma las rutas con parámetros escapados', async () => {

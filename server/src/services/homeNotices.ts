@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'node:path';
 import { paths, type DevPanelConfig } from '../config.js';
 import { holidaysOf, upcomingHolidays, type Holiday } from './holidays.js';
+import type { Reminder } from './reminders.js';
 import { fetchTicketMrs, type MrInfo } from './gitlab.js';
 import { applyStoryPoints, httpProblem, loadCredentials, mapIssue, RedmineError, type Credentials, type JsonFetcher, type RedmineIssue } from './redmine.js';
 import { getTicket, ignoredDirs, listTickets } from './tickets.js';
@@ -12,7 +13,7 @@ import { kindOf, getTicketState } from './ticketState.js';
  * y se guardan en `data/home-notices.json`; abrir el Inicio de nuevo solo lee lo guardado. Todo es solo lectura (Redmine y GitLab).
  * Los avisos de rutina (viernes, horas) dependen del momento y se calculan al pedirlos, sin consultar nada afuera.
  */
-export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine';
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
 export type NoticeLevel = 'important' | 'info';
 
 export interface Notice {
@@ -23,6 +24,8 @@ export interface Notice {
   detail: string;
   /** Ruta del panel (empieza con "/") o URL completa; null si no hay a dónde ir. */
   link: string | null;
+  /** Solo en los recordatorios: id para marcarlo como hecho desde el aviso. */
+  reminderId?: string;
 }
 
 export interface NoticeError {
@@ -203,6 +206,22 @@ export const routineNotices = (now: Date, config: Pick<DevPanelConfig, 'workday'
   }
   return notices;
 };
+
+// ---------------------------------------------------------------- recordatorios (al momento, datos locales)
+/** "02/01 10:00" (día/mes y hora local, de 24 h). */
+export const dayAndTime = (date: Date): string => `${pad(date.getDate())}/${pad(date.getMonth() + 1)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+/** Los recordatorios que ya les toca mostrarse, como avisos: los que tienen fecha u hora son importantes, un pendiente sin fecha no. */
+export const reminderNotices = (reminders: Reminder[]): Notice[] =>
+  reminders.map((reminder): Notice => ({
+    id: `reminder-${reminder.id}`,
+    kind: 'reminder',
+    level: reminder.at ? 'important' : 'info',
+    title: reminder.text,
+    detail: reminder.at ? `Recordatorio para ${/^\d{4}-\d{2}-\d{2}$/.test(reminder.at) ? reminder.at.split('-').reverse().join('/') : dayAndTime(new Date(reminder.at))}` : 'Recordatorio sin fecha',
+    link: null,
+    reminderId: reminder.id,
+  }));
 
 // ---------------------------------------------------------------- orquestador (Redmine y GitLab, solo lectura)
 interface Saved {

@@ -25,7 +25,7 @@ const todayIso = () => {
 };
 
 const Greeting = ({ name, notices }: { name: string; notices: HomeNoticesState }) => {
-  const context = useMemo<GreetingContext | null>(() => (notices.report ? contextFromNotices([...notices.report.routines, ...notices.report.notices], todayIso()) : null), [notices.report]);
+  const context = useMemo<GreetingContext | null>(() => (notices.report ? contextFromNotices([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices], todayIso()) : null), [notices.report]);
   const [text, setText] = useState(() => {
     const now = new Date();
     let last: string | null = null;

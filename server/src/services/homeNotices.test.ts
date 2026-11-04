@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MrInfo } from './gitlab.js';
-import { currentSprint, dayOf, plainNote, sprintsOfToday, dueNotices, holidayNotices, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
+import { currentSprint, dayOf, plainNote, reminderNotices, sprintsOfToday, dueNotices, holidayNotices, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
 import { mapIssue, type RedmineIssue } from './redmine.js';
 
 const issue = (over: Record<string, unknown> = {}): RedmineIssue =>
@@ -77,6 +77,17 @@ describe('3. revisiones nuevas', () => {
     expect(reviewNotices([item({ journals: [{ user: 'Bruno Pizarro', at: '2026-11-04T08:00:00Z', notes: 'mío' }, { user: 'Otro', at: '2026-11-04T08:00:00Z', notes: '  ' }] })], '2026-11-03T00:00:00Z', 'Bruno Pizarro')).toEqual([]);
     const qa = reviewNotices([item({ id: 33945, tracker: 'Control QA', parentId: 33527, journals: [{ user: 'Mariano Buglio', at: '2026-11-04T09:00:00Z', notes: 'Probé todo' }] })], '2026-11-03T00:00:00Z', 'Bruno Pizarro');
     expect(qa[0]!.title).toBe('Mariano Buglio comentó en Control QA #33945 (de #33527)');
+  });
+});
+
+describe('recordatorios como avisos', () => {
+  const reminder = (over: Record<string, unknown>) => ({ id: 'a1', text: 'Probar lo de Mariano', at: null, createdAt: '2026-11-04T10:00:00Z', done: false, doneAt: null, ...over }) as never;
+  it('uno con fecha es importante, un pendiente sin fecha es informativo, y lleva su id para marcarlo como hecho', () => {
+    const [dated, undated] = reminderNotices([reminder({ at: '2026-11-05' }), reminder({ id: 'b2', text: 'Revisar X' })]);
+    expect(dated).toMatchObject({ id: 'reminder-a1', kind: 'reminder', level: 'important', title: 'Probar lo de Mariano', detail: 'Recordatorio para 05/11/2026', reminderId: 'a1', link: null });
+    expect(undated).toMatchObject({ level: 'info', detail: 'Recordatorio sin fecha', reminderId: 'b2' });
+    expect(reminderNotices([reminder({ at: new Date(2026, 0, 2, 9, 5).toISOString() })])[0]!.detail).toBe('Recordatorio para 02/01 09:05');
+    expect(reminderNotices([])).toEqual([]);
   });
 });
 

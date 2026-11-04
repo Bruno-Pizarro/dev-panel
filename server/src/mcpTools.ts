@@ -16,7 +16,8 @@ const query = (params: Record<string, string | undefined>): string => {
 };
 
 /**
- * Herramientas que Claude puede usar. Solo lectura y el levantado en orden.
+ * Herramientas que Claude puede usar. Solo lectura, el levantado en orden y `reminder_add`, que únicamente AGREGA un recordatorio
+ * (dato local del panel: no borra ni toca nada del entorno, de Redmine ni de GitLab).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
  * contenedores, cambiar .env) queda a propósito solo en la interfaz, que pide confirmación explícita.
  */
@@ -56,6 +57,16 @@ export const mcpTools: McpToolDef[] = [
     description: 'Resumen semanal de avances: datos por ticket (commits, MRs, revisiones, pruebas, análisis, estimaciones, estado en Redmine) y el pedido con las reglas y el formato del Google Doc. Devolvé el texto final en un bloque para copiar y pegar.',
     shape: { week: z.enum(['current', 'previous']).default('current').describe('"current" = esta semana (lunes a hoy), "previous" = la semana pasada') },
     run: (args, call) => call('POST', '/api/daily/weekly', { week: args['week'] }),
+  },
+  { name: 'reminders', description: 'Recordatorios del panel (los pendientes primero): texto, fecha u hora si tienen, y si ya están hechos.', shape: {}, run: (_a, call) => call('GET', '/api/reminders') },
+  {
+    name: 'reminder_add',
+    description: 'Agrega un recordatorio al panel (aparece en "Para tener en cuenta" del Inicio cuando llega su momento). Solo agrega: no borra ni modifica otros. Sin fecha es un pendiente que se muestra hasta marcarlo como hecho.',
+    shape: {
+      text: z.string().min(1).max(200).describe('Qué hay que recordar, en una línea'),
+      at: z.string().optional().describe('Cuándo: "AAAA-MM-DD" (ese día) o fecha y hora ISO con zona, ej. 2026-11-05T10:00:00-03:00. Vacío = pendiente sin fecha'),
+    },
+    run: (args, call) => call('POST', '/api/reminders', { text: args['text'], ...(args['at'] ? { at: args['at'] } : {}) }),
   },
   { name: 'activity', description: 'Historial de los últimos 5 días: commits, push, MRs, revisiones, análisis, estimaciones y pruebas, por día.', shape: {}, run: (_a, call) => call('GET', '/api/activity') },
   { name: 'daily_checklist', description: 'Checklist de todos los días de hoy (entrada, salida, cargar horas) y qué está tildado.', shape: {}, run: (_a, call) => call('GET', '/api/checklist/daily') },

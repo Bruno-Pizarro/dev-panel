@@ -1,5 +1,5 @@
-import { CalendarClock, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { Bell, CalendarClock, Check, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/cn';
 import { useStoredState } from '../lib/hooks';
@@ -7,10 +7,12 @@ import type { HomeNoticesState } from '../lib/useHomeNotices';
 import type { HomeNotice, NoticeKind } from '../lib/types';
 import { Button } from './Button';
 import { Card } from './Card';
+import { RemindersModal } from './RemindersModal';
 import { Skeleton } from './Skeleton';
+import { api } from '../lib/api';
 
-const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks };
-const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina' };
+const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell };
+const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio' };
 
 const today = () => {
   const now = new Date();
@@ -22,7 +24,7 @@ interface Dismissed {
   ids: string[];
 }
 
-const Notice = ({ notice, onDismiss }: { notice: HomeNotice; onDismiss: () => void }) => {
+const Notice = ({ notice, onDismiss, onDone }: { notice: HomeNotice; onDismiss: () => void; onDone: (id: string) => void }) => {
   const Icon = KIND_ICONS[notice.kind];
   const external = notice.link !== null && !notice.link.startsWith('/');
   return (
@@ -32,6 +34,7 @@ const Notice = ({ notice, onDismiss }: { notice: HomeNotice; onDismiss: () => vo
         <p className="font-medium leading-snug">{notice.title}</p>
         <p className="mt-0.5 break-words text-sm text-muted">{notice.detail}</p>
       </div>
+      {notice.reminderId && <Button className="h-8 shrink-0" icon={<Check className="size-4" />} onClick={() => onDone(notice.reminderId!)}>Hecho</Button>}
       {notice.link && (external
         ? <a href={notice.link} target="_blank" rel="noreferrer noopener" className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm text-accent hover:bg-surface-3" aria-label={`Abrir: ${notice.title}`}><ExternalLink className="size-4" aria-hidden />Abrir</a>
         : <Link to={notice.link} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm text-accent hover:bg-surface-3">Ir</Link>)}
@@ -45,9 +48,11 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
   const { report, failed, busy, load } = state;
   const [dismissed, setDismissed] = useStoredState<Dismissed>('dev-panel.home.dismissed', { date: today(), ids: [] });
 
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const markDone = (id: string) => void api.put(`/api/reminders/${id}`, { done: true }).catch(() => undefined);
   const hidden = useMemo(() => (dismissed.date === today() ? dismissed.ids : []), [dismissed]);
-  const visible = useMemo(() => [...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
-  const hiddenCount = (report ? report.routines.length + report.notices.length : 0) - visible.length;
+  const visible = useMemo(() => [...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
+  const hiddenCount = (report ? report.reminders.length + report.routines.length + report.notices.length : 0) - visible.length;
   const checkedAt = report ? new Date(report.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
   return (
@@ -57,6 +62,7 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
       action={
         <div className="flex items-center gap-3">
           {report && <span className="hidden text-sm text-muted sm:inline">{report.fromCache ? 'Revisado' : 'Recién revisado'} hoy a las {checkedAt}</span>}
+          <Button className="h-9" icon={<Bell className="size-4" />} onClick={() => setRemindersOpen(true)} title="Ver y agregar recordatorios">Recordatorios</Button>
           <Button className="h-9" icon={<RefreshCw className={cn('size-4', busy && 'animate-spin')} />} disabled={busy} onClick={() => load(true)} title="Vuelve a consultar Redmine, GitLab y los feriados (se revisan solos una vez por día)">Volver a revisar</Button>
         </div>
       }
@@ -64,7 +70,7 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
       {failed ? <p className="text-danger">{failed}</p> : !report ? <Skeleton className="h-24" /> : (
         <div className="space-y-3">
           {visible.length === 0 ? <p className="text-muted" data-testid="home-notices-empty">Sin avisos por hoy: todo tranquilo.{hiddenCount > 0 ? ` (${hiddenCount} oculto${hiddenCount === 1 ? '' : 's'} por hoy)` : ''}</p> : (
-            <ul className="space-y-2">{visible.map((notice) => <Notice key={notice.id} notice={notice} onDismiss={() => setDismissed({ date: today(), ids: [...hidden, notice.id] })} />)}</ul>
+            <ul className="space-y-2">{visible.map((notice) => <Notice key={notice.id} notice={notice} onDone={markDone} onDismiss={() => setDismissed({ date: today(), ids: [...hidden, notice.id] })} />)}</ul>
           )}
           {hiddenCount > 0 && visible.length > 0 && <button type="button" className="text-sm text-muted hover:text-fg hover:underline" onClick={() => setDismissed({ date: today(), ids: [] })}>Mostrar los {hiddenCount} ocultos</button>}
           {report.errors.length > 0 && (
@@ -72,6 +78,7 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
           )}
         </div>
       )}
+      <RemindersModal open={remindersOpen} onClose={() => setRemindersOpen(false)} />
     </Card>
   );
 };
