@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
 import { DailyChecklistCard } from '../components/DailyChecklistCard';
+import { HomeNotices } from '../components/HomeNotices';
+import { WeatherBadge } from '../components/WeatherBadge';
 import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { StatusDot } from '../components/StatusDot';
@@ -36,10 +38,13 @@ const Greeting = ({ name }: { name: string }) => {
   const Icon = SLOT_ICONS[slotOf(new Date().getHours())];
   if (!text) return null;
   return (
-    <p className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-gradient-to-r from-accent/10 to-transparent px-5 py-4 text-lg font-medium" data-testid="greeting">
-      <Icon className="size-6 shrink-0 text-accent" aria-hidden />
-      <span>{text}</span>
-    </p>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-line bg-gradient-to-r from-accent/10 to-transparent px-5 py-4">
+      <p className="flex min-w-0 flex-1 items-center gap-3 text-lg font-medium" data-testid="greeting">
+        <Icon className="size-6 shrink-0 text-accent" aria-hidden />
+        <span>{text}</span>
+      </p>
+      <WeatherBadge />
+    </div>
   );
 };
 
@@ -52,6 +57,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
     <>
       <PageHeader title="Inicio" description="Estado del entorno de desarrollo." />
       <Greeting name={config.userName} />
+      <HomeNotices />
       <DailyChecklistCard />
       {detect.loading || !data ? (
         <div className="grid gap-4 md:grid-cols-3">

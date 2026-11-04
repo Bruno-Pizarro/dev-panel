@@ -213,7 +213,7 @@ export const redmineBaseUrl = (config: DevPanelConfig, env: NodeJS.ProcessEnv = 
 
 export const ticketUrl = (config: DevPanelConfig, ticket: string): string => `${redmineBaseUrl(config)}/issues/${ticket}`;
 
-type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
+export type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
 
 const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; issue: RedmineIssue }>();
@@ -280,7 +280,7 @@ export const MAX_BOARD_DAYS = 60;
 const boardCache = new Map<string, { at: number; board: Board }>();
 export const clearBoardCache = (): void => boardCache.clear();
 
-type JsonFetcher = Fetcher;
+export type JsonFetcher = Fetcher;
 
 /** Mis tickets (asignados a quien dueña la API key) con cambios en los últimos `days` días. Solo lectura, y acotado: máximo 100 tickets y 60 días. */
 export const fetchBoard = async (config: DevPanelConfig, days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {

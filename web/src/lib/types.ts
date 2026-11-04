@@ -16,6 +16,7 @@ export interface DevPanelConfig {
     groups: Record<string, { withStage2: string[] }>;
     presets: Array<{ name: string; services: string[] }>;
   };
+  home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number };
   weekly: { template: string };
   repos: string[];
 }
@@ -424,3 +425,8 @@ export interface FileDiff { diff: string; truncated: boolean; reason: string | n
 export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean }
 /** Un agente completo: lo que se le pidió y lo que contestó (con los secretos tapados). */
 export interface AgentDetail extends AgentRun { request: string | null; response: string | null }
+
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine';
+export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null }
+export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; fromCache: boolean }
+export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }

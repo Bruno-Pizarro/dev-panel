@@ -1,4 +1,4 @@
-import { Bot, Clock, Eraser, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bot, Clock, Eraser, Home, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
@@ -136,6 +136,30 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
           <Field label="Texto del log que indica que RabbitMQ está listo" value={startup.rabbitReady.logMatch} onChange={(logMatch) => setStartup({ rabbitReady: { ...startup.rabbitReady, logMatch } })} />
           <TagEditor label="Obligatorios" help="Siempre se levantan, además de lo que elijas." values={startup.mandatory} onChange={(mandatory) => setStartup({ mandatory })} />
           <TagEditor label="Opcionales" help="Aparecen como chips en la vista Levantado." values={startup.optional} onChange={(optional) => setStartup({ optional })} />
+        </div>
+      </Card>
+    ) },
+    { id: 'inicio', label: 'Inicio', icon: Home, content: (
+      <Card title="Inicio">
+        <p className="mb-4 text-muted">Los avisos de «Para tener en cuenta» se revisan <strong>una vez por día</strong> (la primera vez que abrís el Inicio ese día) y se guardan; el botón «Volver a revisar» los consulta de nuevo. Todo es de solo lectura. El clima se activa desde el propio Inicio con la ubicación del navegador.</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          {([
+            ['due', 'Vencimientos', 'Tickets tuyos que vencen pronto o ya vencieron (Redmine).'],
+            ['mrs', 'Merge requests', 'Conflictos, pipeline caído, comentarios nuevos o sin movimiento (GitLab).'],
+            ['reviews', 'Comentarios nuevos', 'Revisiones y comentarios de otras personas en tus tickets y en su Control QA (Redmine).'],
+            ['sprint', 'Sprint', 'Días que quedan y SP entregados contra los planificados (Redmine).'],
+            ['holidays', 'Feriados', 'Feriado de hoy y del resto de la semana (api.argentinadatos.com; solo se manda el año).'],
+            ['routines', 'Rutinas', 'Resumen semanal los viernes y horas sin cargar pasado tu horario de salida.'],
+          ] as const).map(([key, label, help]) => (
+            <label key={key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line px-4 py-3">
+              <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={config.home[key]} onChange={(event) => setConfig({ ...config, home: { ...config.home, [key]: event.target.checked } })} />
+              <span><span className="block font-medium">{label}</span><span className="block text-sm text-muted">{help}</span></span>
+            </label>
+          ))}
+        </div>
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <Field label="Avisar vencimientos desde (días antes)" type="number" min={0} max={30} help="Un ticket que vence en esta cantidad de días o menos se avisa." value={config.home.dueDays} onChange={(value) => setConfig({ ...config, home: { ...config.home, dueDays: Math.min(30, Math.max(0, Math.round(Number(value) || 0))) } })} />
+          <Field label="MR sin movimiento desde (días)" type="number" min={1} max={60} help="Un MR abierto sin actividad por esta cantidad de días se avisa." value={config.home.mrStaleDays} onChange={(value) => setConfig({ ...config, home: { ...config.home, mrStaleDays: Math.min(60, Math.max(1, Math.round(Number(value) || 1))) } })} />
         </div>
       </Card>
     ) },
