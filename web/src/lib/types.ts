@@ -421,7 +421,7 @@ export interface RepoChanges {
   committed: ChangedFile[]; working: ChangedFile[]; ignored: string[];
 }
 export interface ViewedProgress { total: number; viewed: number; pending: Array<{ repo: string; count: number }> }
-export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress }
+export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress; /** Solo en los MRs de GitLab: por qué no se pudo leer algún MR. */ message?: string | null }
 export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
 
 export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean; hasSteps?: boolean }

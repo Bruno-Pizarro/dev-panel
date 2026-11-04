@@ -9,6 +9,7 @@ import { getViewed, setViewed, viewKey } from '../services/changeReview.js';
 import { getNote, setNote, MAX_NOTE } from '../services/ticketNotes.js';
 import { readFileDiff, readFileSignature, readTicketChanges, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
+import { readMrChanges, readMrFileDiff, readMrSignature } from '../services/mrChanges.js';
 import { buildClosing } from '../services/ticketClosing.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
@@ -78,6 +79,36 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     const signature = await readFileSignature(loaded.config, repo, path, scope);
     if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
     setViewed(request.params.dir, key, signature.signature);
+    return { viewed: true, signature: signature.signature };
+  });
+
+  // Cambios de los MRs en GitLab (revisar lo de otra persona sin tener su rama). Mismas formas que los cambios locales.
+  const mrMarks = (dir: string) => `${dir}#mr`;
+  app.get<{ Params: { dir: string }; Querystring: { fresh?: string } }>('/api/tickets/:dir/mr-changes', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    return loaded ? readMrChanges(loaded.config, loaded.ticket.meta, getViewed(mrMarks(request.params.dir)), request.query.fresh === '1') : reply;
+  });
+
+  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string } }>('/api/tickets/:dir/mr-changes/diff', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const { repo, path } = request.query;
+    if (!repo || !path) return reply.code(400).send({ error: 'Faltan repo o path' });
+    const outcome = await readMrFileDiff(loaded.config, loaded.ticket.meta, repo, path);
+    return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
+  });
+
+  app.put<{ Params: { dir: string } }>('/api/tickets/:dir/mr-changes/viewed', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    if (!loaded) return reply;
+    const body = z.object({ repo: z.string().min(1).max(150), path: z.string().min(1).max(500), scope: z.literal('committed'), viewed: z.boolean() }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Datos inválidos' });
+    const { repo, path, viewed } = body.data;
+    const key = viewKey(repo, 'committed', path);
+    if (!viewed) return { viewed: false, marks: Object.keys(setViewed(mrMarks(request.params.dir), key, null)).length };
+    const signature = await readMrSignature(loaded.config, loaded.ticket.meta, repo, path);
+    if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
+    setViewed(mrMarks(request.params.dir), key, signature.signature);
     return { viewed: true, signature: signature.signature };
   });
 

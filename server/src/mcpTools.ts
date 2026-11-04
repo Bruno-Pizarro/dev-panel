@@ -44,6 +44,18 @@ export const mcpTools: McpToolDef[] = [
     shape: { dir: z.string().describe('Nombre de la carpeta, ej. 33526-pendientes-firma') },
     run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}`),
   },
+  {
+    name: 'mr_changes',
+    description: 'Archivos cambiados en los MRs de GitLab de un ticket (para revisar el desarrollo de otra persona sin tener su rama): por MR, con estado, líneas y si ya los marcaste como vistos en el panel. Solo lectura.',
+    shape: { dir: z.string().describe('Nombre de la carpeta, ej. 33526-pendientes-firma') },
+    run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}/mr-changes`),
+  },
+  {
+    name: 'mr_file_diff',
+    description: 'Diff de un archivo de un MR del ticket. "repo" es la etiqueta que devuelve mr_changes (ej. "front !171"). Solo lectura.',
+    shape: { dir: z.string(), repo: z.string().describe('Etiqueta del MR, ej. "front !171"'), path: z.string().describe('Ruta del archivo dentro del repo') },
+    run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}/mr-changes/diff?repo=${encodeURIComponent(String(args['repo']))}&path=${encodeURIComponent(String(args['path']))}`),
+  },
   { name: 'repos', description: 'Rama actual, adelanto/atraso contra la rama base, cambios sin commitear y último commit de cada repo.', shape: {}, run: (_a, call) => call('GET', '/api/repos') },
   { name: 'env_status', description: 'Perfil de .env de cada repo (MinIO local, remoto o mixto), con valores sensibles enmascarados.', shape: {}, run: (_a, call) => call('GET', '/api/env') },
   {

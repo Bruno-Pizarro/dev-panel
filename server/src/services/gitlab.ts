@@ -46,7 +46,7 @@ export const mintSshToken = async (config: DevPanelConfig, runner: Runner = run,
 };
 
 /** Token vigente: el fijo (variable o config) manda; si no, el pedido por SSH (si está habilitado), reutilizado mientras dure. */
-const resolveToken = async (config: DevPanelConfig, env: NodeJS.ProcessEnv, runner: Runner, now: number): Promise<{ token: string | null; fixed: boolean; error: string | null }> => {
+export const resolveToken = async (config: DevPanelConfig, env: NodeJS.ProcessEnv, runner: Runner, now: number): Promise<{ token: string | null; fixed: boolean; error: string | null }> => {
   const fixed = gitlabToken(config, env);
   if (fixed) return { token: fixed, fixed: true, error: null };
   if (!config.gitlab.sshAuto) return { token: null, fixed: false, error: null };

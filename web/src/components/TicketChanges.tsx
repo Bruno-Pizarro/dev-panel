@@ -9,6 +9,7 @@ import { languageOf, tokenizeLine } from '../lib/highlight';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
+import { Chip } from './Chip';
 import { ShortcutKey } from './Key';
 import { useShortcutMap } from '../lib/useShortcuts';
 import { useToast } from './Toast';
@@ -16,10 +17,12 @@ import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
 
 type Scope = 'committed' | 'working';
+/** De dónde salen los cambios: la copia local de los repos (`changes`) o los MRs de GitLab (`mr-changes`). */
+type Segment = 'changes' | 'mr-changes';
 
 /** Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento. */
-const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path: string; scope: Scope }) => {
-  const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/changes/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
+const DiffView = ({ dir, segment, repo, path, scope }: { dir: string; segment: Segment; repo: string; path: string; scope: Scope }) => {
+  const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/${segment}/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
   const slash = path.lastIndexOf('/');
   const language = languageOf(path);
   const lines = useMemo(() => (diff.data?.diff ? parseDiffLines(diff.data.diff) : []), [diff.data]);
@@ -51,6 +54,7 @@ const DiffView = ({ dir, repo, path, scope }: { dir: string; repo: string; path:
 /** Estado de "visto" que comparten todos los archivos: la marca se guarda en el servidor y la pantalla la refleja al instante. */
 interface Review {
   dir: string;
+  segment: Segment;
   stateOf: (repo: string, scope: Scope, file: ChangedFile) => ViewedState;
   toggle: (repo: string, scope: Scope, file: ChangedFile, viewed: boolean) => Promise<boolean>;
   /** El archivo en el que está parado el teclado (N / P / V): `repo|scope|ruta`. */
@@ -134,7 +138,7 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
           {isCurrent && <ShortcutKey id="changes.viewed" />}
         </label>
       </div>
-      {open && <div className="px-3 pb-3">{near ? <DiffView dir={review.dir} repo={repo} path={file.path} scope={scope} /> : <Skeleton className="h-24" />}</div>}
+      {open && <div className="px-3 pb-3">{near ? <DiffView dir={review.dir} segment={review.segment} repo={repo} path={file.path} scope={scope} /> : <Skeleton className="h-24" />}</div>}
     </li>
   );
 };
@@ -194,9 +198,9 @@ const Repo = ({ changes, baseBranch }: { changes: RepoChanges; baseBranch: strin
  * Cambios de la rama del ticket al estilo de un MR: por repo, los commits y cada archivo con su diff expandido y una casilla
  * "Visto". Marcar todos los archivos es obligatorio para el chequeo "Cambios revisados" del Estado del ticket.
  */
-export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: number; segment: Segment }) => {
   const toast = useToast();
-  const state = useAsync(() => api.get<TicketChangesReport>(`/api/tickets/${encodeURIComponent(dir)}/changes`));
+  const state = useAsync(() => api.get<TicketChangesReport>(`/api/tickets/${encodeURIComponent(dir)}/${segment}`));
   useReloadOn(refreshKey, state.reload);
   // Lo marcado en esta pantalla se refleja al instante; al volver a leer del servidor, manda lo que él guardó.
   const [marks, setMarks] = useState<Record<string, ViewedState>>({});
@@ -207,7 +211,7 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
   const toggle = useCallback(
     async (repo: string, scope: Scope, file: ChangedFile, viewed: boolean) => {
       try {
-        await api.put(`/api/tickets/${encodeURIComponent(dir)}/changes/viewed`, { repo, path: file.path, scope, viewed });
+        await api.put(`/api/tickets/${encodeURIComponent(dir)}/${segment}/viewed`, { repo, path: file.path, scope, viewed });
         setMarks((current) => ({ ...current, [markKey(repo, scope, file.path)]: viewed ? 'yes' : 'no' }));
         return true;
       } catch (error) {
@@ -215,10 +219,10 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
         return false;
       }
     },
-    [dir, toast],
+    [dir, segment, toast],
   );
   const [current, setCurrent] = useState<string | null>(null);
-  const review = useMemo<Review>(() => ({ dir, stateOf, toggle, bulk, current }), [dir, stateOf, toggle, bulk, current]);
+  const review = useMemo<Review>(() => ({ dir, segment, stateOf, toggle, bulk, current }), [dir, segment, stateOf, toggle, bulk, current]);
 
   // Todos los archivos en el orden en que se ven (por repo: primero lo commiteado y después lo sin commitear), para moverse con el teclado.
   const flat = useMemo(
@@ -247,6 +251,7 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
   if (state.loading && !state.data) return <Skeleton className="h-64" />;
   if (state.error || !state.data) return <p className="text-danger">{state.error}</p>;
   const report = state.data;
+  if (report.message && report.repos.length === 0) return <EmptyState icon={<GitCompare className="size-6" />} title="No se pudieron leer los MRs">{report.message}</EmptyState>;
   if (report.repos.length === 0) return <EmptyState icon={<GitCompare className="size-6" />} title="Sin repos">El ticket.json no declara repos: no hay de dónde leer los cambios.</EmptyState>;
 
   const all = report.repos.flatMap((repo) => [...repo.committed.map((file) => stateOf(repo.repo, 'committed', file)), ...repo.working.map((file) => stateOf(repo.repo, 'working', file))]);
@@ -258,13 +263,31 @@ export const TicketChanges = ({ dir, refreshKey }: { dir: string; refreshKey: nu
           <div className="min-w-48 flex-1">
             <div className="mb-1.5 flex items-center justify-between gap-3 text-sm font-medium"><span>Archivos vistos</span><span className={seen === all.length ? 'text-success' : 'text-warning'}>{seen}/{all.length}</span></div>
             <div className="h-2 overflow-hidden rounded-full bg-surface-3"><div className={cn('h-full rounded-full transition-all', seen === all.length ? 'bg-success' : 'bg-accent')} style={{ width: `${all.length ? Math.round((seen / all.length) * 100) : 0}%` }} /></div>
-            <p className="mt-1.5 text-sm text-muted">Leé cada archivo y marcalo como visto: el Estado del ticket no da el visto bueno hasta que estén todos.</p>
+            <p className="mt-1.5 text-sm text-muted">{segment === 'mr-changes' ? 'Cambios de los MRs en GitLab. Las marcas son tuyas y se invalidan si suben otro commit que toque el archivo.' : 'Leé cada archivo y marcalo como visto: el Estado del ticket no da el visto bueno hasta que estén todos.'}</p>
           </div>
           <span className="flex items-center gap-1.5 text-sm text-muted" title="Archivo anterior / siguiente">Archivo <ShortcutKey id="changes.prev" /><ShortcutKey id="changes.next" /></span>
           <Button icon={bulk.open ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />} onClick={() => setBulk({ open: !bulk.open, tick: bulk.tick + 1 })}>{bulk.open ? 'Contraer todo' : 'Expandir todo'}<ShortcutKey id="changes.expand" /></Button>
         </div>
+        {report.message && <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">{report.message}</p>}
         {report.repos.map((repo) => <Repo key={repo.repo} changes={repo} baseBranch={report.baseBranch} />)}
       </div>
     </ReviewContext.Provider>
+  );
+};
+
+/** Pestaña Cambios: la copia local de los repos o los MRs de GitLab. Un ticket de revisión (desarrollo de otra persona) abre en los MRs. */
+export const TicketChangesTab = ({ dir, refreshKey, mrs, preferMr }: { dir: string; refreshKey: number; mrs: number; preferMr: boolean }) => {
+  const [source, setSource] = useState<Segment>(preferMr && mrs > 0 ? 'mr-changes' : 'changes');
+  return (
+    <div className="space-y-4">
+      {mrs > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">Ver los cambios de</span>
+          <Chip selected={source === 'changes'} onToggle={() => setSource('changes')} hint="Lo que hay en tus repos locales: la rama del ticket contra la base y lo sin commitear.">Mis repos</Chip>
+          <Chip selected={source === 'mr-changes'} onToggle={() => setSource('mr-changes')} hint="Lo que muestra GitLab de cada MR del ticket. No hace falta tener la rama en esta máquina.">MRs de GitLab ({mrs})</Chip>
+        </div>
+      )}
+      <TicketChanges key={source} dir={dir} refreshKey={refreshKey} segment={source} />
+    </div>
   );
 };

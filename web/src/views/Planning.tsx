@@ -12,7 +12,7 @@ import { Tabs } from '../components/Tabs';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
-import { TicketChanges } from '../components/TicketChanges';
+import { TicketChangesTab } from '../components/TicketChanges';
 import { TicketNotes } from '../components/TicketNotes';
 import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
@@ -53,7 +53,7 @@ const Detail = ({ dir, refreshKey, onRefresh }: { dir: string; refreshKey: numbe
     <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/planificacion" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="desarrollo" onChanged={detail.reload} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'plan', label: 'Plan' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'diagrama', label: 'Diagrama' }, { id: 'referencia', label: 'Referencia visual' }, { id: 'documentos', label: 'Documentos', count: data.files.docs.length }, { id: 'notas', label: 'Notas' }]} />
       {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
-      {tab === 'cambios' && <TicketChanges dir={dir} refreshKey={refreshKey} />}
+      {tab === 'cambios' && <TicketChangesTab dir={dir} refreshKey={refreshKey} mrs={data.mrs} preferMr={false} />}
       {tab === 'notas' && <TicketNotes dir={dir} />}
       {tab === 'plan' &&
         (plan ? (

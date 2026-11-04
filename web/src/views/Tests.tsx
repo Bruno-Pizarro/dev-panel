@@ -14,7 +14,7 @@ import { TestRuns } from '../components/TestRuns';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
-import { TicketChanges } from '../components/TicketChanges';
+import { TicketChangesTab } from '../components/TicketChanges';
 import { TicketNotes } from '../components/TicketNotes';
 import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
@@ -82,7 +82,7 @@ const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; on
     <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} preferQa={data.kind === 'revision'} /></>}>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }, { id: 'notas', label: 'Notas' }]} />
       {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
-      {tab === 'cambios' && <TicketChanges dir={dir} refreshKey={refreshKey} />}
+      {tab === 'cambios' && <TicketChangesTab dir={dir} refreshKey={refreshKey} mrs={data.mrs} preferMr={data.kind === 'revision'} />}
       {tab === 'notas' && <TicketNotes dir={dir} />}
       {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} refreshKey={refreshKey} />}
       {tab === 'manuales' && <ManualTests dir={dir} refreshKey={refreshKey} />}
