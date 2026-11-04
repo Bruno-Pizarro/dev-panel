@@ -24,6 +24,10 @@ describe('redactSecrets', () => {
     expect(out).toContain('después');
   });
 
+  it('tapa el token de GitLab entero aunque lleve puntos', () => {
+    expect(redactSecrets('T=glpat-AbCdEfGhIjKl.01.0w0abcdefg y sigue')).toBe(`T=${REDACTED} y sigue`);
+  });
+
   it('tapa el valor de "clave = valor" y similares, y deja el nombre', () => {
     expect(redactSecrets('password=ValorInventado1')).toBe(`password=${REDACTED}`);
     expect(redactSecrets('PIN: 000000')).toBe(`PIN: ${REDACTED}`);

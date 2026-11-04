@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { isAllowedTranscript, lastAgentReply, readAgentReply } from './agentTranscript.js';
+import { agentSteps, isAllowedTranscript, lastAgentReply, MAX_STEPS, readAgentReply } from './agentTranscript.js';
 
 const line = (value: unknown) => JSON.stringify(value);
 const assistant = (...content: unknown[]) => line({ type: 'assistant', message: { role: 'assistant', content } });
@@ -72,5 +72,31 @@ describe('transcripciones permitidas', () => {
     const filler = line({ type: 'user', message: { role: 'user', content: 'x'.repeat(1000) } });
     writeFileSync(big, `${Array.from({ length: 5000 }, () => filler).join('\n')}\n${assistant(text('Final del archivo grande'))}\n`);
     expect(readAgentReply(big, [claude])).toBe('Final del archivo grande');
+  });
+});
+
+describe('agentSteps', () => {
+  const tool = (name: string, input: unknown) => ({ type: 'tool_use', name, input });
+
+  it('lista las herramientas en orden con una línea de "sobre qué", sin el handback', () => {
+    const jsonl = [
+      assistant(text('Miro el código'), tool('Read', { file_path: '/repo/a.ts' })),
+      line({ type: 'user', message: { role: 'user', content: 'resultado enorme' } }),
+      assistant(tool('Bash', { command: 'git   log\n--oneline' }), tool('Grep', { pattern: 'foo', path: '/repo' })),
+      assistant(handback('Listo')),
+    ].join('\n');
+    expect(agentSteps(jsonl)).toEqual([
+      { tool: 'Read', summary: '/repo/a.ts' },
+      { tool: 'Bash', summary: 'git log --oneline' },
+      { tool: 'Grep', summary: '/repo' },
+    ]);
+  });
+
+  it('tapa secretos, recorta lo largo y limita la cantidad', () => {
+    const [step] = agentSteps(assistant(tool('Bash', { command: `curl -H "Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789" ${'x'.repeat(400)}` })));
+    expect(step!.summary).not.toContain('abcdefghijklmnop');
+    expect(step!.summary.length).toBeLessThanOrEqual(161);
+    const many = Array.from({ length: MAX_STEPS + 20 }, () => assistant(tool('Read', { file_path: '/a' }))).join('\n');
+    expect(agentSteps(many)).toHaveLength(MAX_STEPS);
   });
 });

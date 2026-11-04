@@ -33,6 +33,18 @@ describe('agentes delegados', () => {
     expect(JSON.stringify(full)).not.toMatch(/ValorInventado1|valorinventado/);
   });
 
+  it('guarda los pasos del agente; la lista solo avisa que existen y limpiar el contenido los borra', () => {
+    const store = createAgentStore();
+    store.handleHook(pre());
+    store.handleHook({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'a-1', agent_type: 'Explore' });
+    store.handleHook({ hook_event_name: 'SubagentStop', agent_id: 'a-1', last_assistant_message: 'ok' }, { steps: [{ tool: 'Read', summary: '/a.ts' }] });
+    expect(store.list()[0]).toMatchObject({ hasSteps: true });
+    expect(JSON.stringify(store.list())).not.toContain('/a.ts');
+    expect(store.get('toolu_1')!.steps).toEqual([{ tool: 'Read', summary: '/a.ts' }]);
+    store.clearContent();
+    expect(store.list()[0]).toMatchObject({ hasSteps: false });
+  });
+
   it('con el interruptor apagado no guarda ni el pedido ni la respuesta', () => {
     let save = false;
     const store = createAgentStore({ saveContent: () => save });

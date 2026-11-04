@@ -19,6 +19,9 @@ Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y
 
 Desarrollo y Pruebas muestran además los datos en vivo del ticket desde **Redmine** (estado, SP, horas, asignado, últimos comentarios). Los **story points** no vienen en `/issues.json`: los guarda el plugin Agile y se leen de `/issues/<id>/agile_data.json` (se piden una vez por ticket y versión y se guardan en `data/sp-cache.json`; si falla, se usa el `[N SP]` del título). La API key se lee (ver la tabla de credenciales) de `REDMINE_API_KEY`, de `redmine.apiKey` o de la skill `redmine-drive`; solo se hacen lecturas (GET) y la key nunca se guarda en el repo, se registra ni se devuelve al navegador. Se puede apagar con `redmine.enabled: false`.
 
+## Pasos de cada agente
+Al terminar un agente (y con "guardar contenido" activo) el panel lee su transcripción (`services/agentTranscript.ts`, `agentSteps`) y guarda **los pasos**: cada herramienta que usó, en orden, con una línea de "sobre qué" (ruta, comando, patrón…), tapando secretos (`redact.ts`), hasta 80 pasos de 160 caracteres; no se guardan los resultados de las herramientas. En la vista Agentes, al abrir un agente aparece el desplegable **Pasos**. Viajan solo en `GET /api/agents/:id` (la lista trae `hasSteps`) y "Borrar contenido guardado" los borra. Es un filtro de patrones: un secreto sin forma conocida dentro de un comando podría verse.
+
 ## Notas por ticket
 Pestaña **Notas** en Pruebas y Desarrollo (`components/TicketNotes.tsx`, `services/ticketNotes.ts`, `/api/tickets/:dir/notes`, `data/ticket-notes.json`): texto libre de hasta 5.000 caracteres con Markdown, que se guarda solo; son locales (no van a Redmine ni a git). Claude las lee con la herramienta MCP `ticket_notes` (solo lectura).
 

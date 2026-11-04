@@ -5,7 +5,7 @@ import { loadConfig } from '../config.js';
 import { run } from '../docker.js';
 import { z } from 'zod';
 import { agents, getAgentSettings, setAgentSettings } from '../services/agents.js';
-import { readAgentReply } from '../services/agentTranscript.js';
+import { readAgentTranscript } from '../services/agentTranscript.js';
 import { loadAccounts } from '../services/claudeAccounts.js';
 import { ticketFromBranch } from '../services/gitRepos.js';
 import { publish } from '../sse.js';
@@ -31,14 +31,14 @@ const claudeDirs = (): string[] => [...new Set([process.env['CLAUDE_CONFIG_DIR']
 
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
-/** El hook de fin no trae el informe: se lee de la transcripción, con unos reintentos por si todavía se está escribiendo. */
-const replyFromTranscript = async (path: unknown): Promise<string | null> => {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const reply = readAgentReply(path, claudeDirs());
-    if (reply) return reply;
+/** El hook de fin no trae el informe ni los pasos: se leen de la transcripción, con unos reintentos por si todavía se está escribiendo. */
+const readTranscript = async (path: unknown, needReply: boolean) => {
+  let last = readAgentTranscript(path, claudeDirs());
+  for (let attempt = 0; attempt < 3 && needReply && !last.reply; attempt += 1) {
     await sleep(300);
+    last = readAgentTranscript(path, claudeDirs());
   }
-  return null;
+  return last;
 };
 
 export const registerAgentRoutes = (app: FastifyInstance): void => {
@@ -48,8 +48,9 @@ export const registerAgentRoutes = (app: FastifyInstance): void => {
     const body = request.body as { hook_event_name?: unknown; cwd?: unknown; last_assistant_message?: unknown; agent_transcript_path?: unknown } | null;
     // La rama solo hace falta cuando se abre un agente (anuncio o arranque).
     const opens = body?.hook_event_name === 'PreToolUse' || body?.hook_event_name === 'SubagentStart';
-    const needsReply = body?.hook_event_name === 'SubagentStop' && typeof body.last_assistant_message !== 'string' && getAgentSettings().saveContent;
-    const changed = agents.handleHook(request.body, { branchTicket: opens ? await branchTicketOf(body?.cwd) : null, response: needsReply ? await replyFromTranscript(body?.agent_transcript_path) : null });
+    const stops = body?.hook_event_name === 'SubagentStop' && getAgentSettings().saveContent;
+    const transcript = stops ? await readTranscript(body?.agent_transcript_path, typeof body?.last_assistant_message !== 'string') : null;
+    const changed = agents.handleHook(request.body, { branchTicket: opens ? await branchTicketOf(body?.cwd) : null, response: transcript?.reply ?? null, steps: transcript?.steps ?? null });
     if (changed) publish('agents', agents.list());
     return reply.code(202).send({ ok: true });
   });

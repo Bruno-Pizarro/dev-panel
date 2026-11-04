@@ -49,7 +49,23 @@ const AgentContent = ({ id }: { id: string }) => {
   const detail = useAsync(() => api.get<AgentDetail>(`/api/agents/${encodeURIComponent(id)}`));
   if (detail.loading && !detail.data) return <Skeleton className="h-24" />;
   if (detail.error || !detail.data) return <p className="text-danger">{detail.error}</p>;
-  return <div className="space-y-4"><TextBlock title="Pedido" text={detail.data.request} /><TextBlock title="Respuesta" text={detail.data.response} /></div>;
+  const steps = detail.data.steps ?? [];
+  return (
+    <div className="space-y-4">
+      <TextBlock title="Pedido" text={detail.data.request} />
+      {steps.length > 0 && (
+        <details className="group rounded-lg border border-line" data-testid="agent-steps">
+          <summary className="flex cursor-pointer items-center gap-2 px-3.5 py-2.5 font-medium">Pasos <Badge>{steps.length}</Badge><span className="text-sm font-normal text-muted">herramientas que usó, en orden</span></summary>
+          <ol className="max-h-80 space-y-1 overflow-auto border-t border-line p-3.5 font-mono text-sm">
+            {steps.map((step, index) => (
+              <li key={index} className="flex gap-3"><span className="w-6 shrink-0 text-right text-muted">{index + 1}</span><span className="w-24 shrink-0 font-medium text-accent">{step.tool}</span><span className="min-w-0 break-all text-muted">{step.summary}</span></li>
+            ))}
+          </ol>
+        </details>
+      )}
+      <TextBlock title="Respuesta" text={detail.data.response} />
+    </div>
+  );
 };
 
 const AgentNode = ({ run, now, open, onToggle, focused }: { run: AgentRun; now: number; open: boolean; onToggle: () => void; focused: boolean }) => {
@@ -59,7 +75,7 @@ const AgentNode = ({ run, now, open, onToggle, focused }: { run: AgentRun; now: 
     if (focused) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [focused]);
   const end = run.status === 'running' ? now : run.endedAt ? Date.parse(run.endedAt) : null;
-  const hasText = run.hasRequest || run.hasResponse;
+  const hasText = run.hasRequest || run.hasResponse || run.hasSteps;
   return (
     <li ref={ref} className="relative pl-6 before:absolute before:left-0 before:top-5 before:h-px before:w-5 before:bg-line" data-testid="agent-node" data-focused={focused || undefined}>
       <div className={cn('rounded-xl border bg-surface', focused ? 'border-accent ring-2 ring-accent/40' : 'border-line')}>

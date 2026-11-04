@@ -1,5 +1,6 @@
 import { existsSync, openSync, closeSync, readSync, realpathSync, statSync } from 'node:fs';
 import { sep } from 'node:path';
+import { redactSecrets } from './redact.js';
 
 /**
  * El informe final de un agente, sacado de su transcripción (el hook SubagentStop no lo trae): el último texto del asistente o,
@@ -31,6 +32,47 @@ export const lastAgentReply = (jsonl: string): string | null => {
     }
   }
   return reply;
+};
+
+/** Un paso del agente: la herramienta que usó y, en una línea, sobre qué (con los secretos tapados). */
+export interface AgentStep {
+  tool: string;
+  summary: string;
+}
+
+export const MAX_STEPS = 80;
+const MAX_STEP_TEXT = 160;
+/** Campos de la entrada de una herramienta que mejor dicen "sobre qué" trabajó, por orden de preferencia. */
+const STEP_FIELDS = ['file_path', 'path', 'command', 'pattern', 'url', 'query', 'description', 'prompt', 'skill'];
+
+const stepSummary = (input: Record<string, unknown>): string => {
+  const field = STEP_FIELDS.find((name) => typeof input[name] === 'string' && (input[name] as string).trim());
+  // eslint-disable-next-line no-control-regex
+  const text = field ? redactSecrets((input[field] as string).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim()) : '';
+  return text.length > MAX_STEP_TEXT ? `${text.slice(0, MAX_STEP_TEXT)}…` : text;
+};
+
+/** Las herramientas que usó el agente, en orden (solo lo que pidió, no lo que devolvieron: pueden ser enormes). */
+export const agentSteps = (jsonl: string): AgentStep[] => {
+  const steps: AgentStep[] = [];
+  for (const line of jsonl.split('\n')) {
+    if (!line.trim() || steps.length >= MAX_STEPS) continue;
+    let entry: Record<string, unknown>;
+    try {
+      entry = asRecord(JSON.parse(line));
+    } catch {
+      continue;
+    }
+    if (entry['type'] !== 'assistant') continue;
+    const content = asRecord(entry['message'])['content'];
+    if (!Array.isArray(content)) continue;
+    for (const raw of content) {
+      const block = asRecord(raw);
+      if (block['type'] !== 'tool_use' || typeof block['name'] !== 'string' || block['name'] === 'SubagentHandback' || steps.length >= MAX_STEPS) continue;
+      steps.push({ tool: block['name'].slice(0, 60), summary: stepSummary(asRecord(block['input'])) });
+    }
+  }
+  return steps;
 };
 
 /** La ruta de la transcripción es válida solo si, ya resuelta, está en `<carpeta de Claude>/projects/…` y termina en .jsonl. */
@@ -73,5 +115,16 @@ export const readAgentReply = (path: unknown, claudeDirs: string[]): string | nu
     return lastAgentReply(readTail(path));
   } catch {
     return null;
+  }
+};
+
+/** Informe final y pasos de un agente, leyendo la transcripción una sola vez. */
+export const readAgentTranscript = (path: unknown, claudeDirs: string[]): { reply: string | null; steps: AgentStep[] } => {
+  if (!isAllowedTranscript(path, claudeDirs) || !existsSync(path)) return { reply: null, steps: [] };
+  try {
+    const text = readTail(path);
+    return { reply: lastAgentReply(text), steps: agentSteps(text) };
+  } catch {
+    return { reply: null, steps: [] };
   }
 };

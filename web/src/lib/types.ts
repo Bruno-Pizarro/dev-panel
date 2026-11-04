@@ -424,9 +424,10 @@ export interface ViewedProgress { total: number; viewed: number; pending: Array<
 export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress }
 export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
 
-export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean }
+export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean; hasSteps?: boolean }
 /** Un agente completo: lo que se le pidió y lo que contestó (con los secretos tapados). */
-export interface AgentDetail extends AgentRun { request: string | null; response: string | null }
+export interface AgentStep { tool: string; summary: string }
+export interface AgentDetail extends AgentRun { request: string | null; response: string | null; steps?: AgentStep[] | null }
 
 export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
 export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null; reminderId?: string }

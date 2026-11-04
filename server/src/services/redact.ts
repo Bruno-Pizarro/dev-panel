@@ -16,7 +16,7 @@ const RULES: Rule[] = [
   // Tokens con prefijo conocido: GitHub, GitLab, Anthropic, OpenAI y similares, AWS, Slack.
   { pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}/g, replace: REDACTED },
   { pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}/g, replace: REDACTED },
-  { pattern: /\bglpat-[A-Za-z0-9_-]{10,}/g, replace: REDACTED },
+  { pattern: /\bglpat-[A-Za-z0-9_.-]{10,}/g, replace: REDACTED },
   { pattern: /\bsk-ant-[A-Za-z0-9_-]{10,}/g, replace: REDACTED },
   { pattern: /\bsk-[A-Za-z0-9_-]{20,}/g, replace: REDACTED },
   { pattern: /\bAKIA[0-9A-Z]{16}\b/g, replace: REDACTED },

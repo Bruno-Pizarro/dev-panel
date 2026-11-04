@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { paths } from '../config.js';
+import type { AgentStep } from './agentTranscript.js';
 import { cleanBlock } from './redact.js';
 
 /**
@@ -29,10 +30,12 @@ export interface AgentRun {
   /** Lo que se le pidió al agente y lo que contestó (con los secretos tapados); null si no se guardó. */
   request: string | null;
   response: string | null;
+  /** Herramientas que usó el agente, en orden (solo si se guarda el contenido); null si no se guardaron. */
+  steps: AgentStep[] | null;
 }
 
 /** Lo que se muestra en la lista y viaja por SSE: sin los textos largos, solo si los hay. */
-export type AgentSummary = Omit<AgentRun, 'request' | 'response'> & { hasRequest: boolean; hasResponse: boolean };
+export type AgentSummary = Omit<AgentRun, 'request' | 'response' | 'steps'> & { hasRequest: boolean; hasResponse: boolean; hasSteps: boolean };
 
 /** Cuánto dura el historial, cuánto puede figurar "trabajando" sin avisar que terminó y cuántos agentes se guardan como máximo. */
 export const HISTORY_MS = 3 * 24 * 60 * 60_000;
@@ -59,6 +62,8 @@ export interface HookContext {
   branchTicket?: string | null;
   /** El informe final del agente cuando el hook no lo trae (se saca de su transcripción). */
   response?: string | null;
+  /** Los pasos del agente, sacados de su transcripción. */
+  steps?: AgentStep[] | null;
 }
 
 interface StoreOptions {
@@ -78,7 +83,7 @@ const isRun = (value: unknown): value is AgentRun => {
 
 export const createAgentStore = (options: StoreOptions | (() => number) = {}) => {
   const { now = Date.now, initial = [], onChange, saveContent = () => true } = typeof options === 'function' ? ({ now: options } as StoreOptions) : options;
-  const runs = new Map<string, AgentRun>(initial.filter(isRun).map((run) => [run.id, { ...run, project: run.project ?? null, ticket: run.ticket ?? null, request: run.request ?? null, response: run.response ?? null }]));
+  const runs = new Map<string, AgentRun>(initial.filter(isRun).map((run) => [run.id, { ...run, project: run.project ?? null, ticket: run.ticket ?? null, request: run.request ?? null, response: run.response ?? null, steps: run.steps ?? null }]));
   let counter = 0;
   const changed = (): void => onChange?.([...runs.values()]);
 
@@ -98,7 +103,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
     return [...runs.values()].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt) || a.id.localeCompare(b.id));
   };
 
-  const summary = ({ request, response, ...rest }: AgentRun): AgentSummary => ({ ...rest, hasRequest: request !== null, hasResponse: response !== null });
+  const summary = ({ request, response, steps, ...rest }: AgentRun): AgentSummary => ({ ...rest, hasRequest: request !== null, hasResponse: response !== null, hasSteps: steps !== null && steps.length > 0 });
   /** La lista que ve el navegador: sin los textos largos. */
   const list = (): AgentSummary[] => sorted().map(summary);
   /** Un agente completo, con su pedido y su respuesta. */
@@ -109,7 +114,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
 
   const open = (sessionId: string, type: string, description: string, agentId: string | null, project: string | null, ticket: string | null, request: string | null, id?: string): AgentRun => {
     counter += 1;
-    const run: AgentRun = { id: id ?? `run-${counter}-${now()}`, sessionId, type, description, startedAt: new Date(now()).toISOString(), endedAt: null, status: 'running', agentId, project, ticket, request, response: null };
+    const run: AgentRun = { id: id ?? `run-${counter}-${now()}`, sessionId, type, description, startedAt: new Date(now()).toISOString(), endedAt: null, status: 'running', agentId, project, ticket, request, response: null, steps: null };
     runs.set(run.id, run);
     return run;
   };
@@ -153,7 +158,10 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
       if (!run) return false;
       run.status = 'done';
       run.endedAt = new Date(now()).toISOString();
-      if (saveContent()) run.response = cleanBlock(input['last_assistant_message'] ?? context.response);
+      if (saveContent()) {
+        run.response = cleanBlock(input['last_assistant_message'] ?? context.response);
+        run.steps = context.steps?.length ? context.steps : null;
+      }
       changed();
       return true;
     }
@@ -184,9 +192,10 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
   const clearContent = (): number => {
     let count = 0;
     for (const run of runs.values()) {
-      if (run.request !== null || run.response !== null) {
+      if (run.request !== null || run.response !== null || run.steps !== null) {
         run.request = null;
         run.response = null;
+        run.steps = null;
         count += 1;
       }
     }
