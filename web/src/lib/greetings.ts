@@ -21,6 +21,9 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Madrugada productiva: nadie te manda mails ni reuniones.' },
     { text: 'Te están volviendo loco ¿no?' },
     { text: 'Prometo no juzgar tus commits de las 3 de la mañana, {name}.', named: true },
+    { text: 'Si compila a esta hora, desconfiá.' },
+    { text: '{name}, el sueño también es una dependencia crítica.', named: true },
+    { text: 'Un commit más y duermo. (Mentira, siempre es uno más.)' },
   ],
   manana: [
     { text: '¡Buen día! El café ya debería estar haciendo efecto.' },
@@ -30,6 +33,9 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Buenos días. Primero el café, después el git pull.' },
     { text: 'Buen día, {name}. Que los merges sean livianos y los conflictos, pocos.', named: true },
     { text: 'Mañana fresca, ramas limpias. Así da gusto.' },
+    { text: 'Cero reuniones, cero bugs. Prometido hasta que se demuestre lo contrario.' },
+    { text: 'Buen día, {name}. Hoy toca ser productivo, o por lo menos parecerlo.', named: true },
+    { text: 'El primer café compila, el segundo despliega.' },
   ],
   mediodia: [
     { text: 'Hora del almuerzo: los bugs también esperan.' },
@@ -37,6 +43,8 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Mediodía: buen momento para estirar las piernas y no mirar la pantalla un rato.' },
     { text: 'Pausa merecida, {name}. El panel te cuida las espaldas.', named: true },
     { text: 'Si el código no compila a esta hora, probablemente sea hambre.' },
+    { text: 'Los deploys del mediodía son como las milanesas: mejor no improvisar.' },
+    { text: 'Buen provecho, {name}. El merge te espera cuando vuelvas.', named: true },
   ],
   tarde: [
     { text: 'Buenas tardes. A este ritmo el ticket se cierra solo.' },
@@ -46,6 +54,9 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Lo difícil ya pasó. (Esta frase no tiene respaldo técnico.)' },
     { text: 'Buenas tardes, {name}. Un último esfuerzo y a cerrar tickets.', named: true },
     { text: 'La tarde es larga, pero el historial de git es más largo.' },
+    { text: 'A esta hora el café ya es una decisión de arquitectura.' },
+    { text: '{name}, un ticket cerrado vale más que cinco a medias.', named: true },
+    { text: 'Tarde de merges: respirá hondo antes de resolver conflictos.' },
   ],
   noche: [
     { text: 'Buenas noches. Hasta el panel baja el brillo.' },
@@ -55,28 +66,114 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Cerrá la jornada con un buen mensaje de commit. Tu yo del futuro lo agradece.' },
     { text: 'Noche tranquila: sin alertas rojas, sin rebases pendientes (ojalá).' },
     { text: 'Ya se te pasó la hora ¿vamos cerrando?' },
+    { text: 'El que commitea de noche, rebasa de mañana.' },
+    { text: 'Buenas noches, {name}. Dejá el panel prendido, yo me encargo de acordarme.', named: true },
+    { text: 'Apagá el monitor, que el código no se va a escapar.' },
   ],
 };
 
 /** Extras según el día de la semana (0 = domingo). */
 export const DAY_PHRASES: Record<number, Phrase[]> = {
-  1: [{ text: 'Lunes: respiremos hondo y vayamos de a un ticket por vez.' }, { text: 'Lunes, {name}. Todavía hay tiempo de fingir que el finde fue largo.', named: true }],
+  1: [{ text: 'Lunes: respiremos hondo y vayamos de a un ticket por vez.' }, { text: 'Lunes: la daily de ayer sigue en pie, el café también.' }, { text: 'Lunes, {name}. Todavía hay tiempo de fingir que el finde fue largo.', named: true }],
   5: [{ text: 'Viernes: prohibido hacer deploy. (Es broma… o no.)' }, { text: '¡Viernes, {name}! Que los tests pasen y el finde llegue sin incidentes.', named: true }],
-  6: [{ text: 'Sábado de guardia: el panel te acompaña.' }],
+  6: [{ text: 'Sábado de guardia: el panel te acompaña.' }, { text: 'Sábado, {name}. Si estás acá, algo importante se rompió.', named: true }],
   0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla mañana.', named: true }],
 };
 
-/** Las frases posibles para esa hora y día, con o sin nombre. */
-export const poolFor = (date: Date, name: string): string[] => {
+/** Lo que el Inicio sabe de hoy y puede mencionar en el saludo (viene de los avisos del día). */
+export interface GreetingContext {
+  /** Nombre del feriado de hoy, si hoy es feriado. */
+  holiday?: string | null;
+  /** Cantidad de avisos importantes (comentarios nuevos, vencimientos de hoy o mañana, MRs con problemas…). */
+  important?: number;
+  /** Tickets que vencen hoy o mañana, o ya vencidos. */
+  dueSoon?: number;
+  /** Comentarios nuevos de otras personas en tus tickets. */
+  reviews?: number;
+  /** Hoy es el último día del sprint con trabajo pendiente. */
+  sprintLastDay?: boolean;
+  /** MRs con conflicto o pipeline caído. */
+  mrProblems?: number;
+}
+
+/** Frases de un feriado: reemplazan a las del día (hoy no se labura… o no debería). `{holiday}` es el nombre del feriado. */
+export const HOLIDAY_PHRASES: Phrase[] = [
+  { text: 'Hoy es feriado ({holiday}). Si estás acá, algo te pesa en la conciencia.' },
+  { text: '{name}, es feriado. El panel te perdona, pero tu descanso no.', named: true },
+  { text: 'Feriado: {holiday}. Los tickets pueden esperar, los asados no.' },
+  { text: 'Hoy no se compila: {holiday}. Aprovechá.' },
+  { text: '{name}, ¿trabajando en feriado? Dejá el mouse y andá a descansar.', named: true },
+  { text: 'Día no laborable. El único deploy que corresponde hoy es el de la siesta.' },
+  { text: 'Feriado de {holiday}: si el build falla, que falle mañana.' },
+  { text: '{name}, descansá: el sprint no se va a achicar por un feriado… ¿o sí?', named: true },
+];
+
+/** Frases que mencionan algo real que conviene mirar. Se suman al pool cuando corresponde. `{avisos}` es "1 aviso importante" / "3 avisos importantes". */
+export const ATTENTION_PHRASES: Record<'important' | 'dueSoon' | 'reviews' | 'sprintLastDay' | 'mrProblems', Phrase[]> = {
+  important: [
+    { text: 'Ojo: hoy hay {avisos} en "Para tener en cuenta".' },
+    { text: '{name}, mirá los avisos de abajo antes de arrancar: tenés {avisos}.', named: true },
+    { text: 'Tenés {avisos} esperándote. Primero eso, después el café.' },
+  ],
+  dueSoon: [
+    { text: 'Hay un ticket que vence pronto: conviene no dejarlo para después.' },
+    { text: '{name}, un vencimiento anda cerca. Revisá el aviso de abajo.', named: true },
+    { text: 'La fecha de entrega no espera: mirá qué vence hoy o mañana.' },
+  ],
+  reviews: [
+    { text: 'Te dejaron comentarios en tus tickets: leelos antes de seguir.' },
+    { text: '{name}, hay comentarios nuevos en tus tickets. Alguien leyó tu trabajo.', named: true },
+    { text: 'Revisión nueva a la vista. Todo bien, probablemente.' },
+  ],
+  sprintLastDay: [
+    { text: 'Último día del sprint con cosas pendientes: hoy se define.' },
+    { text: '{name}, hoy cierra el sprint. Lo que no esté en Revisión, ya es del próximo.', named: true },
+  ],
+  mrProblems: [
+    { text: 'Hay un MR con conflicto o pipeline caído esperando que lo mires.' },
+    { text: '{name}, algún MR se ensució. Mirá los avisos antes de que se enfríe.', named: true },
+  ],
+};
+
+/** Las frases posibles para esa hora, día y situación, con o sin nombre. */
+export const poolFor = (date: Date, name: string, context: GreetingContext = {}): string[] => {
   const hasName = name.trim().length > 0;
-  return [...PHRASES[slotOf(date.getHours())], ...(DAY_PHRASES[date.getDay()] ?? [])]
-    .filter((phrase) => !phrase.named || hasName)
-    .map((phrase) => phrase.text.replace(/\{name\}/g, name.trim()));
+  const fill = (phrase: Phrase, extra: Record<string, string> = {}) =>
+    Object.entries(extra).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), phrase.text).replace(/\{name\}/g, name.trim());
+  const usable = (phrases: Phrase[]) => phrases.filter((phrase) => !phrase.named || hasName);
+
+  // Un feriado manda: hoy el saludo es de feriado.
+  if (context.holiday) return usable(HOLIDAY_PHRASES).map((phrase) => fill(phrase, { holiday: context.holiday! }));
+
+  const important = context.important ?? 0;
+  const attention: string[] = [
+    ...(important > 0 ? usable(ATTENTION_PHRASES.important).map((phrase) => fill(phrase, { avisos: `${important} ${important === 1 ? 'aviso importante' : 'avisos importantes'}` })) : []),
+    ...((context.dueSoon ?? 0) > 0 ? usable(ATTENTION_PHRASES.dueSoon).map((phrase) => fill(phrase)) : []),
+    ...((context.reviews ?? 0) > 0 ? usable(ATTENTION_PHRASES.reviews).map((phrase) => fill(phrase)) : []),
+    ...(context.sprintLastDay ? usable(ATTENTION_PHRASES.sprintLastDay).map((phrase) => fill(phrase)) : []),
+    ...((context.mrProblems ?? 0) > 0 ? usable(ATTENTION_PHRASES.mrProblems).map((phrase) => fill(phrase)) : []),
+  ];
+  const regular = usable([...PHRASES[slotOf(date.getHours())], ...(DAY_PHRASES[date.getDay()] ?? [])]).map((phrase) => fill(phrase));
+  // Cuando hay algo que mirar, las frases que lo mencionan pesan más (se repiten) pero no desplazan del todo a las simpáticas.
+  return [...regular, ...attention, ...attention];
 };
 
 /** Una frase al azar (distinta de la última que se mostró, si hay otra). */
-export const pickGreeting = (date: Date, name: string, random: () => number = Math.random, last?: string | null): string => {
-  const pool = poolFor(date, name);
+export const pickGreeting = (date: Date, name: string, random: () => number = Math.random, last?: string | null, context: GreetingContext = {}): string => {
+  const pool = poolFor(date, name, context);
   const options = pool.length > 1 ? pool.filter((text) => text !== last) : pool;
   return options[Math.min(options.length - 1, Math.floor(random() * options.length))] ?? '';
+};
+
+/** El contexto del saludo a partir de los avisos del día (ver `HomeNotice`). */
+export const contextFromNotices = (notices: Array<{ id: string; kind: string; level: string; title: string }>, todayIso: string): GreetingContext => {
+  const holiday = notices.find((notice) => notice.id === `holiday-${todayIso}` && notice.title.startsWith('Hoy es feriado'));
+  return {
+    holiday: holiday ? holiday.title.replace(/^Hoy es feriado:\s*/, '') : null,
+    important: notices.filter((notice) => notice.level === 'important').length,
+    dueSoon: notices.filter((notice) => notice.kind === 'due' && notice.level === 'important').length,
+    reviews: notices.filter((notice) => notice.kind === 'review').length,
+    sprintLastDay: notices.some((notice) => notice.kind === 'sprint' && notice.level === 'important'),
+    mrProblems: notices.filter((notice) => notice.kind === 'mr' && notice.level === 'important' && !notice.id.startsWith('mr-notes-')).length,
+  };
 };

@@ -1,10 +1,10 @@
 import { CalendarClock, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useStoredState } from '../lib/hooks';
-import type { HomeNotice, HomeNoticesReport, NoticeKind } from '../lib/types';
+import type { HomeNoticesState } from '../lib/useHomeNotices';
+import type { HomeNotice, NoticeKind } from '../lib/types';
 import { Button } from './Button';
 import { Card } from './Card';
 import { Skeleton } from './Skeleton';
@@ -41,20 +41,9 @@ const Notice = ({ notice, onDismiss }: { notice: HomeNotice; onDismiss: () => vo
 };
 
 /** "Para tener en cuenta": los avisos del día. Se revisan una vez por día en el servidor; abrir el Inicio de nuevo solo lee lo guardado. */
-export const HomeNotices = () => {
-  const [report, setReport] = useState<HomeNoticesReport | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
+  const { report, failed, busy, load } = state;
   const [dismissed, setDismissed] = useStoredState<Dismissed>('dev-panel.home.dismissed', { date: today(), ids: [] });
-
-  const load = (refresh: boolean) => {
-    setBusy(true);
-    api.get<HomeNoticesReport>(`/api/home/notices${refresh ? '?refresh=1' : ''}`).then(
-      (value) => (setReport(value), setFailed(null)),
-      (error: Error) => setFailed(error.message),
-    ).finally(() => setBusy(false));
-  };
-  useEffect(() => load(false), []);
 
   const hidden = useMemo(() => (dismissed.date === today() ? dismissed.ids : []), [dismissed]);
   const visible = useMemo(() => [...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
