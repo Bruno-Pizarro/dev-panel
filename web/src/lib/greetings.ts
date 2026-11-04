@@ -19,13 +19,14 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'A esta hora hasta los servicios duermen. Vos no, {name}.', named: true },
     { text: '{name}, ¿seguro que esto no puede esperar a la mañana?', named: true },
     { text: 'Madrugada productiva: nadie te manda mails ni reuniones.' },
+    { text: 'Te están volviendo loco ¿no?' },
     { text: 'Prometo no juzgar tus commits de las 3 de la mañana, {name}.', named: true },
   ],
   manana: [
     { text: '¡Buen día! El café ya debería estar haciendo efecto.' },
     { text: 'Buen día, {name}. Hoy los tests están de buen humor (creo).', named: true },
     { text: 'Arrancamos la jornada: cero tickets, infinitas posibilidades.' },
-    { text: '¡Arriba, {name}! Los tests no se escriben solos… todavía.', named: true },
+    { text: '¡Arriba, {name}! Los tests no se escriben solos… bueno más o menos.', named: true },
     { text: 'Buenos días. Primero el café, después el git pull.' },
     { text: 'Buen día, {name}. Que los merges sean livianos y los conflictos, pocos.', named: true },
     { text: 'Mañana fresca, ramas limpias. Así da gusto.' },
@@ -53,6 +54,7 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: '{name}, lo que no está commiteado a esta hora, mañana será otro problema.', named: true },
     { text: 'Cerrá la jornada con un buen mensaje de commit. Tu yo del futuro lo agradece.' },
     { text: 'Noche tranquila: sin alertas rojas, sin rebases pendientes (ojalá).' },
+    { text: 'Ya se te pasó la hora ¿vamos cerrando?' },
   ],
 };
 
