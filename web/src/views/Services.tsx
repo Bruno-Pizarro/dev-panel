@@ -11,7 +11,6 @@ import { Skeleton } from '../components/Skeleton';
 import { Tooltip } from '../components/Tooltip';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
-import { cn } from '../lib/cn';
 import { pillStyle, serviceColor, tint } from '../lib/colors';
 import { explainContainer, sortContainers, type SortKey } from '../lib/containers';
 import { usePolling, useStoredState } from '../lib/hooks';
