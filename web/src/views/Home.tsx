@@ -10,10 +10,10 @@ import { PageHeader } from '../components/PageHeader';
 import { Skeleton } from '../components/Skeleton';
 import { StatusDot } from '../components/StatusDot';
 import { api } from '../lib/api';
-import type { Check, DevPanelConfig, SetupDetect } from '../lib/types';
+import type { Check, DailyChecklist, DevPanelConfig, SetupDetect } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { uniqueById } from '../lib/uniqueById';
-import { contextFromNotices, pickGreeting, slotOf, type GreetingContext, type Slot } from '../lib/greetings';
+import { contextFromNotices, pickGreeting, slotOf, workdayPhase, type GreetingContext, type Slot } from '../lib/greetings';
 import { useHomeNotices, type HomeNoticesState } from '../lib/useHomeNotices';
 
 const SLOT_ICONS: Record<Slot, LucideIcon> = { madrugada: Moon, manana: Sunrise, mediodia: Sun, tarde: Sunset, noche: Moon };
@@ -25,13 +25,29 @@ const todayIso = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 };
 
-const Greeting = ({ name, notices }: { name: string; notices: HomeNoticesState }) => {
+const Greeting = ({ name, notices, workday }: { name: string; notices: HomeNoticesState; workday: { entry: string; exit: string } }) => {
+  // La fase de la jornada depende de la hora y de lo que tildaste: se recalcula cada minuto.
+  const checklist = useAsync(() => api.get<DailyChecklist>('/api/checklist/daily'));
+  const [now, setNow] = useState(() => new Date());
+  const reloadChecklist = useRef(checklist.reload);
+  reloadChecklist.current = checklist.reload;
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+      reloadChecklist.current();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const phase = useMemo(() => {
+    const items = checklist.data?.items ?? [];
+    return workdayPhase(now, workday, { entry: items.some((item) => item.id === 'marcar-entrada' && item.done), hours: items.some((item) => item.id === 'cargar-horas' && item.done) });
+  }, [now, workday, checklist.data]);
   // Los avisos que ocultaste por hoy no cuentan para el saludo.
   const context = useMemo<GreetingContext | null>(() => {
     if (!notices.report) return null;
     const all = uniqueById([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices]);
-    return contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso());
-  }, [notices.report, notices.hidden]);
+    return { ...contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso()), workday: phase };
+  }, [notices.report, notices.hidden, phase]);
   const [text, setText] = useState(() => {
     const now = new Date();
     let last: string | null = null;
@@ -57,7 +73,7 @@ const Greeting = ({ name, notices }: { name: string; notices: HomeNoticesState }
     if (key === lastKey.current) return;
     const first = lastKey.current === null;
     lastKey.current = key;
-    const relevant = context.holiday || (context.important ?? 0) > 0 || (context.dueSoon ?? 0) > 0 || (context.reviews ?? 0) > 0 || context.sprintLastDay || (context.mrProblems ?? 0) > 0;
+    const relevant = context.holiday || !!context.workday || (context.important ?? 0) > 0 || (context.dueSoon ?? 0) > 0 || (context.reviews ?? 0) > 0 || context.sprintLastDay || (context.mrProblems ?? 0) > 0;
     if (relevant || !first) setText(pickGreeting(new Date(), name, Math.random, text, relevant ? context : {}));
   }, [context, name, text]);
   const Icon = SLOT_ICONS[slotOf(new Date().getHours())];
@@ -82,7 +98,7 @@ export const Home = ({ config }: { config: DevPanelConfig }) => {
   return (
     <>
       <PageHeader title="Inicio" description="Estado del entorno de desarrollo." />
-      <Greeting name={config.userName} notices={notices} />
+      <Greeting name={config.userName} notices={notices} workday={config.workday} />
       <HomeNotices state={notices} />
       <DailyChecklistCard />
       {detect.loading || !data ? (

@@ -162,6 +162,34 @@ export const DAY_PHRASES: Record<number, Phrase[]> = {
   0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla mañana... o el mes que viene.', named: true }],
 };
 
+import { minutesSince } from './workday';
+
+/** Dónde estás respecto de tu jornada (entrada y salida de la configuración). Solo días de semana y con horario cargado. */
+export type WorkdayPhase = 'beforeEntry' | 'entryPending' | 'lastHour' | 'afterExit' | 'afterExitHours' | 'longAfter';
+
+/**
+ * La fase de la jornada, o `null` si no hay nada que decir (fin de semana, sin horarios, o en medio del día).
+ *  - `beforeEntry`: falta entre 15 min y 4 h para la entrada;
+ *  - `entryPending`: de 15 min antes a 2 h después de la entrada y todavía no marcaste entrada;
+ *  - `lastHour`: la última hora antes de la salida;
+ *  - `afterExit` / `afterExitHours`: ya pasó la salida (la segunda, si todavía no cargaste las horas);
+ *  - `longAfter`: 3 h o más después de la salida.
+ */
+export const workdayPhase = (now: Date, workday: { entry: string; exit: string }, done: { entry: boolean; hours: boolean }): WorkdayPhase | null => {
+  const sinceExit = minutesSince(workday.exit, now);
+  if (sinceExit !== null) {
+    if (sinceExit >= 180) return 'longAfter';
+    if (sinceExit >= 0) return done.hours ? 'afterExit' : 'afterExitHours';
+    if (sinceExit >= -60) return 'lastHour';
+  }
+  const sinceEntry = minutesSince(workday.entry, now);
+  if (sinceEntry !== null) {
+    if (sinceEntry >= -15 && sinceEntry <= 120 && !done.entry) return 'entryPending';
+    if (sinceEntry < -15 && sinceEntry >= -240) return 'beforeEntry';
+  }
+  return null;
+};
+
 /** Lo que el Inicio sabe de hoy y puede mencionar en el saludo (viene de los avisos del día). */
 export interface GreetingContext {
   /** Nombre del feriado de hoy, si hoy es feriado. */
@@ -176,7 +204,49 @@ export interface GreetingContext {
   sprintLastDay?: boolean;
   /** MRs con conflicto o pipeline caído. */
   mrProblems?: number;
+  /** Dónde estás respecto de tu jornada (ver `workdayPhase`). */
+  workday?: WorkdayPhase | null;
 }
+
+/** Frases según tu jornada: cuidan al desarrollador sin ser obvias. Pesan más que las generales cuando aplican. */
+export const WORKDAY_PHRASES: Record<WorkdayPhase, Phrase[]> = {
+  beforeEntry: [
+    { text: 'Todavía no empieza tu jornada: tomate el café sin apuro.' },
+    { text: '{name}, hay tiempo. Un buen arranque vale más que un arranque temprano.', named: true },
+    { text: 'Falta un rato para entrar. Ordená las ideas, que los tickets esperan.' },
+    { text: 'Aprovechá estos minutos: el día se pone mejor cuando arrancás con calma.' },
+  ],
+  entryPending: [
+    { text: 'Ya es hora de entrar: no te olvides de marcar, que después te lo cobran.' },
+    { text: '{name}, ¿marcaste la entrada? Mejor ahora que cuando te acuerdes a las 5.', named: true },
+    { text: 'Primero marcar, después los commits. El orden importa.' },
+    { text: 'Arrancó tu jornada. Un tilde en "Marcar entrada" y listo.' },
+  ],
+  lastHour: [
+    { text: 'Queda poco para la salida: nada de empezar cosas nuevas ahora.' },
+    { text: '{name}, última hora de la jornada. Cerrá lo que puedas y dejá notas para mañana.', named: true },
+    { text: 'Falta poco para salir: un buen commit y una buena nota valen más que un parche apurado.' },
+    { text: 'Última hora: si algo no entra hoy, que entre ordenado mañana.' },
+  ],
+  afterExit: [
+    { text: 'Tu jornada ya terminó. Lo que hiciste hoy alcanza, {name}.', named: true },
+    { text: 'Ya pasó tu horario de salida. El código también descansa.' },
+    { text: 'Fin de jornada: cerrá la laptop sin culpa.' },
+    { text: 'Hora de salir. Mañana vas a ver los problemas con otros ojos.' },
+  ],
+  afterExitHours: [
+    { text: 'Ya podrías ir cerrando. ¿Cargaste las horas?' },
+    { text: '{name}, terminó tu jornada: cargá las horas y desconectá.', named: true },
+    { text: 'Antes de irte, las horas: dos minutos y te olvidás hasta mañana.' },
+    { text: 'Pasó tu horario de salida y las horas siguen sin cargar. Cerrá el día así.' },
+  ],
+  longAfter: [
+    { text: '{name}, ya hace rato que terminó tu jornada. Lo que falte puede esperar.', named: true },
+    { text: 'Pasaron horas de tu salida. Descansar también es parte del trabajo.' },
+    { text: 'Si no es urgente de verdad, mañana lo resolvés con la cabeza fresca.' },
+    { text: 'Ya es tarde para tu jornada: cuidate, que el sprint no se va a ir a ningún lado.' },
+  ],
+};
 
 /** Frases de un feriado: reemplazan a las del día (hoy no se labura… o no debería). `{holiday}` es el nombre del feriado. */
 export const HOLIDAY_PHRASES: Phrase[] = [
@@ -235,11 +305,13 @@ export const poolFor = (date: Date, name: string, context: GreetingContext = {})
     ...(context.sprintLastDay ? usable(ATTENTION_PHRASES.sprintLastDay).map((phrase) => fill(phrase)) : []),
     ...((context.mrProblems ?? 0) > 0 ? usable(ATTENTION_PHRASES.mrProblems).map((phrase) => fill(phrase)) : []),
   ];
+  // Tu jornada: pesan el triple, más que los avisos (cuidar al desarrollador antes que apurarlo).
+  const workday = context.workday ? usable(WORKDAY_PHRASES[context.workday]).map((phrase) => fill(phrase)) : [];
   const hour = date.getHours();
   const odd = usable(ODD_HOUR_PHRASES.filter((range) => hour >= range.from && hour < range.to).flatMap((range) => range.phrases)).map((phrase) => fill(phrase));
   const regular = [...usable([...PHRASES[slotOf(hour)], ...(DAY_PHRASES[date.getDay()] ?? []), ...AI_PHRASES]).map((phrase) => fill(phrase)), ...odd, ...odd];
   // Cuando hay algo que mirar, las frases que lo mencionan pesan más (se repiten) pero no desplazan del todo a las simpáticas.
-  return [...regular, ...attention, ...attention];
+  return [...regular, ...attention, ...attention, ...workday, ...workday, ...workday];
 };
 
 /** Una frase al azar (distinta de la última que se mostró, si hay otra). */
