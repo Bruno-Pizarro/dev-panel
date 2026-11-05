@@ -10,7 +10,7 @@ export const validTarget = (host: string, user: string): boolean => HOST_PATTERN
  */
 export const buildBat = (host: string, user: string, ports: number[], open: number[] = [4200, 5173]): string => {
   if (!validTarget(host, user)) throw new Error('Host o usuario inválido');
-  const forwards = ports.map((port) => `-L ${port}:localhost:${port}`).join(' ');
+  const forwards = ports.map((port) => `-L ${port}:127.0.0.1:${port}`).join(' ');
   const urls = open.map((port) => `start http://localhost:${port}`).join(' & ');
   return [
     '@echo off',
