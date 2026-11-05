@@ -5,7 +5,6 @@ import { useShortcutMap } from '../lib/useShortcuts';
 import { ShortcutKey } from './Key';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/cn';
-import { useStoredState } from '../lib/hooks';
 import type { HomeNoticesState } from '../lib/useHomeNotices';
 import type { HomeNotice, NoticeKind } from '../lib/types';
 import { Button } from './Button';
@@ -13,19 +12,10 @@ import { Card } from './Card';
 import { RemindersModal } from './RemindersModal';
 import { Skeleton } from './Skeleton';
 import { api } from '../lib/api';
+import { uniqueById } from '../lib/uniqueById';
 
 const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell };
 const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio' };
-
-const today = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
-
-interface Dismissed {
-  date: string;
-  ids: string[];
-}
 
 const Notice = ({ notice, onDismiss, onDone }: { notice: HomeNotice; onDismiss: () => void; onDone: (id: string) => void }) => {
   const Icon = KIND_ICONS[notice.kind];
@@ -48,21 +38,21 @@ const Notice = ({ notice, onDismiss, onDone }: { notice: HomeNotice; onDismiss: 
 
 /** "Para tener en cuenta": los avisos del día. Se revisan una vez por día en el servidor; abrir el Inicio de nuevo solo lee lo guardado. */
 export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
-  const { report, failed, busy, load } = state;
-  const [dismissed, setDismissed] = useStoredState<Dismissed>('dev-panel.home.dismissed', { date: today(), ids: [] });
+  const { report, failed, busy, load, hidden, setHidden } = state;
 
   const dnd = useDnd();
   const [peek, setPeek] = useState(false);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const markDone = (id: string) => void api.put(`/api/reminders/${id}`, { done: true }).catch(() => undefined);
-  const hidden = useMemo(() => (dismissed.date === today() ? dismissed.ids : []), [dismissed]);
-  const visible = useMemo(() => [...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
+  // Sin ids repetidos: un informe guardado antes de la corrección puede traer el mismo aviso dos veces, y con claves repetidas React no los quita al ocultarlos.
+  const all = useMemo(() => uniqueById([...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])]), [report]);
+  const visible = useMemo(() => all.filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [all, hidden]);
   const dismissFirst = () => {
     const first = visible[0];
-    if (first) setDismissed({ date: today(), ids: [...hidden, first.id] });
+    if (first) setHidden([...hidden, first.id]);
   };
   useShortcutMap({ 'home.dismiss': dismissFirst, 'home.recheck': () => load(true), 'home.reminders': () => setRemindersOpen(true) });
-  const hiddenCount = (report ? report.reminders.length + report.routines.length + report.notices.length : 0) - visible.length;
+  const hiddenCount = all.length - visible.length;
   const checkedAt = report ? new Date(report.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
   // No molestar: los avisos quedan silenciados (siguen guardados); se pueden mirar igual con un clic.
@@ -88,9 +78,9 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
       {failed ? <p className="text-danger">{failed}</p> : !report ? <Skeleton className="h-24" /> : (
         <div className="space-y-3">
           {visible.length === 0 ? <p className="text-muted" data-testid="home-notices-empty">Sin avisos por hoy: todo tranquilo.{hiddenCount > 0 ? ` (${hiddenCount} oculto${hiddenCount === 1 ? '' : 's'} por hoy)` : ''}</p> : (
-            <ul className="space-y-2">{visible.map((notice) => <Notice key={notice.id} notice={notice} onDone={markDone} onDismiss={() => setDismissed({ date: today(), ids: [...hidden, notice.id] })} />)}</ul>
+            <ul className="space-y-2">{visible.map((notice) => <Notice key={notice.id} notice={notice} onDone={markDone} onDismiss={() => setHidden([...hidden, notice.id])} />)}</ul>
           )}
-          {hiddenCount > 0 && visible.length > 0 && <button type="button" className="text-sm text-muted hover:text-fg hover:underline" onClick={() => setDismissed({ date: today(), ids: [] })}>Mostrar los {hiddenCount} ocultos</button>}
+          {hiddenCount > 0 && visible.length > 0 && <button type="button" className="text-sm text-muted hover:text-fg hover:underline" onClick={() => setHidden([])}>Mostrar los {hiddenCount} ocultos</button>}
           {report.errors.length > 0 && (
             <ul className="space-y-1 border-t border-line pt-3">{report.errors.map((error) => <li key={error.source} className="text-sm text-warning">No se pudo revisar {error.source}: {error.message}</li>)}</ul>
           )}

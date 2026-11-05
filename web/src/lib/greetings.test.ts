@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AI_PHRASES, ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
+import { WORKDAY_PHRASES, workdayPhase, AI_PHRASES, ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
 
 const at = (hour: number, day = 3) => {
   const date = new Date(2026, 10, 4, hour, 0, 0); // miércoles
@@ -121,5 +121,45 @@ describe('frases del Inicio', () => {
     expect(contextFromNotices(notices, '2026-11-04')).toEqual({ holiday: 'Día de prueba', important: 5, dueSoon: 1, reviews: 1, sprintLastDay: true, mrProblems: 1 });
     expect(contextFromNotices(notices, '2026-11-05').holiday).toBeNull();
     expect(contextFromNotices([], '2026-11-04')).toEqual({ holiday: null, important: 0, dueSoon: 0, reviews: 0, sprintLastDay: false, mrProblems: 0 });
+  });
+});
+
+describe('frases según la jornada', () => {
+  const day = (hh: number, mm = 0, weekday = 3) => new Date(2026, 10, 2 + weekday - 1, hh, mm); // 2/11/2026 es lunes
+  const wd = { entry: '09:00', exit: '18:00' };
+  const none = { entry: false, hours: false };
+
+  it('workdayPhase reconoce cada momento de la jornada', () => {
+    expect(workdayPhase(day(7, 30), wd, none)).toBe('beforeEntry');
+    expect(workdayPhase(day(8, 50), wd, none)).toBe('entryPending');
+    expect(workdayPhase(day(9, 30), wd, none)).toBe('entryPending');
+    expect(workdayPhase(day(9, 30), wd, { entry: true, hours: false })).toBeNull();
+    expect(workdayPhase(day(11, 30), wd, none)).toBeNull();
+    expect(workdayPhase(day(17, 15), wd, none)).toBe('lastHour');
+    expect(workdayPhase(day(18, 10), wd, none)).toBe('afterExitHours');
+    expect(workdayPhase(day(18, 10), wd, { entry: true, hours: true })).toBe('afterExit');
+    expect(workdayPhase(day(21, 30), wd, none)).toBe('longAfter');
+  });
+
+  it('sin horarios cargados, o en fin de semana, no hay fase', () => {
+    expect(workdayPhase(day(18, 10), { entry: '', exit: '' }, none)).toBeNull();
+    expect(workdayPhase(day(18, 10, 6), wd, none)).toBeNull();
+    expect(workdayPhase(day(18, 10, 7), wd, none)).toBeNull();
+    expect(workdayPhase(day(18, 10), { entry: '09:00', exit: '' }, none)).toBeNull();
+  });
+
+  it('cada fase suma sus frases (pesan más que las de avisos) y sin nombre no usa las que lo llevan', () => {
+    for (const phase of Object.keys(WORKDAY_PHRASES) as Array<keyof typeof WORKDAY_PHRASES>) {
+      expect(WORKDAY_PHRASES[phase].length).toBeGreaterThanOrEqual(4);
+      const named = poolFor(at(10), 'Ana', { workday: phase });
+      const own = WORKDAY_PHRASES[phase].map((phrase) => phrase.text.replaceAll('{name}', 'Ana'));
+      own.forEach((text) => expect(named.filter((item) => item === text).length).toBe(3));
+      expect(poolFor(at(10), '', { workday: phase }).every((text) => !/[{}]/.test(text))).toBe(true);
+    }
+    expect(poolFor(at(10), 'Ana', { workday: null })).toEqual(poolFor(at(10), 'Ana'));
+  });
+
+  it('un feriado sigue mandando sobre la jornada', () => {
+    expect(poolFor(at(10), 'Ana', { holiday: 'X', workday: 'longAfter' }).length).toBe(HOLIDAY_PHRASES.length);
   });
 });
