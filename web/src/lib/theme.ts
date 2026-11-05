@@ -29,6 +29,26 @@ export const currentTheme = (): string => {
   return isTheme(value) ? value : 'indigo';
 };
 
+/** Tema guardado; no depende del script de index.html (un navegador o extensión puede no ejecutarlo o servirlo cacheado). */
+export const storedTheme = (): string | null => {
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    const value: unknown = raw === null ? null : JSON.parse(raw);
+    return isTheme(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Al arrancar la app: pone en `<html>` el tema guardado si todavía no está puesto. */
+export const initTheme = (): void => {
+  const id = storedTheme();
+  if (!id || id === currentTheme()) return;
+  if (id === 'indigo') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = id;
+  window.dispatchEvent(new Event(EVENT));
+};
+
 const apply = (id: string) => {
   if (id === 'indigo') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = id;

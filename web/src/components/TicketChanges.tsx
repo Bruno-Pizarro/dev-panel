@@ -2,12 +2,13 @@ import { Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitCo
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
-import { useReloadOn } from '../lib/hooks';
+import { useReloadOn, useStoredState } from '../lib/hooks';
 import type { ChangedFile, FileDiff, RepoChanges, TicketChangesReport, ViewedState } from '../lib/types';
 import { parseDiffLines } from '../lib/diff';
 import { languageOf, tokenizeLine } from '../lib/highlight';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
+import { ChangesTree } from './ChangesTree';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { ShortcutKey } from './Key';
@@ -222,6 +223,7 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
     [dir, segment, toast],
   );
   const [current, setCurrent] = useState<string | null>(null);
+  const [treeOpen, setTreeOpen] = useStoredState('devpanel.changes.tree', typeof window === 'undefined' || window.innerWidth >= 1280);
   const review = useMemo<Review>(() => ({ dir, segment, stateOf, toggle, bulk, current }), [dir, segment, stateOf, toggle, bulk, current]);
 
   // Todos los archivos en el orden en que se ven (por repo: primero lo commiteado y después lo sin commitear), para moverse con el teclado.
@@ -229,6 +231,12 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
     () => (state.data?.repos ?? []).flatMap((repo) => [...repo.committed.map((file) => ({ repo: repo.repo, scope: 'committed' as Scope, file })), ...repo.working.map((file) => ({ repo: repo.repo, scope: 'working' as Scope, file }))].map((item) => ({ ...item, key: markKey(item.repo, item.scope, item.file.path) }))),
     [state.data],
   );
+  /** Elegir en el árbol: marca el archivo y, si ya era el actual (el efecto no se dispara), lo trae a la vista igual. */
+  const pick = (key: string) => {
+    setCurrent(key);
+    const [repo = '', scope = '', ...rest] = key.split('|');
+    document.getElementById(`file-${repo}-${scope}-${rest.join('|')}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
   const move = (delta: 1 | -1) => {
     if (!flat.length) return;
     const index = flat.findIndex((item) => item.key === current);
@@ -258,7 +266,9 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   const seen = all.filter((value) => value === 'yes').length;
   return (
     <ReviewContext.Provider value={review}>
-      <div className="space-y-6">
+      <div className="flex items-start gap-4">
+      <ChangesTree repos={report.repos} current={current} keyOf={markKey} stateOf={stateOf} onPick={pick} open={treeOpen} onToggle={() => setTreeOpen(!treeOpen)} />
+      <div className="min-w-0 flex-1 space-y-6">
         <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-surface px-5 py-3.5">
           <div className="min-w-48 flex-1">
             <div className="mb-1.5 flex items-center justify-between gap-3 text-sm font-medium"><span>Archivos vistos</span><span className={seen === all.length ? 'text-success' : 'text-warning'}>{seen}/{all.length}</span></div>
@@ -270,6 +280,7 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
         </div>
         {report.message && <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">{report.message}</p>}
         {report.repos.map((repo) => <Repo key={repo.repo} changes={repo} baseBranch={report.baseBranch} />)}
+      </div>
       </div>
     </ReviewContext.Provider>
   );
