@@ -88,11 +88,48 @@ export const limitDiff = (text: string): FileDiff => {
 
 const gitIn = (repoDir: string, runner: Runner) => (args: string[]) => runner('git', ['-C', repoDir, ...args], 30_000);
 
-const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
+/** Rama de configuración (`desarrollo`), local u `origin/`: solo es la base cuando no se puede deducir otra. */
+const configuredBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
   for (const candidate of [baseBranch, `origin/${baseBranch}`]) {
     if ((await git(['rev-parse', '--verify', '--quiet', candidate])).ok) return candidate;
   }
   return null;
+};
+
+const MAX_BASE_CANDIDATES = 400;
+const BASE_CONCURRENCY = 8;
+
+/**
+ * Rama de la que parte la actual: entre las ramas ya contenidas en HEAD, la que deja menos commits propios.
+ * Así una rama cortada de otra feature (sin mergear) se compara con esa feature y no con `desarrollo`, que arrastraría
+ * los cambios de la rama padre. Ante empate gana la rama de configuración; sin candidatas, se usa esa.
+ */
+const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
+  const fallback = await configuredBase(git, baseBranch);
+  const current = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout;
+  const listed = await git(['for-each-ref', '--merged', 'HEAD', '--format=%(refname:short)', 'refs/heads', 'refs/remotes/origin']);
+  if (!listed.ok) return fallback;
+  const candidates = listed.stdout
+    .split('\n')
+    .filter((ref) => ref && ref !== 'origin' && ref !== 'origin/HEAD' && ref !== current && ref !== `origin/${current}`)
+    .slice(0, MAX_BASE_CANDIDATES);
+  const counts = new Map<string, number>();
+  const queue = [...candidates];
+  await Promise.all(
+    Array.from({ length: BASE_CONCURRENCY }, async () => {
+      for (let ref = queue.shift(); ref; ref = queue.shift()) {
+        const counted = await git(['rev-list', '--count', `${ref}..HEAD`]);
+        const value = Number(counted.stdout);
+        if (counted.ok && Number.isInteger(value) && value > 0) counts.set(ref, value);
+      }
+    }),
+  );
+  let best: string | null = null;
+  for (const [ref, count] of counts) {
+    const bestCount = best ? counts.get(best)! : Infinity;
+    if (count < bestCount || (count === bestCount && (ref === fallback || ref === `origin/${baseBranch}`))) best = ref;
+  }
+  return best ?? fallback;
 };
 
 const withStatus = (stats: ReturnType<typeof parseNumstat>, statuses: Map<string, string>, signatures: Map<string, string>): ChangedFile[] =>
