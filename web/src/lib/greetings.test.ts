@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
+import { ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
 
 const at = (hour: number, day = 3) => {
   const date = new Date(2026, 10, 4, hour, 0, 0); // miércoles
@@ -79,6 +79,21 @@ describe('frases del Inicio', () => {
       expect(ATTENTION_PHRASES[key].length).toBeGreaterThanOrEqual(2);
     }
     expect(poolFor(at(10), 'Ana', { important: 0, dueSoon: 0 })).toEqual(poolFor(at(10), 'Ana'));
+  });
+
+  it('los rangos de horarios raros no se pisan, cubren de 22 a 7 y solo suman en su hora', () => {
+    const sorted = [...ODD_HOUR_PHRASES].sort((a, b) => a.from - b.from);
+    expect(sorted.map((range) => [range.from, range.to])).toEqual([[0, 2], [2, 4], [4, 6], [6, 7], [22, 24]]);
+    for (const range of ODD_HOUR_PHRASES) {
+      expect(range.phrases.length).toBeGreaterThanOrEqual(3);
+      expect(range.phrases.filter((phrase) => phrase.named).every((phrase) => phrase.text.includes('{name}'))).toBe(true);
+      const mine = range.phrases.filter((phrase) => !phrase.named).map((phrase) => phrase.text);
+      expect(poolFor(at(range.from), '').filter((text) => mine.includes(text)).length).toBe(mine.length * 2);
+    }
+    const night = ODD_HOUR_PHRASES.find((range) => range.from === 2)!.phrases[0]!.text;
+    expect(poolFor(at(3), 'Ana')).toContain(night);
+    expect(poolFor(at(10), 'Ana')).not.toContain(night);
+    expect(poolFor(at(21), 'Ana').length).toBeLessThan(poolFor(at(23), 'Ana').length);
   });
 
   it('contextFromNotices lee los avisos del día', () => {

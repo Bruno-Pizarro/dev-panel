@@ -72,6 +72,66 @@ export const PHRASES: Record<Slot, Phrase[]> = {
   ],
 };
 
+/**
+ * Horarios en los que el dev debería estar durmiendo (o recién levantándose): frases propias para cada rango, `desde` incluido
+ * y `hasta` excluido. Pesan el doble que las de la franja general.
+ */
+export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase[] }> = [
+  {
+    from: 22,
+    to: 24,
+    phrases: [
+      { text: 'Son más de las 10 de la noche. El ticket no se va a ofender si lo dejás para mañana.' },
+      { text: '{name}, a esta hora hasta los servicios en producción están por irse a dormir.', named: true },
+      { text: 'Horario extra: lo que hagas ahora no figura en ningún sprint.' },
+      { text: 'Cena, ducha, cama. El deploy puede esperar a la mañana.' },
+    ],
+  },
+  {
+    from: 0,
+    to: 2,
+    phrases: [
+      { text: 'Pasó la medianoche. Los commits de ahora se leen distinto a la mañana.' },
+      { text: '{name}, es tardísimo. Guardá, commiteá y a dormir.', named: true },
+      { text: 'Medianoche: la hora en que "un cambio chiquito" se convierte en tres horas.' },
+      { text: 'A esta hora el único que trabaja es el cron. Y vos, aparentemente.' },
+      { text: 'Si estás acá por un incidente, suerte. Si no, andá a dormir.' },
+    ],
+  },
+  {
+    from: 2,
+    to: 4,
+    phrases: [
+      { text: 'Son las 2 pasadas. Hasta las vacas del data center duermen.' },
+      { text: '{name}, a esta hora tu cama te extraña más que el repo.', named: true },
+      { text: 'Esto ya no es un horario de trabajo, es una decisión de vida.' },
+      { text: 'Las 3 de la mañana: el momento en que el bug se vuelve filosófico.' },
+      { text: 'Nadie va a leer este commit hasta las 9. Dormí.' },
+      { text: '{name}, en serio: el café no es un sustituto del sueño.', named: true },
+    ],
+  },
+  {
+    from: 4,
+    to: 6,
+    phrases: [
+      { text: 'Las 4 o las 5: o madrugaste muchísimo o nunca te fuiste a dormir.' },
+      { text: '{name}, ya casi amanece. Dormir ahora es como un rollback pero con culpa.', named: true },
+      { text: 'Si seguís despierto desde ayer, esto ya cuenta como guardia.' },
+      { text: 'Amanece en un rato. Los pájaros ya empezaron el standup.' },
+      { text: 'A esta hora el sol todavía no entró al proyecto.' },
+    ],
+  },
+  {
+    from: 6,
+    to: 7,
+    phrases: [
+      { text: 'Madrugador: ni el café está listo todavía.' },
+      { text: '{name}, qué temprano. El resto del equipo recién está apagando la alarma.', named: true },
+      { text: 'Antes de las 7 no hay reuniones, ni mails, ni excusas.' },
+    ],
+  },
+];
+
 /** Extras según el día de la semana (0 = domingo). */
 export const DAY_PHRASES: Record<number, Phrase[]> = {
   1: [{ text: 'Lunes: respiremos hondo y vayamos de a un ticket por vez.' }, { text: 'Lunes: la daily de ayer sigue en pie, el café también.' }, { text: 'Lunes, {name}. Todavía hay tiempo de fingir que el finde fue largo.', named: true }],
@@ -153,7 +213,9 @@ export const poolFor = (date: Date, name: string, context: GreetingContext = {})
     ...(context.sprintLastDay ? usable(ATTENTION_PHRASES.sprintLastDay).map((phrase) => fill(phrase)) : []),
     ...((context.mrProblems ?? 0) > 0 ? usable(ATTENTION_PHRASES.mrProblems).map((phrase) => fill(phrase)) : []),
   ];
-  const regular = usable([...PHRASES[slotOf(date.getHours())], ...(DAY_PHRASES[date.getDay()] ?? [])]).map((phrase) => fill(phrase));
+  const hour = date.getHours();
+  const odd = usable(ODD_HOUR_PHRASES.filter((range) => hour >= range.from && hour < range.to).flatMap((range) => range.phrases)).map((phrase) => fill(phrase));
+  const regular = [...usable([...PHRASES[slotOf(hour)], ...(DAY_PHRASES[date.getDay()] ?? [])]).map((phrase) => fill(phrase)), ...odd, ...odd];
   // Cuando hay algo que mirar, las frases que lo mencionan pesan más (se repiten) pero no desplazan del todo a las simpáticas.
   return [...regular, ...attention, ...attention];
 };
