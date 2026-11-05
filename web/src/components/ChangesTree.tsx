@@ -15,13 +15,17 @@ interface Props {
   onToggle: () => void;
 }
 
+/** Ancho de la flecha de una carpeta (size-3.5 = 14 px) más el gap-1.5 (6 px). */
+const CHEVRON_SPACE = 20;
+
 const statusTone = (status: string): string => (status === 'A' || status === 'nuevo' ? 'text-success' : status === 'D' ? 'text-danger' : 'text-info');
 
 /** Árbol de carpetas de los archivos de un repo (commiteados o sin commitear); las carpetas se abren y cierran. */
 const Nodes = ({ nodes, repo, scope, depth, props, shut, toggle }: { nodes: TreeNode[]; repo: string; scope: TreeScope; depth: number; props: Props; shut: Set<string>; toggle: (id: string) => void }) => (
   <ul>
     {nodes.map((node) => {
-      const pad = { paddingLeft: `${depth * 12 + 6}px` };
+      // Los archivos no tienen flecha: se corren lo que ocupa (icono + separación) para que su icono quede bajo el de la carpeta.
+      const pad = { paddingLeft: `${depth * 12 + 6 + (node.kind === 'file' ? CHEVRON_SPACE : 0)}px` };
       if (node.kind === 'folder') {
         const id = `${repo}|${scope}|${node.path}`;
         const closed = shut.has(id);
