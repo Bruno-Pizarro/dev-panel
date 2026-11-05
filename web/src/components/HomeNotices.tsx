@@ -13,6 +13,7 @@ import { Card } from './Card';
 import { RemindersModal } from './RemindersModal';
 import { Skeleton } from './Skeleton';
 import { api } from '../lib/api';
+import { uniqueById } from '../lib/uniqueById';
 
 const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell };
 const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio' };
@@ -56,13 +57,15 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
   const [remindersOpen, setRemindersOpen] = useState(false);
   const markDone = (id: string) => void api.put(`/api/reminders/${id}`, { done: true }).catch(() => undefined);
   const hidden = useMemo(() => (dismissed.date === today() ? dismissed.ids : []), [dismissed]);
-  const visible = useMemo(() => [...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])].filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [report, hidden]);
+  // Sin ids repetidos: un informe guardado antes de la corrección puede traer el mismo aviso dos veces, y con claves repetidas React no los quita al ocultarlos.
+  const all = useMemo(() => uniqueById([...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])]), [report]);
+  const visible = useMemo(() => all.filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [all, hidden]);
   const dismissFirst = () => {
     const first = visible[0];
     if (first) setDismissed({ date: today(), ids: [...hidden, first.id] });
   };
   useShortcutMap({ 'home.dismiss': dismissFirst, 'home.recheck': () => load(true), 'home.reminders': () => setRemindersOpen(true) });
-  const hiddenCount = (report ? report.reminders.length + report.routines.length + report.notices.length : 0) - visible.length;
+  const hiddenCount = all.length - visible.length;
   const checkedAt = report ? new Date(report.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
   // No molestar: los avisos quedan silenciados (siguen guardados); se pueden mirar igual con un clic.

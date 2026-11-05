@@ -130,8 +130,12 @@ export interface IssueWithJournals {
 }
 
 /** Comentarios de otras personas en mis tickets (y en sus subtareas, como el Control QA) posteriores a `since`. */
-export const reviewNotices = (items: IssueWithJournals[], since: string, me: string): Notice[] =>
-  items.flatMap((item): Notice[] => {
+export const reviewNotices = (items: IssueWithJournals[], since: string, me: string): Notice[] => {
+  // Un ticket puede llegar dos veces: como mío y como subtarea de otro mío (p. ej. F1…F5 de un padre). Un solo aviso por ticket.
+  const seen = new Set<number>();
+  return items.flatMap((item): Notice[] => {
+    if (seen.has(item.id)) return [];
+    seen.add(item.id);
     const fresh = item.journals.filter((journal) => journal.at > since && journal.user !== me && journal.notes.trim());
     if (!fresh.length) return [];
     const last = fresh[fresh.length - 1]!;
@@ -139,6 +143,7 @@ export const reviewNotices = (items: IssueWithJournals[], since: string, me: str
     const where = item.parentId ? `${item.tracker} #${item.id} (de #${item.parentId})` : `#${item.id}`;
     return [{ id: `review-${item.id}`, kind: 'review', level: 'important', title: `${people.join(', ')} comentó en ${where}`, detail: `${clip(item.title, 70)} · «${clip(plainNote(last.notes), 140)}»`, link: `${item.url}#note-${fresh.length}` }];
   });
+};
 
 // ---------------------------------------------------------------- 7. sprint
 export interface Sprint {

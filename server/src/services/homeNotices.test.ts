@@ -73,6 +73,12 @@ describe('3. revisiones nuevas', () => {
     expect(notices[0]).toMatchObject({ id: 'review-33527', kind: 'review', level: 'important', title: 'Mariano Buglio comentó en #33527' });
     expect(notices[0]!.detail).toContain('«Revisé el código y encontré dos cosas»');
   });
+  it('un ticket que llega dos veces (mío y subtarea de otro mío) da un solo aviso', () => {
+    const journals = [{ user: 'luana trevisan', at: '2026-11-04T08:00:00Z', notes: 'Fecha de entrega' }];
+    const notices = reviewNotices([item({ id: 32671, parentId: 32662, journals }), item({ id: 32671, parentId: null, journals })], '2026-11-03T00:00:00Z', 'Bruno Pizarro');
+    expect(notices.map((notice) => notice.id)).toEqual(['review-32671']);
+  });
+
   it('no avisa los comentarios propios, los viejos ni los vacíos; en una subtarea (Control QA) lo aclara', () => {
     expect(reviewNotices([item({ journals: [{ user: 'Bruno Pizarro', at: '2026-11-04T08:00:00Z', notes: 'mío' }, { user: 'Otro', at: '2026-11-04T08:00:00Z', notes: '  ' }] })], '2026-11-03T00:00:00Z', 'Bruno Pizarro')).toEqual([]);
     const qa = reviewNotices([item({ id: 33945, tracker: 'Control QA', parentId: 33527, journals: [{ user: 'Mariano Buglio', at: '2026-11-04T09:00:00Z', notes: 'Probé todo' }] })], '2026-11-03T00:00:00Z', 'Bruno Pizarro');
