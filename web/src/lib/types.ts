@@ -51,6 +51,13 @@ export interface ContainerInfo {
 }
 
 export type TscState = 'ok' | 'errors' | 'stuck' | 'unknown';
+export interface BuildStatus {
+  service: string;
+  stale: boolean;
+  files: string[];
+  imageCreatedAt: string | null;
+}
+
 export interface TscStatus {
   state: TscState;
   errors: number | null;

@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { loadConfig } from '../config.js';
+import { listComposeServices } from '../docker.js';
+import { readBuildStatus, rebuildService } from '../services/imageBuild.js';
 import { NAME_PATTERN, listContainers, readLogs, readTscStatus, restartContainer, stopContainer, type TscStatus } from '../services/containers.js';
 
 const tailSchema = z.coerce.number().int().min(1).max(5000).default(300);
@@ -13,6 +15,8 @@ const existingContainer = async (name: string, reply: FastifyReply): Promise<str
   void reply.code(404).send({ error: 'Contenedor no encontrado' });
   return null;
 };
+
+const rebuilding = new Set<string>();
 
 export const registerContainerRoutes = (app: FastifyInstance): void => {
   /** Contenedores con su posición en el orden de levantado (MinIO, infraestructura, obligatorios, opcionales). */
@@ -36,6 +40,14 @@ export const registerContainerRoutes = (app: FastifyInstance): void => {
       }),
     );
     return { tsc: result };
+  });
+
+  /** Contenedores cuya imagen es anterior a un cambio en package.json, yarn.lock o Dockerfile: hay que reconstruirla. */
+  app.get('/api/containers/build-status', async () => {
+    const state = loadConfig();
+    if (!state.configured) return { status: {} };
+    const statuses = await readBuildStatus(state.config.compose.main, await listContainers());
+    return { status: Object.fromEntries(statuses.map((entry) => [entry.service, entry])) };
   });
 
   app.get<{ Params: { name: string }; Querystring: { tail?: string } }>('/api/containers/:name/logs', async (request, reply) => {
@@ -76,5 +88,25 @@ export const registerContainerRoutes = (app: FastifyInstance): void => {
     if (!name) return reply;
     const result = await stopContainer(name);
     return result.ok ? { ok: true } : reply.code(500).send({ error: result.stderr || 'No se pudo detener' });
+  });
+
+  /** `docker compose build` + `up -d` del servicio con el compose general configurado; el servicio se valida contra ese compose. */
+  app.post<{ Params: { name: string } }>('/api/containers/:name/rebuild', async (request, reply) => {
+    if (!confirmSchema.safeParse(request.body).success) return reply.code(400).send({ error: 'Falta la confirmación' });
+    const name = await existingContainer(request.params.name, reply);
+    if (!name) return reply;
+    const state = loadConfig();
+    const service = (await listContainers()).find((container) => container.name === name)?.service;
+    if (!state.configured || !service || !(await listComposeServices(state.config.compose.main)).includes(service)) {
+      return reply.code(400).send({ error: 'El contenedor no pertenece al compose configurado' });
+    }
+    if (rebuilding.has(service)) return reply.code(409).send({ error: 'Ya se está reconstruyendo' });
+    rebuilding.add(service);
+    try {
+      const result = await rebuildService(state.config.compose.main, service);
+      return result.ok ? { ok: true } : reply.code(500).send({ error: result.output || 'No se pudo reconstruir' });
+    } finally {
+      rebuilding.delete(service);
+    }
   });
 };
