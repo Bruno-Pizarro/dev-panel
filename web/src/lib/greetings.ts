@@ -79,18 +79,17 @@ export const AI_PHRASES: Phrase[] = [
   { text: 'Hoy el código lo escribe Claude; vos ponés el café y la cara en la review.' },
   { text: 'Dicen que la IA te va a reemplazar. Por ahora solo te reemplazó los commits.' },
   { text: 'Programar con Claude: 5 minutos de código, 3 horas de "esto no lo pedí".' },
-  { text: '{name}, un día más de "arreglalo" con tono amable para que Claude no se ofenda.', named: true },
-  { text: 'Si Claude lo hizo bien, fue tu prompt. Si lo hizo mal, también fue tu prompt.' },
-  { text: 'El junior nuevo no pide aumento, no se enferma y a veces inventa funciones que no existen.' },
-  { text: 'Claude no se cansa, no pide vacaciones y no pregunta por qué el ticket es "urgente". Todavía.' },
+  { text: '{name}, un día más de "arreglalo" con tono amable para que Claudio no se ofenda (¿no?).', named: true },
+  { text: 'Si Claude lo hizo bien, fue tu prompt. Si lo hizo mal, todavía no te puede reemplazar.' },
+  { text: 'Claudio no se cansa, no pide vacaciones y no pregunta por qué el ticket es "urgente". Todavía.' },
   { text: '{name}, qué lindo que "dirigís" el desarrollo mientras Claude tipea.', named: true },
-  { text: 'Tranquilo, la IA no te va a quitar el trabajo: alguien tiene que explicarle el legacy.' },
+  { text: 'Tranquilo, la IA no te va a quitar el trabajo: alguien tiene que explicarle al señor oscuro.' },
   { text: 'Recordatorio: "lo hizo Claude" no es una buena respuesta en la daily.' },
   { text: 'Antes se rompía el código a mano, con orgullo. Ahora se rompe en equipo con Claude.' },
   { text: 'Pedirle algo a Claude con amabilidad no mejora el resultado, pero te deja la conciencia tranquila.' },
-  { text: '{name}, ¿leíste el diff completo o le diste "aprobar" por confianza?', named: true },
+  { text: '{name}, ¿leíste el diff completo o le diste "aprobar" por cansancio?', named: true },
   { text: 'El futuro es hermoso: un humano que escribe prompts y una IA que escribe disculpas.' },
-  { text: 'Dice que ya terminó. Verificá. Siempre verificá.' },
+  { text: 'Claudio dice que ya terminó. Verificá. Siempre verificá.' },
   { text: 'Hoy vas a decir "perfecto, gracias" a una máquina al menos diez veces. Es normal.' },
 ];
 
@@ -124,10 +123,10 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
     from: 2,
     to: 4,
     phrases: [
-      { text: 'Son las 2 pasadas. Hasta las vacas del data center duermen.' },
+      { text: 'Son las 2 pasadas. Ni redmine debe estar andando.' },
       { text: '{name}, a esta hora tu cama te extraña más que el repo.', named: true },
       { text: 'Esto ya no es un horario de trabajo, es una decisión de vida.' },
-      { text: 'Las 3 de la mañana: el momento en que el bug se vuelve filosófico.' },
+      { text: 'Cerca de las 3 de la mañana: el momento en que el bug se vuelve filosófico.' },
       { text: 'Nadie va a leer este commit hasta las 9. Dormí.' },
       { text: '{name}, en serio: el café no es un sustituto del sueño.', named: true },
     ],
@@ -150,6 +149,7 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
       { text: 'Madrugador: ni el café está listo todavía.' },
       { text: '{name}, qué temprano. El resto del equipo recién está apagando la alarma.', named: true },
       { text: 'Antes de las 7 no hay reuniones, ni mails, ni excusas.' },
+      { text: '{name}, ¿A esta hora ya marcás?', named: true },
     ],
   },
 ];
@@ -157,9 +157,9 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
 /** Extras según el día de la semana (0 = domingo). */
 export const DAY_PHRASES: Record<number, Phrase[]> = {
   1: [{ text: 'Lunes: respiremos hondo y vayamos de a un ticket por vez.' }, { text: 'Lunes: la daily de ayer sigue en pie, el café también.' }, { text: 'Lunes, {name}. Todavía hay tiempo de fingir que el finde fue largo.', named: true }],
-  5: [{ text: 'Viernes: prohibido hacer deploy. (Es broma… o no.)' }, { text: '¡Viernes, {name}! Que los tests pasen y el finde llegue sin incidentes.', named: true }],
+  5: [{ text: 'Viernes: prohibido hacer deploy. (ojalá)' }, { text: '¡Viernes, {name}! Que los tests pasen y el finde llegue sin incidentes.', named: true }],
   6: [{ text: 'Sábado de guardia: el panel te acompaña.' }, { text: 'Sábado, {name}. Si estás acá, algo importante se rompió.', named: true }],
-  0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla mañana.', named: true }],
+  0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla mañana... o el mes que viene.', named: true }],
 };
 
 /** Lo que el Inicio sabe de hoy y puede mencionar en el saludo (viene de los avisos del día). */
