@@ -74,6 +74,21 @@ describe('buildShipChecklist', () => {
     expect(items.every((item) => item.level === 'ok' || item.level === 'idle')).toBe(true);
     expect(summarizeShip(items).ready).toBe(true);
   });
+  it('archivos vistos: bloquea mientras falte alguno, y pasa a ok cuando están todos', () => {
+    const pending = buildShipChecklist({ ...base, viewed: { total: 5, viewed: 3, pending: [{ repo: 'front', count: 2 }] } });
+    const item = pending.find((entry) => entry.id === 'viewed');
+    expect(item).toMatchObject({ level: 'error' });
+    expect(item?.detail).toContain('3/5 archivos vistos');
+    expect(item?.detail).toContain('front 2');
+    expect(summarizeShip(pending).ready).toBe(false);
+    const done = buildShipChecklist({ ...base, viewed: { total: 5, viewed: 5, pending: [] } });
+    expect(done.find((entry) => entry.id === 'viewed')).toMatchObject({ level: 'ok' });
+    expect(summarizeShip(done).ready).toBe(true);
+  });
+  it('archivos vistos: sin cambios es idle y sin dato el chequeo no aparece', () => {
+    expect(buildShipChecklist({ ...base, viewed: { total: 0, viewed: 0, pending: [] } }).find((entry) => entry.id === 'viewed')).toMatchObject({ level: 'idle' });
+    expect(buildShipChecklist(base).some((entry) => entry.id === 'viewed')).toBe(false);
+  });
   it('sin pruebas ni review ni MRs: errores y avisos', () => {
     const items = buildShipChecklist({ ...base, meta: { rama: 'feature/1-x', repos: ['front'] }, docs: [], manual: { done: 1, total: 4 } });
     const level = (id: string) => items.find((item) => item.id === id)?.level;

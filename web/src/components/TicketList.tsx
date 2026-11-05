@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStoredState } from '../lib/hooks';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/cn';
 import { timeAgo } from '../lib/tickets';
 import { CONCLUSIONS, conclusionInfo } from '../lib/conclusion';
@@ -9,6 +9,8 @@ import type { Conclusion, TicketSummary } from '../lib/types';
 import { Chip } from './Chip';
 import { Badge, toneOf } from './Badge';
 import { Tooltip } from './Tooltip';
+import { ShortcutKey } from './Key';
+import { useShortcutMap } from '../lib/useShortcuts';
 
 const originOf = (ticket: TicketSummary): 'propio' | 'revision' => (ticket.kind === 'revision' ? 'revision' : 'propio');
 
@@ -32,6 +34,19 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
       return true;
     }).filter((ticket) => !text || `${ticket.ticket ?? ''} ${ticket.title} ${ticket.dir} ${ticket.rama ?? ''}`.toLowerCase().includes(text));
   }, [tickets, query, shown, pendingOnly, withTestFilters, ticketKinds, origins]);
+  // W / S: ticket anterior y siguiente de la lista tal como está filtrada (se quedan en los extremos).
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const currentIndex = visible.findIndex((ticket) => pathname === `${basePath}/${encodeURIComponent(ticket.dir)}`);
+  const goTicket = (target: number) => {
+    const next = visible[Math.min(visible.length - 1, Math.max(0, target))];
+    if (next && visible.indexOf(next) !== currentIndex) navigate(`${basePath}/${encodeURIComponent(next.dir)}`);
+  };
+  useShortcutMap({ 'ticket.prev': () => goTicket(currentIndex < 0 ? 0 : currentIndex - 1), 'ticket.next': () => goTicket(currentIndex + 1) });
+  useEffect(() => {
+    listRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' });
+  }, [pathname]);
   const hiddenKind = tickets.filter((ticket) => !ticketKinds.includes(ticket.ticket ? 'con' : 'sin')).length;
   const reviewFilters = (ticket: TicketSummary) => withTestFilters && ticket.testStatus !== undefined && originOf(ticket) === 'revision';
   const inOrigin = tickets.filter((ticket) => ticketKinds.includes(ticket.ticket ? 'con' : 'sin') && (!withTestFilters || origins.includes(originOf(ticket))));
@@ -43,6 +58,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
       <label className="flex h-10 items-center gap-2 rounded-lg border border-line bg-surface px-3 focus-within:border-accent/60">
         <Search className="size-4 text-muted" aria-hidden />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar ticket, título o rama…" className="w-full bg-transparent text-sm outline-none placeholder:text-muted" />
+        <span className="flex shrink-0 items-center gap-1" title="Ticket anterior / siguiente"><ShortcutKey id="ticket.prev" /><ShortcutKey id="ticket.next" /></span>
       </label>
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -68,7 +84,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
           {hidden > 0 && <p className="text-sm text-muted">{hidden} revisiones ocultas por el filtro (por defecto no se muestran las aprobadas).</p>}
         </div>
       )}
-      <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+      <ul ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {visible.map((ticket) => (
           <li key={ticket.dir}>
             <NavLink to={`${basePath}/${encodeURIComponent(ticket.dir)}`} className={({ isActive }) => cn('block rounded-xl border p-3.5 transition-colors', isActive ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface hover:border-accent/30')}>

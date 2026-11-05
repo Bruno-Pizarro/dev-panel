@@ -75,3 +75,34 @@ describe('con un repo git real', () => {
     expect(await readFileDiff(config, 'documentos', 'no-cambiado.ts', 'committed')).toMatchObject({ ok: false, status: 404 });
   });
 });
+
+describe('base de una rama cortada de otra feature', () => {
+  const projects = mkdtempSync(join(tmpdir(), 'dp-base-'));
+  const repoDir = join(projects, 'legajo');
+  const git = (...args: string[]) => execFileSync('git', ['-C', repoDir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { encoding: 'utf8' });
+  const commit = (file: string, message: string) => (writeFileSync(join(repoDir, file), `${message}\n`), git('add', '.'), git('commit', '-q', '-m', message));
+  mkdirSync(repoDir);
+  git('init', '-q', '-b', 'desarrollo');
+  commit('base.ts', 'base');
+  git('checkout', '-q', '-b', 'feature/1-padre');
+  commit('padre.ts', 'padre uno');
+  commit('padre2.ts', 'padre dos');
+  git('checkout', '-q', '-b', 'feature/2-hija');
+  commit('hija.ts', 'hija');
+  const config = defaultConfig(projects) as unknown as DevPanelConfig;
+
+  it('compara con la rama padre y no con desarrollo', async () => {
+    const [changes] = await readTicketChanges(config, ['legajo']);
+    expect(changes).toMatchObject({ branch: 'feature/2-hija', base: 'feature/1-padre' });
+    expect(changes!.committed.map((file) => file.path)).toEqual(['hija.ts']);
+  });
+
+  it('una rama cortada de desarrollo sigue comparándose con desarrollo', async () => {
+    git('checkout', '-q', 'desarrollo');
+    git('checkout', '-q', '-b', 'feature/3-directa');
+    commit('directa.ts', 'directa');
+    const [changes] = await readTicketChanges(config, ['legajo']);
+    expect(changes).toMatchObject({ base: 'desarrollo' });
+    expect(changes!.committed.map((file) => file.path)).toEqual(['directa.ts']);
+  });
+});

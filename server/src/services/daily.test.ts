@@ -58,7 +58,7 @@ describe('borrador', () => {
   it('arma el markdown con tickets y actividad por repo', () => {
     const markdown = formatDraft(
       '2026-10-27',
-      [{ repo: 'front', branch: 'feature/x', commits: [{ hash: 'abc1234', subject: 'feat: panel' }], files: 3, insertions: 10, deletions: 2, uncommitted: 1 }],
+      [{ repo: 'front', branch: 'feature/x', commits: [{ hash: 'abc1234', subject: 'feat: panel', at: '2026-10-27T10:00:00-03:00' }], files: 3, insertions: 10, deletions: 2, uncommitted: 1 }],
       [{ dir: '33526-x', ticket: '33526', title: 'Pendientes de firma', estado: 'En desarrollo', rama: null, repos: [], mrs: 0, lastUpdated: 0, docs: 0, images: 0, hasMeta: true, lastTest: { fecha: null, resultado: '31/31' }, review: null }],
     );
     expect(markdown).toContain('# Daily 2026-10-27');

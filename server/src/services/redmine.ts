@@ -40,6 +40,8 @@ export interface RedmineIssue {
   updatedOn: string;
   closedOn: string | null;
   relations: number;
+  /** Subtareas de tipo Control QA (el ticket de pruebas de este ticket); vacío si no tiene o no se pidió el detalle. */
+  qaTickets: Array<{ id: number; title: string }>;
   /** Solo viene en el detalle de un ticket (en las listas, como el kanban, queda vacía para no mover datos de más). */
   description: string;
   lastNotes: RedmineNote[];
@@ -63,6 +65,7 @@ interface RawIssue {
   updated_on?: string;
   closed_on?: string | null;
   relations?: unknown[];
+  children?: Array<{ id: number; subject?: string; tracker?: { name: string } }>;
   description?: string | null;
   journals?: Array<{ user?: { name: string }; created_on: string; notes?: string }>;
 }
@@ -100,6 +103,7 @@ export const mapIssue = (raw: RawIssue, baseUrl: string, closedStatuses: Set<str
     updatedOn: raw.updated_on ?? '',
     closedOn: raw.closed_on ?? null,
     relations: raw.relations?.length ?? 0,
+    qaTickets: (raw.children ?? []).filter((child) => /\bQA\b/i.test(child.tracker?.name ?? '')).map((child) => ({ id: child.id, title: parseSubject(child.subject ?? '').title })),
     description: raw.journals === undefined ? '' : (raw.description ?? '').trim().slice(0, 50_000),
     lastNotes: (raw.journals ?? [])
       .filter((journal) => journal.notes?.trim())
@@ -213,7 +217,7 @@ export const redmineBaseUrl = (config: DevPanelConfig, env: NodeJS.ProcessEnv = 
 
 export const ticketUrl = (config: DevPanelConfig, ticket: string): string => `${redmineBaseUrl(config)}/issues/${ticket}`;
 
-type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
+export type Fetcher = (url: string, init: { headers: Record<string, string>; signal: AbortSignal }) => Promise<{ ok: boolean; status: number; headers?: { get: (name: string) => string | null }; json: () => Promise<unknown> }>;
 
 const CACHE_MS = 60_000;
 const cache = new Map<string, { at: number; issue: RedmineIssue }>();
@@ -234,7 +238,7 @@ export const fetchIssue = async (config: DevPanelConfig, id: string, fetcher: Fe
 
   let response;
   try {
-    response = await fetcher(`${credentials.baseUrl}/issues/${id}.json?include=journals,relations`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(15_000) });
+    response = await fetcher(`${credentials.baseUrl}/issues/${id}.json?include=journals,relations,children`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(15_000) });
   } catch {
     throw new RedmineError('No se pudo conectar con Redmine', 502);
   }
@@ -280,7 +284,7 @@ export const MAX_BOARD_DAYS = 60;
 const boardCache = new Map<string, { at: number; board: Board }>();
 export const clearBoardCache = (): void => boardCache.clear();
 
-type JsonFetcher = Fetcher;
+export type JsonFetcher = Fetcher;
 
 /** Mis tickets (asignados a quien dueña la API key) con cambios en los últimos `days` días. Solo lectura, y acotado: máximo 100 tickets y 60 días. */
 export const fetchBoard = async (config: DevPanelConfig, days: number, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = Date.now()): Promise<Board> => {

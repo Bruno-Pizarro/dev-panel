@@ -39,6 +39,15 @@ describe('mapIssue', () => {
     expect(issue.lastNotes.map((note) => note.notes)).toEqual(['dos', 'tres', 'cuatro']);
   });
 
+  it('detecta las subtareas de tipo Control QA (y solo esas) como el ticket de pruebas', () => {
+    const children = [
+      { id: 33945, subject: 'Testing: Pantalla "Firmas por legajo" (#33527)', tracker: { name: 'Control QA' } },
+      { id: 33999, subject: 'Subtarea de desarrollo', tracker: { name: 'Nueva funcionalidad' } },
+    ];
+    expect(mapIssue({ ...RAW, children }, 'https://r.example.com').qaTickets).toEqual([{ id: 33945, title: 'Testing: Pantalla "Firmas por legajo" (#33527)' }]);
+    expect(mapIssue(RAW, 'https://r.example.com').qaTickets).toEqual([]);
+  });
+
   it('trae la descripción completa solo en el detalle (con journals), no en las listas', () => {
     const list = Object.fromEntries(Object.entries(RAW).filter(([key]) => key !== 'journals')) as typeof RAW;
     expect(mapIssue({ ...RAW, description: '  # Título\n\nTexto largo  ' }, 'https://r.example.com').description).toBe('# Título\n\nTexto largo');
@@ -75,7 +84,7 @@ describe('fetchIssue', () => {
     const first = await fetchIssue(config, '33526', fetcher, 1000);
     await fetchIssue(config, '33526', fetcher, 30_000);
     expect(calls.filter((call) => call.url.includes('/issues/33526.json'))).toHaveLength(1);
-    expect(calls[0]!.url).toBe('https://redmine.example.com/issues/33526.json?include=journals,relations');
+    expect(calls[0]!.url).toBe('https://redmine.example.com/issues/33526.json?include=journals,relations,children');
     expect(calls[0]!.url).not.toContain(SECRET);
     expect(calls[0]!.key).toBe(SECRET);
     expect(JSON.stringify(first)).not.toContain(SECRET);

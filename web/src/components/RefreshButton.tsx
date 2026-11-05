@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '../lib/cn';
 import { Button } from './Button';
+import { ShortcutKey } from './Key';
 
 const MIN_SPIN_MS = 700;
 
@@ -21,6 +22,7 @@ export const RefreshButton = ({ onRefresh, busy = false }: { onRefresh: () => vo
       icon={<RefreshCw className={cn('size-4', spinning && 'animate-spin')} />}
     >
       Actualizar
+      <ShortcutKey id="refresh" />
     </Button>
   );
 };

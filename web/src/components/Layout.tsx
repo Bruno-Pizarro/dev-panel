@@ -1,5 +1,5 @@
 import { Menu } from 'lucide-react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useStoredState } from '../lib/hooks';
 import { cn } from '../lib/cn';
 import { ClaudeUsageBar } from './ClaudeUsageBar';
@@ -8,17 +8,26 @@ import { Sidebar } from './Sidebar';
 import { ThemePicker } from './ThemePicker';
 import { StatusDot } from './StatusDot';
 import { useHealth } from '../lib/useHealth';
+import { allNavItems } from '../lib/nav';
+import { GOTO_PREFIX, useShortcutMap } from '../lib/useShortcuts';
+import { ShortcutHelp } from './ShortcutHelp';
+import { AgentToast } from './AgentToast';
 
 export const Layout = ({ userName }: { userName: string }) => {
   const health = useHealth();
   const [collapsed, setCollapsed] = useStoredState<boolean>('devpanel.sidebar.collapsed', false);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  // "Ir a…": una letra por cada destino del menú (después de la tecla de ir a…).
+  useShortcutMap(Object.fromEntries(allNavItems.map((item) => [`${GOTO_PREFIX}${item.path}`, () => navigate(item.path)])));
   // Las vistas de lectura (pruebas y desarrollo) usan todo el ancho disponible.
   const wide = ['/pruebas', '/planificacion', '/kanban'].some((prefix) => pathname.startsWith(prefix));
   // Pruebas y Desarrollo son dos paneles con scroll propio: la página no debe tener un tercero.
   const split = ['/pruebas', '/planificacion'].some((prefix) => pathname.startsWith(prefix));
   return (
     <div className="flex h-full">
+      <ShortcutHelp />
+      <AgentToast />
       <Sidebar collapsed={collapsed} userName={userName} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">

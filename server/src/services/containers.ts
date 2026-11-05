@@ -79,4 +79,6 @@ export const readLogs = async (name: string, tail: number, runner: Runner = run)
   return `${logs.stdout}\n${logs.stderr}`.trim();
 };
 
+export const stopContainer = (name: string, runner: Runner = run) => dockerRun(runner)(['stop', name], 120_000);
+
 export const restartContainer = (name: string, runner: Runner = run) => dockerRun(runner)(['restart', name], 120_000);

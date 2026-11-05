@@ -4,6 +4,7 @@ export interface DevPanelConfig {
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
   redmine: { enabled: boolean; apiKey: string; apiKeySet?: boolean; clearApiKey?: boolean; configFile: string; baseUrl: string; doneStatuses: string[] };
+  claudeEnv: { gitlabDaily: boolean };
   gitlab: { enabled: boolean; token: string; tokenSet?: boolean; clearToken?: boolean; baseUrl: string; sshAuto: boolean; sshHost: string; group: string };
   compose: { main: string; minio: string };
   mongo: { container: string };
@@ -16,6 +17,8 @@ export interface DevPanelConfig {
     groups: Record<string, { withStage2: string[] }>;
     presets: Array<{ name: string; services: string[] }>;
   };
+  home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number };
+  weekly: { template: string };
   repos: string[];
 }
 
@@ -49,6 +52,13 @@ export interface ContainerInfo {
 }
 
 export type TscState = 'ok' | 'errors' | 'stuck' | 'unknown';
+export interface BuildStatus {
+  service: string;
+  stale: boolean;
+  files: string[];
+  imageCreatedAt: string | null;
+}
+
 export interface TscStatus {
   state: TscState;
   errors: number | null;
@@ -275,6 +285,7 @@ export interface RedmineIssue {
   updatedOn: string;
   closedOn: string | null;
   relations: number;
+  qaTickets: Array<{ id: number; title: string }>;
   description: string;
   lastNotes: Array<{ user: string; date: string; notes: string }>;
 }
@@ -378,6 +389,7 @@ export interface RunSegment { label: string | null; passed: number; total: numbe
 export interface LastRun { fecha: string | null; resultado: string | null; resumen: string | null; archivo: string | null; segments: RunSegment[]; passed: number; total: number; allPassed: boolean }
 export interface ShipItem { id: string; label: string; level: Level; detail: string }
 export interface ShipReport { items: ShipItem[]; summary: { ready: boolean; ok: number; warn: number; error: number }; lastRun: LastRun | null }
+export interface ClosingReport { items: ShipItem[]; summary: { done: number; pending: number }; request: string }
 export interface TicketRepoStatus {
   repo: string;
   exists: boolean;
@@ -409,11 +421,32 @@ export interface TicketDataReport {
   notes: { descripcion?: string; siembra?: string; limpieza?: string; avisos?: string[] } | null;
 }
 
-export interface ChangedFile { path: string; status: string; added: number | null; deleted: number | null; binary: boolean; untracked: boolean }
+export type ViewedState = 'yes' | 'changed' | 'no';
+export interface ChangedFile { path: string; status: string; added: number | null; deleted: number | null; binary: boolean; untracked: boolean; signature: string; viewed: ViewedState }
 export interface RepoChanges {
   repo: string; exists: boolean; branch: string | null; base: string | null;
   commits: Array<{ hash: string; subject: string; when: string; author: string }>;
   committed: ChangedFile[]; working: ChangedFile[]; ignored: string[];
 }
-export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[] }
+export interface ViewedProgress { total: number; viewed: number; pending: Array<{ repo: string; count: number }> }
+export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress; /** Solo en los MRs de GitLab: por qué no se pudo leer algún MR. */ message?: string | null }
 export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
+
+export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean; hasSteps?: boolean }
+/** Un agente completo: lo que se le pidió y lo que contestó (con los secretos tapados). */
+export interface AgentStep { tool: string; summary: string }
+export interface AgentDetail extends AgentRun { request: string | null; response: string | null; steps?: AgentStep[] | null }
+
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
+export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null; reminderId?: string }
+export interface ReminderItem { id: string; text: string; at: string | null; createdAt: string; done: boolean; doneAt: string | null }
+export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; fromCache: boolean }
+export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
+
+export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }
+
+export interface ClaudeEnvResponse {
+  file: string;
+  vars: Array<{ name: string; setAt: string | null; managed: boolean }>;
+  gitlabDaily: { enabled: boolean; mintedAt: string | null; error: string | null };
+}

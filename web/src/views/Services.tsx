@@ -1,4 +1,4 @@
-import { CircleHelp, FileText, RefreshCw, RotateCw, Search } from 'lucide-react';
+import { CircleHelp, FileText, Hammer, RefreshCw, RotateCw, Search, Square } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -11,12 +11,11 @@ import { Skeleton } from '../components/Skeleton';
 import { Tooltip } from '../components/Tooltip';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
-import { cn } from '../lib/cn';
 import { pillStyle, serviceColor, tint } from '../lib/colors';
 import { explainContainer, sortContainers, type SortKey } from '../lib/containers';
 import { usePolling, useStoredState } from '../lib/hooks';
 import { timeAgo } from '../lib/tickets';
-import type { ContainerInfo, DevPanelConfig, TscStatus } from '../lib/types';
+import type { BuildStatus, ContainerInfo, DevPanelConfig, TscStatus } from '../lib/types';
 
 type Filter = 'all' | 'running' | 'stopped';
 
@@ -73,12 +72,13 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
   const toast = useToast();
   const containers = usePolling(() => api.get<{ containers: ContainerInfo[] }>('/api/containers'), 5_000);
   const tsc = usePolling(() => api.get<{ tsc: Record<string, TscStatus> }>('/api/containers/tsc'), 30_000);
+  const builds = usePolling(() => api.get<{ status: Record<string, BuildStatus> }>('/api/containers/build-status'), 60_000);
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useStoredState<SortKey>('devpanel.services.sort', 'order');
   const [query, setQuery] = useState('');
   const [help, setHelp] = useState(false);
   const [logsOf, setLogsOf] = useState<string | null>(null);
-  const [restarting, setRestarting] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ action: 'restart' | 'stop' | 'rebuild'; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const list = useMemo(() => containers.data?.containers ?? [], [containers.data]);
@@ -96,18 +96,20 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
     [list, filter, query, sort],
   );
 
-  const restart = async () => {
-    if (!restarting) return;
+  const confirmAction = async () => {
+    if (!pending) return;
+    const done = { stop: 'detenido', restart: 'reiniciado', rebuild: 'reconstruido' }[pending.action];
     setBusy(true);
     try {
-      await api.post(`/api/containers/${encodeURIComponent(restarting)}/restart`, { confirm: true });
-      toast('success', `${restarting} reiniciado.`);
+      await api.post(`/api/containers/${encodeURIComponent(pending.name)}/${pending.action}`, { confirm: true });
+      toast('success', `${pending.name} ${done}.`);
       containers.refresh();
+      builds.refresh();
     } catch (error) {
       toast('error', (error as Error).message);
     } finally {
       setBusy(false);
-      setRestarting(null);
+      setPending(null);
     }
   };
 
@@ -119,7 +121,7 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
         actions={
           <>
             <Button icon={<CircleHelp className="size-4" />} onClick={() => setHelp(!help)}>{help ? 'Ocultar ayuda' : 'Ayuda'}</Button>
-            <Button icon={<RefreshCw className="size-4" />} onClick={() => (containers.refresh(), tsc.refresh())}>Actualizar</Button>
+            <Button icon={<RefreshCw className="size-4" />} onClick={() => (containers.refresh(), tsc.refresh(), builds.refresh())}>Actualizar</Button>
           </>
         }
       />
@@ -139,7 +141,7 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
         </div>
       </div>
 
-      <Card className="overflow-hidden !p-0">
+      <Card className="overflow-hidden [&>div]:overflow-x-auto [&>div]:!p-0">
         {containers.error && <p className="p-5 text-danger">{containers.error}</p>}
         {!containers.data ? (
           <div className="space-y-3 p-5"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-10" /></div>
@@ -147,12 +149,12 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-line bg-surface-2 text-muted">
               <tr>
-                <th className="px-5 py-3 font-medium">Servicio</th>
+                <th className="px-3 py-3 font-medium xl:px-5">Servicio</th>
                 <th className="px-3 py-3 font-medium">Estado</th>
-                <th className="px-3 py-3 font-medium">Último arranque</th>
-                <th className="px-3 py-3 font-medium">Puertos</th>
-                <th className="px-3 py-3 font-medium">tsc</th>
-                <th className="px-5 py-3 text-right font-medium">Acciones</th>
+                <th className="hidden px-3 py-3 font-medium xl:table-cell">Último arranque</th>
+                <th className="hidden px-3 py-3 font-medium lg:table-cell">Puertos</th>
+                <th className="hidden px-3 py-3 font-medium 2xl:table-cell">tsc</th>
+                <th className="whitespace-nowrap px-3 py-3 text-right font-medium xl:px-5">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -160,42 +162,65 @@ export const Services = ({ config }: { config: DevPanelConfig }) => {
                 const color = serviceColor(container.service ?? container.name);
                 const info = explainContainer(container);
                 const group = groupOf(config, container.service);
+                const stale = container.service ? builds.data?.status[container.service] : undefined;
                 return (
                   <tr key={container.name} className="transition-colors hover:bg-surface-2/60" style={{ boxShadow: `inset 3px 0 0 ${tint(color, container.state === 'running' ? 0.9 : 0.35)}` }}>
-                    <td className="px-5 py-3">
+                    <td className="px-3 py-3 xl:px-5">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                         <span className="whitespace-nowrap rounded-lg border px-2.5 py-1 font-medium" style={pillStyle(color, true)}>{container.name}</span>
                         <Badge tone={group.tone}>{group.label}</Badge>
                       </div>
+                      {stale && (
+                        <Tooltip content={<>Se modificó <span className="font-mono">{stale.files.join(', ')}</span> después de construir la imagen ({stale.imageCreatedAt ? timeAgo(Date.parse(stale.imageCreatedAt)) : '—'}). Las dependencias nuevas no están en el contenedor: reconstruilo.</>}>
+                          <span className="mt-1.5 inline-block"><Badge tone="warning">Imagen desactualizada</Badge></span>
+                        </Tooltip>
+                      )}
                       {container.service && container.service !== container.name && <div className="mt-1 font-mono text-sm text-muted">servicio de compose: {container.service}</div>}
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="max-w-52 px-3 py-3 [&_span]:!h-auto [&_span]:!whitespace-normal [&_span]:py-1 [&_span]:text-left">
                       <Tooltip content={<><div className="mb-1 font-semibold">{info.label}</div><p className="text-muted">{info.meaning}</p>{info.action && <p className="mt-2"><strong>Qué hacer:</strong> {info.action}</p>}</>}>
                         <button type="button" className="cursor-help rounded-full focus-visible:ring-2"><Badge tone={info.tone}>{info.label}</Badge></button>
                       </Tooltip>
-                      <div className="mt-1 text-sm text-muted">{container.status}</div>
+                      <div className="mt-1 max-w-48 text-sm text-muted">{container.status}</div>
                     </td>
-                    <td className="px-3 py-3 text-muted" title={container.startedAt ?? ''}>{container.startedAt ? timeAgo(Date.parse(container.startedAt)) : '—'}</td>
-                    <td className="px-3 py-3 font-mono text-muted">{hostPorts(container.ports) || '—'}</td>
-                    <td className="px-3 py-3">{container.state === 'running' ? tscBadge(tsc.data?.tsc[container.name]) : <span className="text-muted">—</span>}</td>
-                    <td className="px-5 py-3">
+                    <td className="hidden px-3 py-3 text-muted xl:table-cell" title={container.startedAt ?? ''}>{container.startedAt ? timeAgo(Date.parse(container.startedAt)) : '—'}</td>
+                    <td className="hidden px-3 py-3 font-mono text-muted lg:table-cell">{hostPorts(container.ports) || '—'}</td>
+                    <td className="hidden px-3 py-3 2xl:table-cell">{container.state === 'running' ? tscBadge(tsc.data?.tsc[container.name]) : <span className="text-muted">—</span>}</td>
+                    <td className="px-3 py-3 xl:px-5">
                       <div className="flex justify-end gap-2">
-                        <Button className="h-9" icon={<FileText className="size-4" />} onClick={() => setLogsOf(container.name)}>Logs</Button>
-                        <Button className={cn('h-9')} icon={<RotateCw className="size-4" />} onClick={() => setRestarting(container.name)}>Reiniciar</Button>
+                        <Button className="h-9" aria-label={`Logs de ${container.name}`} title="Logs" icon={<FileText className="size-4" />} onClick={() => setLogsOf(container.name)}><span className="hidden xl:inline">Logs</span></Button>
+                        {stale?.stale && (
+                          <Button className="h-9" aria-label={`Reconstruir ${container.name}`} title="Reconstruir imagen y levantar" icon={<Hammer className="size-4" />} onClick={() => setPending({ action: 'rebuild', name: container.name })}><span className="hidden xl:inline">Reconstruir</span></Button>
+                        )}
+                        <Button className="h-9" aria-label={`Reiniciar ${container.name}`} title="Reiniciar" icon={<RotateCw className="size-4" />} onClick={() => setPending({ action: 'restart', name: container.name })}><span className="hidden xl:inline">Reiniciar</span></Button>
+                        {container.state === 'running' && (
+                          <Button className="h-9" aria-label={`Detener ${container.name}`} title="Detener" icon={<Square className="size-4" />} onClick={() => setPending({ action: 'stop', name: container.name })}><span className="hidden xl:inline">Detener</span></Button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 );
               })}
-              {visible.length === 0 && <tr><td colSpan={6} className="px-5 py-10 text-center text-muted">Ningún contenedor coincide.</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={3} className="px-5 py-10 text-center text-muted">Ningún contenedor coincide.</td></tr>}
             </tbody>
           </table>
         )}
       </Card>
 
       <ContainerLogs name={logsOf} onClose={() => setLogsOf(null)} />
-      <ConfirmModal open={restarting !== null} title="Reiniciar contenedor" confirmLabel="Reiniciar" loading={busy} onCancel={() => setRestarting(null)} onConfirm={restart}>
-        Se va a reiniciar <span className="font-mono text-fg">{restarting}</span>. Las conexiones activas se cortan.
+      <ConfirmModal
+        open={pending !== null}
+        title={{ stop: 'Detener contenedor', restart: 'Reiniciar contenedor', rebuild: 'Reconstruir imagen' }[pending?.action ?? 'restart']}
+        confirmLabel={{ stop: 'Detener', restart: 'Reiniciar', rebuild: 'Reconstruir' }[pending?.action ?? 'restart']}
+        loading={busy}
+        onCancel={() => setPending(null)}
+        onConfirm={confirmAction}
+      >
+        {pending?.action === 'rebuild' ? (
+          <>Se va a ejecutar <span className="font-mono text-fg">docker compose build</span> y <span className="font-mono text-fg">up -d</span> de <span className="font-mono text-fg">{pending.name}</span> con el compose general. Puede tardar varios minutos y corta las conexiones activas.</>
+        ) : (
+          <>Se va a {pending?.action === 'stop' ? 'detener' : 'reiniciar'} <span className="font-mono text-fg">{pending?.name}</span>. Las conexiones activas se cortan.</>
+        )}
       </ConfirmModal>
     </>
   );

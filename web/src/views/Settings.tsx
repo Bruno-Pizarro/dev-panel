@@ -32,7 +32,7 @@ export const Settings = ({ config, onSaved }: { config: DevPanelConfig; onSaved:
       {detect.loading ? (
         <Card><Skeleton className="h-40" /></Card>
       ) : (
-        <ConfigEditor initial={config} detect={detect.data} saving={saving} saveLabel="Guardar cambios" onSave={save} />
+        <ConfigEditor initial={config} detect={detect.data} saving={saving} saveLabel="Guardar cambios" onSave={save} sidebar />
       )}
     </>
   );

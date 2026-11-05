@@ -1,14 +1,31 @@
 import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import { agentHits, searchHits, ticketHits, type SearchHit } from '../lib/globalSearch';
 import { allNavItems } from '../lib/nav';
+import type { AgentRun, TicketSummary } from '../lib/types';
 import { Kbd } from './Kbd';
 
 /** Paleta de comandos (Ctrl/⌘ + K): ir a cualquier vista. Las acciones de cada fase se suman acá. */
 export const CommandPalette = () => {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState<SearchHit[]>([]);
   const navigate = useNavigate();
+
+  // Se carga al abrir: así los tickets y agentes nuevos aparecen sin recargar el panel.
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    Promise.all([
+      api.get<{ tickets: TicketSummary[] }>('/api/tickets').then((result) => ticketHits(result.tickets), () => []),
+      api.get<{ agents: AgentRun[] }>('/api/agents').then((result) => agentHits(result.agents), () => []),
+    ]).then(([tickets, agents]) => setIndex([...tickets, ...agents]));
+  }, [open]);
+
+  const found = useMemo(() => searchHits(index, query), [index, query]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -36,7 +53,7 @@ export const CommandPalette = () => {
       <Command.Dialog open={open} onOpenChange={setOpen} label="Paleta de comandos" className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[18vh]">
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
         <div className="relative w-full max-w-xl animate-fade-in overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
-          <Command.Input placeholder="Buscar una vista o acción…" className="h-14 w-full border-b border-line bg-transparent px-5 text-base outline-none placeholder:text-muted" />
+          <Command.Input value={query} onValueChange={setQuery} placeholder="Buscar vistas, tickets o agentes…" className="h-14 w-full border-b border-line bg-transparent px-5 text-base outline-none placeholder:text-muted" />
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="px-4 py-6 text-center text-muted">Sin resultados.</Command.Empty>
             <Command.Group heading="Vistas" className="text-sm text-muted [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2">
@@ -58,6 +75,30 @@ export const CommandPalette = () => {
                 </Command.Item>
               ))}
             </Command.Group>
+            {(['Tickets', 'Agentes'] as const).map((group) => {
+              const hits = found.filter((hit) => hit.group === group);
+              if (!hits.length) return null;
+              return (
+                <Command.Group key={group} heading={group} className="text-sm text-muted [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2">
+                  {hits.map((hit) => (
+                    <Command.Item
+                      key={hit.id}
+                      value={hit.value}
+                      onSelect={() => {
+                        navigate(hit.path);
+                        setOpen(false);
+                      }}
+                      className="flex h-12 cursor-pointer items-center rounded-lg px-3 text-fg data-[selected=true]:bg-accent/15 data-[selected=true]:text-accent"
+                    >
+                      <div className="min-w-0 leading-tight">
+                        <div className="truncate font-medium">{hit.title}</div>
+                        <div className="truncate text-sm text-muted">{hit.detail}</div>
+                      </div>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              );
+            })}
           </Command.List>
         </div>
       </Command.Dialog>

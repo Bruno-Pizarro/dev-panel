@@ -14,7 +14,8 @@ import { TestRuns } from '../components/TestRuns';
 import { RedmineCard } from '../components/RedmineCard';
 import { TicketControls } from '../components/TicketControls';
 import { TicketFrame } from '../components/TicketFrame';
-import { TicketChanges } from '../components/TicketChanges';
+import { TicketChangesTab } from '../components/TicketChanges';
+import { TicketNotes } from '../components/TicketNotes';
 import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
@@ -23,8 +24,9 @@ import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useShortcut } from '../lib/useShortcuts';
 
-type Tab = 'cambios' | 'estado' | 'resumen' | 'manuales' | 'informes' | 'capturas';
+type Tab = 'notas' | 'cambios' | 'estado' | 'resumen' | 'manuales' | 'informes' | 'capturas';
 
 const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; onListChanged: () => void; refreshKey: number }) => {
   const meta = detail.meta;
@@ -77,10 +79,11 @@ const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; on
   const data = detail.data;
   const reports = data.files.docs.filter((file) => /EJECUCION|INFORME|PRUEBA|RESULT|REVIEW|HALLAZGO/i.test(file));
   return (
-    <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} /></>}>
-      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }]} />
+    <TicketFrame onRefresh={onRefresh} dir={dir} listPath="/pruebas" header={<><TicketHeader detail={data} /><TicketControls detail={data} view="pruebas" onChanged={() => (detail.reload(), onListChanged())} /><RedmineCard ticket={data.ticket} refreshKey={refreshKey} preferQa={data.kind === 'revision'} /></>}>
+      <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'resumen', label: 'Resumen' }, { id: 'estado', label: 'Estado' }, { id: 'cambios', label: 'Cambios' }, { id: 'manuales', label: 'Pruebas manuales', count: data.meta?.pruebasManuales?.length }, { id: 'informes', label: 'Informes', count: data.files.docs.length }, { id: 'capturas', label: 'Capturas', count: data.files.images.length }, { id: 'notas', label: 'Notas' }]} />
       {tab === 'estado' && <TicketStatus dir={dir} refreshKey={refreshKey} />}
-      {tab === 'cambios' && <TicketChanges dir={dir} refreshKey={refreshKey} />}
+      {tab === 'cambios' && <TicketChangesTab dir={dir} refreshKey={refreshKey} mrs={data.mrs} preferMr={data.kind === 'revision'} />}
+      {tab === 'notas' && <TicketNotes dir={dir} />}
       {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} refreshKey={refreshKey} />}
       {tab === 'manuales' && <ManualTests dir={dir} refreshKey={refreshKey} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} refreshKey={refreshKey} />}
@@ -95,6 +98,8 @@ export const Tests = () => {
   // "Actualizar" recarga el listado y avisa al ticket abierto para que vuelva a leer todo lo suyo.
   const [refreshKey, setRefreshKey] = useState(0);
   const refreshAll = () => (list.reload(), setRefreshKey((value) => value + 1));
+  // R: actualizar (el mismo botón de arriba).
+  useShortcut('refresh', refreshAll);
   return (
     <div className="md:flex md:h-full md:min-h-0 md:flex-col">
       <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} actions={<RefreshButton busy={list.loading} onRefresh={refreshAll} />} />

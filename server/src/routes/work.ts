@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { KEEP_DAYS, refreshActivity } from '../services/activity.js';
 import { CONCLUSIONS, ChecklistError, addManualCase, getDailyChecklist, getManualTests, getTestState, itemId, localDay, removeManualCase, resetManualDone, setDailyItem, setManualDone, setTestRun, type ManualCaseInput } from '../services/checklists.js';
 import { getTicket, ignoredDirs } from '../services/tickets.js';
-import { buildWeeklyReport } from '../services/weekly.js';
+import { buildWeeklyReport, REPORT_EXAMPLE } from '../services/weekly.js';
 import { requireConfig } from './helpers.js';
 
 const fail = (reply: FastifyReply, error: unknown) => {
@@ -27,6 +27,9 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     if (!body.success) return reply.code(400).send({ error: 'Parámetro inválido' });
     return buildWeeklyReport(config, body.data.week);
   });
+
+  /** El ejemplo por defecto del resumen semanal (para que Ajustes pueda volver a él). */
+  app.get('/api/daily/weekly/default-template', async () => ({ template: REPORT_EXAMPLE }));
 
   app.get<{ Querystring: { date?: string } }>('/api/checklist/daily', async (request, reply) => {
     const config = requireConfig(reply);

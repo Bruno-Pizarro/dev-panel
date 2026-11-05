@@ -119,6 +119,19 @@ export const configSchema = z.object({
       group: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('e-sueldos-v3'),
     })
     .default({}),
+  /**
+   * Variables y tokens propios de cada persona para que Claude los use sin leerlos (`~/.config/dev-panel/claude.env`, permisos 600,
+   * fuera del repo). Los valores nunca vuelven al navegador ni a Claude: solo se listan los nombres.
+   */
+  claudeEnv: z
+    .object({
+      /**
+       * Pide cada día por SSH un token de GitLab con api + read/write_repository (1 día) y lo guarda en ese archivo como
+       * GITLAB_RW_TOKEN para crear MRs. Crea un token en la cuenta de GitLab de quien lo activa, por eso viene apagado.
+       */
+      gitlabDaily: z.boolean().default(false),
+    })
+    .default({}),
   /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
   claude: z
     .object({
@@ -146,6 +159,23 @@ export const configSchema = z.object({
       daily: z.array(z.string().min(1).max(60)).default(['Marcar entrada', 'Marcar salida', 'Cargar horas']),
     })
     .default({}),
+  /** Pantalla de Inicio: qué avisos se calculan (una vez por día) y sus umbrales. */
+  home: z
+    .object({
+      due: z.boolean().default(true),
+      mrs: z.boolean().default(true),
+      reviews: z.boolean().default(true),
+      sprint: z.boolean().default(true),
+      holidays: z.boolean().default(true),
+      routines: z.boolean().default(true),
+      /** Un ticket que vence en esta cantidad de días (o menos) se avisa. */
+      dueDays: z.number().int().min(0).max(30).default(3),
+      /** Un MR abierto sin movimiento por esta cantidad de días se avisa. */
+      mrStaleDays: z.number().int().min(1).max(60).default(3),
+    })
+    .default({}),
+  /** Resumen semanal: plantilla (por ejemplo, un resumen anterior) en la que se basa el pedido a Claude. Vacío = el ejemplo que trae el panel. */
+  weekly: z.object({ template: z.string().max(8000).default('') }).default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -204,11 +234,14 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
+  claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },
   workday: { entry: '', exit: '', punchUrl: '' },
   userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
+  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
+  weekly: { template: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

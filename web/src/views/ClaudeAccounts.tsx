@@ -12,6 +12,7 @@ import { PathField } from '../components/PathField';
 import { Skeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { ClaudeSkills } from '../components/ClaudeSkills';
+import { ClaudeEnv } from '../components/ClaudeEnv';
 import { Tabs } from '../components/Tabs';
 import { UsageBar } from '../components/UsageBar';
 import { api } from '../lib/api';
@@ -150,7 +151,7 @@ export const ClaudeAccounts = () => {
   const [loginFor, setLoginFor] = useState<ClaudeAccount | null>(null);
   const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
   const [reloadingId, setReloadingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'cuentas' | 'skills'>('cuentas');
+  const [tab, setTab] = useState<'cuentas' | 'skills' | 'variables'>('cuentas');
 
   const reloadUsage = async (account: ClaudeAccount) => {
     setReloadingId(account.id);
@@ -177,8 +178,9 @@ export const ClaudeAccounts = () => {
 
   return (
     <>
-      <PageHeader title="Claude" description={tab === 'cuentas' ? 'Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba.' : 'Las skills instaladas y cuándo se modificó cada una por última vez.'} actions={tab === 'cuentas' ? <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button> : undefined} />
-      <Tabs value={tab} onChange={setTab} items={[{ id: 'cuentas', label: 'Cuentas', count: data.data?.accounts.length }, { id: 'skills', label: 'Skills' }]} />
+      <PageHeader title="Claude" description={tab === 'cuentas' ? 'Una carpeta de configuración por cuenta. La activa es la que se muestra en la barra de arriba.' : tab === 'skills' ? 'Las skills instaladas y cuándo se modificó cada una por última vez.' : 'Tokens y claves propios para que Claude los use sin leerlos.'} actions={tab === 'cuentas' ? <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>Agregar cuenta</Button> : undefined} />
+      <Tabs value={tab} onChange={setTab} items={[{ id: 'cuentas', label: 'Cuentas', count: data.data?.accounts.length }, { id: 'skills', label: 'Skills' }, { id: 'variables', label: 'Variables' }]} />
+      {tab === 'variables' && <ClaudeEnv />}
       {tab === 'skills' && <ClaudeSkills accounts={(data.data?.accounts ?? []).map((account) => ({ id: account.id, label: account.label }))} />}
       {tab === 'cuentas' && <>
       <p className="mb-5 rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-muted">

@@ -2,6 +2,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
+import { agents } from './agents.js';
+import { fetchStatusChanges, formatExtras, suggestHours, ticketOfSubject, type ActivityPoint } from './dailyExtras.js';
+import { ticketFromBranch } from './gitRepos.js';
 import { ticketUrl } from './redmine.js';
 import { ignoredDirs, listTickets, type TicketSummary } from './tickets.js';
 
@@ -47,7 +50,7 @@ export const writeDaily = (dir: string, date: string, content: string): { delete
 export interface RepoActivity {
   repo: string;
   branch: string | null;
-  commits: Array<{ hash: string; subject: string }>;
+  commits: Array<{ hash: string; subject: string; /** ISO de la fecha del commit */ at: string }>;
   files: number;
   insertions: number;
   deletions: number;
@@ -75,13 +78,13 @@ export const collectActivity = async (config: DevPanelConfig, since: Date, runne
     const git = (args: string[]) => runner('git', ['-C', cwd, ...args], 30_000);
     const email = (await git(['config', 'user.email'])).stdout;
     const author = email ? [`--author=${email}`] : [];
-    const log = await git(['log', '--all', '--no-merges', `--since=${since.toISOString()}`, ...author, '--shortstat', '--pretty=format:@@%h%x09%s']);
+    const log = await git(['log', '--all', '--no-merges', `--since=${since.toISOString()}`, ...author, '--shortstat', '--pretty=format:@@%h%x09%aI%x09%s']);
     const commits = log.stdout
       .split('\n')
       .filter((line) => line.startsWith('@@'))
       .map((line) => {
-        const [hash, ...subject] = line.slice(2).split('\t');
-        return { hash: hash ?? '', subject: subject.join('\t') };
+        const [hash, at, ...subject] = line.slice(2).split('\t');
+        return { hash: hash ?? '', at: at ?? '', subject: subject.join('\t') };
       });
     const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout || null;
     const status = (await git(['status', '--porcelain'])).stdout;
@@ -110,7 +113,7 @@ export const sinceDate = (mode: 'today' | 'yesterday' | 'last', now: Date, exist
   return today;
 };
 
-export const formatDraft = (date: string, activity: RepoActivity[], tickets: TicketSummary[], linkOf: (ticket: string) => string | null = () => null): string => {
+export const formatDraft = (date: string, activity: RepoActivity[], tickets: TicketSummary[], linkOf: (ticket: string) => string | null = () => null, extras: string[] = []): string => {
   const lines: string[] = [`# Daily ${date}`, '', '## Resumen', '', '- _(completar: en qué se trabajó y cuánto se avanzó)_', '', '## Tickets'];
   if (!tickets.length) lines.push('', '- Sin actividad registrada en `_EXTRA`.');
   for (const ticket of tickets) {
@@ -128,6 +131,7 @@ export const formatDraft = (date: string, activity: RepoActivity[], tickets: Tic
     if (repo.commits.length > 15) lines.push(`  - … y ${repo.commits.length - 15} más`);
     if (repo.uncommitted) lines.push(`- ${repo.uncommitted} archivos sin commitear`);
   }
+  lines.push(...extras);
   lines.push('', '## Pendiente y bloqueos', '', '- _(completar)_', '');
   return lines.join('\n');
 };
@@ -136,5 +140,14 @@ export const buildDraft = async (config: DevPanelConfig, mode: 'today' | 'yester
   const since = sinceDate(mode, now, listDaily(config.paths.daily));
   const activity = await collectActivity(config, since, runner);
   const touched = listTickets(config.paths.extra, ignoredDirs(config)).filter((ticket) => ticket.lastUpdated >= since.getTime());
-  return formatDraft(localDate(now), activity, touched, (ticket) => ticketUrl(config, ticket));
+  // Extras: agentes de Claude del período, cambios de estado en Redmine y una sugerencia de horas.
+  const agentsOfPeriod = agents.list().filter((agent) => Date.parse(agent.startedAt) >= since.getTime());
+  const fallbackTicket = (repoBranch: string | null) => ticketFromBranch(repoBranch);
+  const points: ActivityPoint[] = [
+    ...activity.flatMap((repo) => repo.commits.filter((commit) => commit.at).map((commit) => ({ ticket: ticketOfSubject(commit.subject) ?? fallbackTicket(repo.branch), at: Date.parse(commit.at) }))),
+    ...agentsOfPeriod.map((agent) => ({ ticket: agent.ticket, at: Date.parse(agent.startedAt), ...(agent.endedAt ? { endAt: Date.parse(agent.endedAt) } : {}) })),
+  ].filter((point) => Number.isFinite(point.at));
+  const changes = await fetchStatusChanges(config, since);
+  const extras = formatExtras({ agents: agentsOfPeriod, changes, hours: points.length ? suggestHours(points) : [] }, (ticket) => ticketUrl(config, ticket));
+  return formatDraft(localDate(now), activity, touched, (ticket) => ticketUrl(config, ticket), extras);
 };

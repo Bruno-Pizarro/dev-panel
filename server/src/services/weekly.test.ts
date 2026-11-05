@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActivityEvent } from './activity.js';
-import { REPORT_EXAMPLE, buildReportPrompt, formatWeekData, groupByTicket, ticketOfEvent, weekRange } from './weekly.js';
+import { REPORT_EXAMPLE, buildReportPrompt, effectiveTemplate, formatWeekData, groupByTicket, ticketOfEvent, weekRange } from './weekly.js';
 
 const ev = (partial: Partial<ActivityEvent> & Pick<ActivityEvent, 'id' | 'type' | 'title'>): ActivityEvent => ({ at: '2026-10-27T12:00:00.000Z', ...partial });
 
@@ -60,5 +60,19 @@ describe('texto del pedido', () => {
     expect(prompt).toContain('2026-10-26 al 2026-11-01');
     expect(prompt).toContain('Ticket 33526');
     expect(REPORT_EXAMPLE).toContain('Se avanzaron los tickets:');
+  });
+
+  it('usa la plantilla de la configuración en lugar del ejemplo por defecto', () => {
+    const template = 'Resumen de la semana pasada:\n- 33000 Un ticket\nTodo revisado';
+    const prompt = buildReportPrompt(range, data, template);
+    expect(prompt).toContain(template);
+    expect(prompt).not.toContain(REPORT_EXAMPLE);
+  });
+
+  it('una plantilla vacía o solo con espacios vuelve al ejemplo por defecto', () => {
+    expect(effectiveTemplate('')).toBe(REPORT_EXAMPLE);
+    expect(effectiveTemplate('   \n ')).toBe(REPORT_EXAMPLE);
+    expect(effectiveTemplate(undefined)).toBe(REPORT_EXAMPLE);
+    expect(buildReportPrompt(range, data, '  ')).toContain(REPORT_EXAMPLE);
   });
 });
