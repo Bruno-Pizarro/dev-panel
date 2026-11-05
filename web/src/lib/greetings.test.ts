@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
+import { AI_PHRASES, ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
 
 const at = (hour: number, day = 3) => {
   const date = new Date(2026, 10, 4, hour, 0, 0); // miércoles
@@ -94,6 +94,18 @@ describe('frases del Inicio', () => {
     expect(poolFor(at(3), 'Ana')).toContain(night);
     expect(poolFor(at(10), 'Ana')).not.toContain(night);
     expect(poolFor(at(21), 'Ana').length).toBeLessThan(poolFor(at(23), 'Ana').length);
+  });
+
+  it('las frases sobre Claude salen a cualquier hora, y las que llevan nombre solo con nombre', () => {
+    expect(AI_PHRASES.length).toBeGreaterThanOrEqual(10);
+    expect(AI_PHRASES.filter((phrase) => phrase.named).every((phrase) => phrase.text.includes('{name}'))).toBe(true);
+    const anonymous = AI_PHRASES.filter((phrase) => !phrase.named).map((phrase) => phrase.text);
+    for (const hour of [3, 9, 13, 17, 22]) {
+      const pool = poolFor(at(hour), '');
+      expect(anonymous.every((text) => pool.includes(text))).toBe(true);
+      expect(pool.every((text) => !/[{}]/.test(text))).toBe(true);
+    }
+    expect(poolFor(at(9), 'Ana').some((text) => text.startsWith('Ana, ¿lo escribiste vos'))).toBe(true);
   });
 
   it('contextFromNotices lee los avisos del día', () => {

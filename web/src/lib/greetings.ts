@@ -72,6 +72,28 @@ export const PHRASES: Record<Slot, Phrase[]> = {
   ],
 };
 
+/** Frases sobre programar con Claude (y la IA en general), algunas pasivo-agresivas. Salen a cualquier hora del día. */
+export const AI_PHRASES: Phrase[] = [
+  { text: 'Claude se encarga. Vos mirá, aprobá y llevate el crédito.' },
+  { text: '{name}, ¿lo escribiste vos o lo escribió Claude? No juzgo. Mucho.', named: true },
+  { text: 'Hoy el código lo escribe Claude; vos ponés el café y la cara en la review.' },
+  { text: 'Dicen que la IA te va a reemplazar. Por ahora solo te reemplazó los commits.' },
+  { text: 'Programar con Claude: 5 minutos de código, 3 horas de "esto no lo pedí".' },
+  { text: '{name}, un día más de "arreglalo" con tono amable para que Claude no se ofenda.', named: true },
+  { text: 'Si Claude lo hizo bien, fue tu prompt. Si lo hizo mal, también fue tu prompt.' },
+  { text: 'El junior nuevo no pide aumento, no se enferma y a veces inventa funciones que no existen.' },
+  { text: 'Claude no se cansa, no pide vacaciones y no pregunta por qué el ticket es "urgente". Todavía.' },
+  { text: '{name}, qué lindo que "dirigís" el desarrollo mientras Claude tipea.', named: true },
+  { text: 'Tranquilo, la IA no te va a quitar el trabajo: alguien tiene que explicarle el legacy.' },
+  { text: 'Recordatorio: "lo hizo Claude" no es una buena respuesta en la daily.' },
+  { text: 'Antes se rompía el código a mano, con orgullo. Ahora se rompe en equipo con Claude.' },
+  { text: 'Pedirle algo a Claude con amabilidad no mejora el resultado, pero te deja la conciencia tranquila.' },
+  { text: '{name}, ¿leíste el diff completo o le diste "aprobar" por confianza?', named: true },
+  { text: 'El futuro es hermoso: un humano que escribe prompts y una IA que escribe disculpas.' },
+  { text: 'Dice que ya terminó. Verificá. Siempre verificá.' },
+  { text: 'Hoy vas a decir "perfecto, gracias" a una máquina al menos diez veces. Es normal.' },
+];
+
 /**
  * Horarios en los que el dev debería estar durmiendo (o recién levantándose): frases propias para cada rango, `desde` incluido
  * y `hasta` excluido. Pesan el doble que las de la franja general.
@@ -215,7 +237,7 @@ export const poolFor = (date: Date, name: string, context: GreetingContext = {})
   ];
   const hour = date.getHours();
   const odd = usable(ODD_HOUR_PHRASES.filter((range) => hour >= range.from && hour < range.to).flatMap((range) => range.phrases)).map((phrase) => fill(phrase));
-  const regular = [...usable([...PHRASES[slotOf(hour)], ...(DAY_PHRASES[date.getDay()] ?? [])]).map((phrase) => fill(phrase)), ...odd, ...odd];
+  const regular = [...usable([...PHRASES[slotOf(hour)], ...(DAY_PHRASES[date.getDay()] ?? []), ...AI_PHRASES]).map((phrase) => fill(phrase)), ...odd, ...odd];
   // Cuando hay algo que mirar, las frases que lo mencionan pesan más (se repiten) pero no desplazan del todo a las simpáticas.
   return [...regular, ...attention, ...attention];
 };
