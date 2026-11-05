@@ -1,5 +1,5 @@
 import { CircleAlert, CircleCheck, FolderTree, Moon, Rocket, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
@@ -26,63 +26,46 @@ const todayIso = () => {
 };
 
 const Greeting = ({ name, notices, workday }: { name: string; notices: HomeNoticesState; workday: { entry: string; exit: string } }) => {
-  // La fase de la jornada depende de la hora y de lo que tildaste: se recalcula cada minuto.
   const checklist = useAsync(() => api.get<DailyChecklist>('/api/checklist/daily'));
-  const [now, setNow] = useState(() => new Date());
-  const reloadChecklist = useRef(checklist.reload);
-  reloadChecklist.current = checklist.reload;
+  // El saludo se elige UNA sola vez, cuando ya se sabe todo lo que puede mencionar (avisos y checklist), y no se vuelve a calcular
+  // en esta visita: ni al ocultar un aviso, ni al tildar el checklist, ni con el paso del tiempo. Si algo tarda más de 3 s, se elige igual.
+  const [text, setText] = useState<string | null>(null);
+  const [waited, setWaited] = useState(false);
+  const picked = useRef(false);
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNow(new Date());
-      reloadChecklist.current();
-    }, 60_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setTimeout(() => setWaited(true), 3000);
+    return () => window.clearTimeout(timer);
   }, []);
-  const phase = useMemo(() => {
-    const items = checklist.data?.items ?? [];
-    return workdayPhase(now, workday, { entry: items.some((item) => item.id === 'marcar-entrada' && item.done), hours: items.some((item) => item.id === 'cargar-horas' && item.done) });
-  }, [now, workday, checklist.data]);
-  // Los avisos que ocultaste por hoy no cuentan para el saludo.
-  const context = useMemo<GreetingContext | null>(() => {
-    if (!notices.report) return null;
-    const all = uniqueById([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices]);
-    return { ...contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso()), workday: phase };
-  }, [notices.report, notices.hidden, phase]);
-  const [text, setText] = useState(() => {
+  const ready = ((notices.report !== null || notices.failed !== null) && (checklist.data !== null || checklist.error !== null)) || waited;
+  useEffect(() => {
+    if (!ready || picked.current) return;
+    picked.current = true;
     const now = new Date();
+    const items = checklist.data?.items ?? [];
+    const phase = workdayPhase(now, workday, { entry: items.some((item) => item.id === 'marcar-entrada' && item.done), hours: items.some((item) => item.id === 'cargar-horas' && item.done) });
+    // Los avisos que ocultaste por hoy no cuentan para el saludo.
+    const all = notices.report ? uniqueById([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices]) : [];
+    const context: GreetingContext = { ...contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso()), workday: phase };
     let last: string | null = null;
     try {
       last = window.localStorage.getItem(LAST_GREETING_KEY);
     } catch {
       /* sin almacenamiento */
     }
-    const picked = pickGreeting(now, name, Math.random, last);
+    const chosen = pickGreeting(now, name, Math.random, last, context);
     try {
-      window.localStorage.setItem(LAST_GREETING_KEY, picked);
+      window.localStorage.setItem(LAST_GREETING_KEY, chosen);
     } catch {
       /* sin almacenamiento */
     }
-    return picked;
-  });
-  // Con los avisos ya cargados, si hay algo para mencionar (feriado, algo importante) el saludo se vuelve a elegir. Se repite solo si
-  // cambia lo que hay para mencionar (por ejemplo al ocultar un aviso): así el número del saludo siempre coincide con lo que ves.
-  const lastKey = useRef<string | null>(null);
-  useEffect(() => {
-    if (!context) return;
-    const key = JSON.stringify(context);
-    if (key === lastKey.current) return;
-    const first = lastKey.current === null;
-    lastKey.current = key;
-    const relevant = context.holiday || !!context.workday || (context.important ?? 0) > 0 || (context.dueSoon ?? 0) > 0 || (context.reviews ?? 0) > 0 || context.sprintLastDay || (context.mrProblems ?? 0) > 0;
-    if (relevant || !first) setText(pickGreeting(new Date(), name, Math.random, text, relevant ? context : {}));
-  }, [context, name, text]);
+    setText(chosen);
+  }, [ready, name, workday, notices.report, notices.hidden, checklist.data]);
   const Icon = SLOT_ICONS[slotOf(new Date().getHours())];
-  if (!text) return null;
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-line bg-gradient-to-r from-accent/10 to-transparent px-5 py-4">
-      <p className="flex min-w-0 flex-1 items-center gap-3 text-lg font-medium" data-testid="greeting">
+      <p className="flex min-h-[2rem] min-w-0 flex-1 items-center gap-3 text-lg font-medium" data-testid="greeting">
         <Icon className="size-6 shrink-0 text-accent" aria-hidden />
-        <span>{text}</span>
+        <span>{text ?? <Skeleton className="h-6 w-80 max-w-full" />}</span>
       </p>
       <WeatherBadge />
     </div>
