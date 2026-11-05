@@ -1,4 +1,4 @@
-import { Bot, Clock, Eraser, Home, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bot, Clock, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -11,6 +11,7 @@ import { api } from '../lib/api';
 import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
+import { RemoteAccess } from '../components/RemoteAccess';
 import { AgentSettings } from './AgentSettings';
 import { ShortcutSettings } from './ShortcutSettings';
 
@@ -192,6 +193,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
       </Card>
     ) },
     { id: 'atajos', label: 'Atajos de teclado', icon: Keyboard, noSave: true, content: <ShortcutSettings /> },
+    { id: 'remoto', label: 'Acceso remoto', icon: MonitorSmartphone, noSave: true, content: <RemoteAccess /> },
     { id: 'agentes', label: 'Agentes de Claude', icon: Bot, noSave: true, content: <AgentSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">

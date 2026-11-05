@@ -4,6 +4,7 @@ import { loadConfig } from '../config.js';
 import { ClaudeEnvError, claudeEnvFile, deleteVar, listVars, setVar } from '../services/claudeEnv.js';
 import { GitlabError } from '../services/gitlab.js';
 import { dailyState, ensureDailyToken, resetDailyFailure } from '../services/gitlabDaily.js';
+import { publishedPorts } from '../services/remoteAccess.js';
 import { addMrNote, createMr } from '../services/gitlabWrite.js';
 
 const fail = (reply: FastifyReply, error: unknown) => {
@@ -78,5 +79,11 @@ export const registerClaudeEnvRoutes = (app: FastifyInstance): void => {
     } catch (error) {
       return fail(reply, error);
     }
+  });
+
+  /** Puertos que el .bat de acceso remoto reenvía desde la otra PC. */
+  app.get('/api/remote/ports', async () => {
+    const state = loadConfig();
+    return { ports: state.configured ? await publishedPorts(state.config.compose.main) : [4200, 5173] };
   });
 };
