@@ -8,7 +8,7 @@ const at = (hour: number, day = 3) => {
 
 describe('frases del Inicio', () => {
   it('slotOf divide el día: madrugada, mañana, mediodía, tarde y noche', () => {
-    expect([0, 5, 6, 11, 12, 13, 14, 19, 20, 23].map(slotOf)).toEqual(['madrugada', 'madrugada', 'manana', 'manana', 'mediodia', 'mediodia', 'tarde', 'tarde', 'noche', 'noche']);
+    expect([0, 5, 6, 7, 11, 12, 13, 14, 19, 20, 23].map(slotOf)).toEqual(['madrugada', 'madrugada', 'madrugada', 'manana', 'manana', 'mediodia', 'mediodia', 'tarde', 'tarde', 'noche', 'noche']);
   });
 
   it('cada franja tiene varias frases, con y sin nombre', () => {

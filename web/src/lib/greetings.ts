@@ -10,7 +10,7 @@ interface Phrase {
   named?: boolean;
 }
 
-export const slotOf = (hour: number): Slot => (hour < 6 ? 'madrugada' : hour < 12 ? 'manana' : hour < 14 ? 'mediodia' : hour < 20 ? 'tarde' : 'noche');
+export const slotOf = (hour: number): Slot => (hour < 7 ? 'madrugada' : hour < 12 ? 'manana' : hour < 14 ? 'mediodia' : hour < 20 ? 'tarde' : 'noche');
 
 export const PHRASES: Record<Slot, Phrase[]> = {
   madrugada: [
