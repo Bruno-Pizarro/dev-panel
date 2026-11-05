@@ -1,5 +1,5 @@
 import { CircleAlert, CircleCheck, FolderTree, Moon, Rocket, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
@@ -12,6 +12,7 @@ import { StatusDot } from '../components/StatusDot';
 import { api } from '../lib/api';
 import type { Check, DevPanelConfig, SetupDetect } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { uniqueById } from '../lib/uniqueById';
 import { contextFromNotices, pickGreeting, slotOf, type GreetingContext, type Slot } from '../lib/greetings';
 import { useHomeNotices, type HomeNoticesState } from '../lib/useHomeNotices';
 
@@ -25,7 +26,12 @@ const todayIso = () => {
 };
 
 const Greeting = ({ name, notices }: { name: string; notices: HomeNoticesState }) => {
-  const context = useMemo<GreetingContext | null>(() => (notices.report ? contextFromNotices([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices], todayIso()) : null), [notices.report]);
+  // Los avisos que ocultaste por hoy no cuentan para el saludo.
+  const context = useMemo<GreetingContext | null>(() => {
+    if (!notices.report) return null;
+    const all = uniqueById([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices]);
+    return contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso());
+  }, [notices.report, notices.hidden]);
   const [text, setText] = useState(() => {
     const now = new Date();
     let last: string | null = null;
@@ -42,14 +48,18 @@ const Greeting = ({ name, notices }: { name: string; notices: HomeNoticesState }
     }
     return picked;
   });
-  // Con los avisos ya cargados, si hay algo para mencionar (feriado, algo importante) el saludo se vuelve a elegir una sola vez.
-  const [adjusted, setAdjusted] = useState(false);
+  // Con los avisos ya cargados, si hay algo para mencionar (feriado, algo importante) el saludo se vuelve a elegir. Se repite solo si
+  // cambia lo que hay para mencionar (por ejemplo al ocultar un aviso): así el número del saludo siempre coincide con lo que ves.
+  const lastKey = useRef<string | null>(null);
   useEffect(() => {
-    if (!context || adjusted) return;
-    setAdjusted(true);
+    if (!context) return;
+    const key = JSON.stringify(context);
+    if (key === lastKey.current) return;
+    const first = lastKey.current === null;
+    lastKey.current = key;
     const relevant = context.holiday || (context.important ?? 0) > 0 || (context.dueSoon ?? 0) > 0 || (context.reviews ?? 0) > 0 || context.sprintLastDay || (context.mrProblems ?? 0) > 0;
-    if (relevant) setText(pickGreeting(new Date(), name, Math.random, text, context));
-  }, [context, adjusted, name, text]);
+    if (relevant || !first) setText(pickGreeting(new Date(), name, Math.random, text, relevant ? context : {}));
+  }, [context, name, text]);
   const Icon = SLOT_ICONS[slotOf(new Date().getHours())];
   if (!text) return null;
   return (
