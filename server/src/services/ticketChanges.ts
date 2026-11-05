@@ -96,23 +96,29 @@ const configuredBase = async (git: ReturnType<typeof gitIn>, baseBranch: string)
   return null;
 };
 
-const MAX_BASE_CANDIDATES = 400;
+const MAX_BASE_CANDIDATES = 200;
+const BASE_HISTORY_COMMITS = 300;
 const BASE_CONCURRENCY = 8;
 
 /**
- * Rama de la que parte la actual: entre las ramas ya contenidas en HEAD, la que deja menos commits propios.
+ * Rama de la que parte la actual: entre las ramas ya contenidas en HEAD (las de sus últimos commits), la que deja menos commits propios.
  * Así una rama cortada de otra feature (sin mergear) se compara con esa feature y no con `desarrollo`, que arrastraría
  * los cambios de la rama padre. Ante empate gana la rama de configuración; sin candidatas, se usa esa.
  */
 const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
   const fallback = await configuredBase(git, baseBranch);
   const current = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout;
-  const listed = await git(['for-each-ref', '--merged', 'HEAD', '--format=%(refname:short)', 'refs/heads', 'refs/remotes/origin']);
+  // Ramas que apuntan a los últimos commits del historial de HEAD (ya contenidas en HEAD): una consulta barata en lugar de recorrer todas las ramas.
+  const listed = await git(['log', 'HEAD', `-n${BASE_HISTORY_COMMITS}`, '--format=%D', '--decorate-refs=refs/heads/', '--decorate-refs=refs/remotes/origin/']);
   if (!listed.ok) return fallback;
-  const candidates = listed.stdout
-    .split('\n')
-    .filter((ref) => ref && ref !== 'origin' && ref !== 'origin/HEAD' && ref !== current && ref !== `origin/${current}`)
-    .slice(0, MAX_BASE_CANDIDATES);
+  const names = new Set(
+    listed.stdout
+      .split(/[\n,]/)
+      .map((name) => name.trim().replace(/^HEAD -> /, ''))
+      .filter((ref) => ref && ref !== 'HEAD' && ref !== 'origin/HEAD' && ref !== current && ref !== `origin/${current}`),
+  );
+  if (fallback) names.add(fallback);
+  const candidates = [...names].slice(0, MAX_BASE_CANDIDATES);
   const counts = new Map<string, number>();
   const queue = [...candidates];
   await Promise.all(
