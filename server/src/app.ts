@@ -20,6 +20,7 @@ import { registerWorkRoutes } from './routes/work.js';
 import { registerAgentRoutes } from './routes/agents.js';
 import { registerHomeRoutes } from './routes/home.js';
 import { registerReminderRoutes } from './routes/reminders.js';
+import { registerClaudeEnvRoutes } from './routes/claudeEnv.js';
 
 export interface AppOptions {
   port: number;
@@ -46,6 +47,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerAgentRoutes(app);
   registerHomeRoutes(app);
   registerReminderRoutes(app);
+  registerClaudeEnvRoutes(app);
 
   if (serveWeb && existsSync(paths.web)) {
     await app.register(fastifyStatic, { root: paths.web });

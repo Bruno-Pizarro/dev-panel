@@ -95,6 +95,13 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
             <span className="block text-sm text-muted">Si no hay token fijo, el panel pide por SSH (con tu clave, sin passphrase) un token de solo lectura que vence en 1 día y lo guarda solo en memoria. Crea un token «dev-panel» en tu cuenta de GitLab cada vez que hace falta (como mucho cada 12 h, y de nuevo si el servidor lo rechaza).</span>
           </span>
         </label>
+        <label className="mt-5 flex cursor-pointer items-start gap-3">
+          <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={config.claudeEnv.gitlabDaily} onChange={(event) => setConfig({ ...config, claudeEnv: { ...config.claudeEnv, gitlabDaily: event.target.checked } })} />
+          <span>
+            <span className="block font-medium">Token diario de GitLab para Claude</span>
+            <span className="block text-sm text-muted">Cada día el panel pide por SSH un token «dev-panel-claude» con permisos de API y lectura/escritura de repositorio (vence en 1 día), lo guarda en el archivo de variables de Claude y revoca el anterior. Claude lo usa para crear MRs sin que lo veas ni lo pegues en el chat. Se ve y renueva en Claude → Variables.</span>
+          </span>
+        </label>
       </Card>
     ) },
     { id: 'rutas', label: 'Rutas', icon: FolderOpen, content: (

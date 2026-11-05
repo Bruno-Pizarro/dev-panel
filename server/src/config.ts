@@ -119,6 +119,19 @@ export const configSchema = z.object({
       group: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('e-sueldos-v3'),
     })
     .default({}),
+  /**
+   * Variables y tokens propios de cada persona para que Claude los use sin leerlos (`~/.config/dev-panel/claude.env`, permisos 600,
+   * fuera del repo). Los valores nunca vuelven al navegador ni a Claude: solo se listan los nombres.
+   */
+  claudeEnv: z
+    .object({
+      /**
+       * Pide cada día por SSH un token de GitLab con api + read/write_repository (1 día) y lo guarda en ese archivo como
+       * GITLAB_RW_TOKEN para crear MRs. Crea un token en la cuenta de GitLab de quien lo activa, por eso viene apagado.
+       */
+      gitlabDaily: z.boolean().default(false),
+    })
+    .default({}),
   /** Cuentas de Claude: carpetas de configuración (CLAUDE_CONFIG_DIR). El panel nunca lee sus credenciales. */
   claude: z
     .object({
@@ -221,6 +234,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
   redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
+  claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },
   workday: { entry: '', exit: '', punchUrl: '' },
   userName: '',

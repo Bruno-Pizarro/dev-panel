@@ -4,6 +4,7 @@ export interface DevPanelConfig {
   remoteBackup: { script: string; types: string[] };
   workday: { entry: string; exit: string; punchUrl: string };
   redmine: { enabled: boolean; apiKey: string; apiKeySet?: boolean; clearApiKey?: boolean; configFile: string; baseUrl: string; doneStatuses: string[] };
+  claudeEnv: { gitlabDaily: boolean };
   gitlab: { enabled: boolean; token: string; tokenSet?: boolean; clearToken?: boolean; baseUrl: string; sshAuto: boolean; sshHost: string; group: string };
   compose: { main: string; minio: string };
   mongo: { container: string };
@@ -443,3 +444,9 @@ export interface HomeNoticesReport { date: string; generatedAt: string; notices:
 export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
 
 export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }
+
+export interface ClaudeEnvResponse {
+  file: string;
+  vars: Array<{ name: string; setAt: string | null; managed: boolean }>;
+  gitlabDaily: { enabled: boolean; mintedAt: string | null; error: string | null };
+}

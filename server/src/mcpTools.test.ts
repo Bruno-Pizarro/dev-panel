@@ -27,12 +27,21 @@ describe('herramientas MCP', () => {
     expect(schema.safeParse('x'.repeat(201)).success).toBe(false);
   });
 
-  it('el único POST que modifica el entorno es el levantado en orden (los otros solo calculan y devuelven datos o agregan un recordatorio)', async () => {
+  it('los POST son el levantado en orden, cálculos de solo lectura, y los que solo AGREGAN (recordatorio, MR y comentario de MR)', async () => {
     const calls: Array<[string, string]> = [];
     const spy: CallApi = async (method, path) => (calls.push([method, path]), {});
     for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today', text: 'recordar' }, spy);
     const posts = calls.filter(([method]) => method === 'POST').map(([, path]) => path);
-    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/reminders', '/api/startup/run']);
+    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/gitlab/mr', '/api/gitlab/mr-note', '/api/reminders', '/api/startup/run']);
+  });
+
+  it('ninguna herramienta toca la configuración ni los valores de las variables de Claude, ni borra o edita', async () => {
+    const paths: string[] = [];
+    const spy: CallApi = async (method, path) => (paths.push(`${method} ${path}`), {});
+    for (const tool of mcpTools) await tool.run({ services: [], dir: 'x', ticket: '1', since: 'today', text: 't', repo: 'r' }, spy);
+    expect(paths.some((entry) => /^(PUT|DELETE|PATCH)/.test(entry))).toBe(false);
+    expect(paths.some((entry) => /\/api\/config|\/api\/claude-env\/./.test(entry))).toBe(false);
+    expect(mcpTools.map((tool) => tool.name).filter((name) => /^mr_/.test(name)).sort()).toEqual(['mr_changes', 'mr_create', 'mr_file_diff', 'mr_note_add']);
   });
 
   it('arma las rutas con parámetros escapados', async () => {

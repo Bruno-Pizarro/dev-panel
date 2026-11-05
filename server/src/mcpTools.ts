@@ -16,8 +16,9 @@ const query = (params: Record<string, string | undefined>): string => {
 };
 
 /**
- * Herramientas que Claude puede usar. Solo lectura, el levantado en orden y `reminder_add`, que únicamente AGREGA un recordatorio
- * (dato local del panel: no borra ni toca nada del entorno, de Redmine ni de GitLab).
+ * Herramientas que Claude puede usar. Casi todo es lectura; las que escriben solo AGREGAN: `reminder_add` (un recordatorio local),
+ * `mr_create` y `mr_note_add` (un MR o un comentario en GitLab con el token diario, que el panel nunca devuelve). No hay forma de
+ * cerrar, mergear ni borrar nada, ni de leer o cambiar la configuración o los valores de las variables de Claude (solo sus nombres).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
  * contenedores, cambiar .env) queda a propósito solo en la interfaz, que pide confirmación explícita.
  */
@@ -86,6 +87,25 @@ export const mcpTools: McpToolDef[] = [
     },
     run: (args, call) => call('POST', '/api/reminders', { text: args['text'], ...(args['at'] ? { at: args['at'] } : {}) }),
   },
+  {
+    name: 'mr_create',
+    description: 'Crea un Merge Request en GitLab del repo indicado (grupo configurado) con el token diario de Claude. Solo crea: no cierra, mergea ni edita. Sin "target" va a la rama base (desarrollo). Devuelve el número y la URL.',
+    shape: {
+      repo: z.string().describe('Carpeta del repo, ej. legajo'),
+      source: z.string().describe('Rama origen, ej. feature/33528-notificaciones-pendientes-firma'),
+      target: z.string().optional().describe('Rama destino; vacío = rama base de la configuración'),
+      title: z.string().min(1).max(255),
+      description: z.string().max(20_000).optional(),
+    },
+    run: (args, call) => call('POST', '/api/gitlab/mr', { repo: args['repo'], source: args['source'], ...(args['target'] ? { target: args['target'] } : {}), title: args['title'], ...(args['description'] ? { description: args['description'] } : {}) }),
+  },
+  {
+    name: 'mr_note_add',
+    description: 'Agrega un comentario a un Merge Request de GitLab con el token diario de Claude. Solo agrega: no resuelve ni borra discusiones.',
+    shape: { repo: z.string().describe('Carpeta del repo, ej. front'), iid: z.number().int().min(1).describe('Número del MR'), body: z.string().min(1).max(20_000) },
+    run: (args, call) => call('POST', '/api/gitlab/mr-note', { repo: args['repo'], iid: args['iid'], body: args['body'] }),
+  },
+  { name: 'claude_env_names', description: 'Nombres (nunca los valores) de las variables y tokens guardados para Claude, cuándo se guardaron y si el token diario de GitLab está activo. Para usarlas: `dpx run -- <comando>`.', shape: {}, run: (_a, call) => call('GET', '/api/claude-env') },
   { name: 'activity', description: 'Historial de los últimos 5 días: commits, push, MRs, revisiones, análisis, estimaciones y pruebas, por día.', shape: {}, run: (_a, call) => call('GET', '/api/activity') },
   { name: 'daily_checklist', description: 'Checklist de todos los días de hoy (entrada, salida, cargar horas) y qué está tildado.', shape: {}, run: (_a, call) => call('GET', '/api/checklist/daily') },
   {
