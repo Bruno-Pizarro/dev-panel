@@ -184,6 +184,17 @@ export const configSchema = z.object({
     .default({}),
   /** Resumen semanal: plantilla (por ejemplo, un resumen anterior) en la que se basa el pedido a Claude. Vacío = el ejemplo que trae el panel. */
   weekly: z.object({ template: z.string().max(8000).default('') }).default({}),
+  /**
+   * Foro de MRs de Discord (ver docs/DISCORD.md). El webhook es un SECRETO: va en las variables de Claude con el nombre `webhookVar`,
+   * nunca acá. `tags` = etiquetas del foro por nombre de carpeta del repo (ids de Discord); `otherTag` se usa para un repo sin etiqueta propia.
+   */
+  discord: z
+    .object({
+      webhookVar: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/).default('DISCORD_WEBHOOK_MR'),
+      tags: z.record(z.string(), z.string().regex(/^\d{5,25}$/)).default({}),
+      otherTag: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
+    })
+    .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -250,6 +261,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
   weekly: { template: '' },
+  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

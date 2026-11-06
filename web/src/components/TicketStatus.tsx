@@ -1,8 +1,9 @@
-import { Check, ClipboardCopy, X } from 'lucide-react';
+import { Check, ClipboardCopy, ExternalLink, MessageSquare, X } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
-import type { ClosingReport, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
+import type { ClosingReport, DiscordPreview, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -230,6 +231,56 @@ const Closing = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
   );
 };
 
+/**
+ * Hilo del ticket en el foro de MRs de Discord. Nada se publica solo: el botón muestra antes exactamente qué sale (título, mensaje y
+ * etiquetas) y publica cuando lo apretás; si el panel ya creó el hilo, actualiza su mensaje inicial con los MRs nuevos.
+ */
+const Discord = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+  const toast = useToast();
+  const [version, setVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const publish = async () => {
+    setBusy(true);
+    try {
+      const result = await api.post<{ action: 'created' | 'updated'; link: string | null }>(`${base(dir)}/discord`, { confirm: true });
+      toast('success', result.action === 'created' ? 'Hilo creado en Discord.' : 'Hilo actualizado con los MRs.');
+      setVersion((value) => value + 1);
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Section<DiscordPreview>
+      title="Discord · foro de MRs"
+      url={`${base(dir)}/discord`}
+      refreshKey={refreshKey + version}
+      action={(data) => <Badge tone={data.record ? 'success' : 'neutral'}>{data.record ? 'hilo creado' : 'sin hilo'}</Badge>}
+    >
+      {(data) => (
+        <div className="space-y-4" data-testid="discord-card">
+          {data.draft && (
+            <div className="space-y-2">
+              <p className="font-medium">{data.draft.name}</p>
+              <pre className="whitespace-pre-wrap break-words rounded-lg bg-surface-2 p-3 font-mono text-sm" data-testid="discord-message">{data.draft.content}</pre>
+              <p className="text-sm text-muted">Etiquetas: {data.draft.tags.length ? `${data.draft.tags.length} (una por repo involucrado)` : 'ninguna'}</p>
+            </div>
+          )}
+          {data.problems.length > 0 && <ul className="space-y-1 text-sm text-warning">{data.problems.map((problem) => <li key={problem}>• {problem}</li>)}</ul>}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" disabled={busy || data.problems.length > 0} icon={<MessageSquare className="size-4" />} onClick={publish} title="Publica en el canal del equipo lo que ves arriba">
+              {data.action === 'update' ? 'Actualizar el hilo en Discord' : 'Publicar en Discord'}
+            </Button>
+            {data.record?.link && <a href={data.record.link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Abrir el hilo<ExternalLink className="size-4" aria-hidden /></a>}
+            <Hint>Nunca se publica solo. Las etiquetas «Estado: …» y borrar la publicación al llegar a Producción siguen siendo a mano.</Hint>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+};
+
 /** Pestaña Estado: lo que hay que mirar antes de pasar un ticket a MR. Todo es solo lectura. */
 export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
   <div className="space-y-6">
@@ -238,6 +289,7 @@ export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: num
     <Gitlab dir={dir} refreshKey={refreshKey} />
     <Services dir={dir} refreshKey={refreshKey} />
     <TestData dir={dir} refreshKey={refreshKey} />
+    <Discord dir={dir} refreshKey={refreshKey} />
     <Closing dir={dir} refreshKey={refreshKey} />
   </div>
 );

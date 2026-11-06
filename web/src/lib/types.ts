@@ -427,6 +427,17 @@ export interface StartedReview {
   prompt: string;
 }
 
+/** Hilo del ticket en el foro de MRs de Discord (ver `GET /api/tickets/:dir/discord`). */
+export interface DiscordPreview {
+  webhookReady: boolean;
+  webhookVar: string;
+  ticket: string | null;
+  draft: { name: string; content: string; tags: string[]; missingTags: string[] } | null;
+  record: { threadId: string; messageId: string; guildId: string | null; createdAt: string; updatedAt: string; link: string | null } | null;
+  problems: string[];
+  action: 'create' | 'update';
+}
+
 export interface WeeklyReport {
   range: { start: string; end: string; label: string };
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;

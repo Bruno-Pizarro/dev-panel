@@ -17,7 +17,7 @@ const query = (params: Record<string, string | undefined>): string => {
 
 /**
  * Herramientas que Claude puede usar. Casi todo es lectura; las que escriben solo AGREGAN: `reminder_add` (un recordatorio local),
- * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada),
+ * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada), `discord_publish` (el hilo del ticket en el foro de MRs, solo a pedido),
  * `mr_create` y `mr_note_add` (un MR o un comentario en GitLab con el token diario, que el panel nunca devuelve). No hay forma de
  * cerrar, mergear ni borrar nada, ni de leer o cambiar la configuración o los valores de las variables de Claude (solo sus nombres).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
@@ -94,6 +94,18 @@ export const mcpTools: McpToolDef[] = [
     description: 'Prepara la revisión de un ticket de la cola (review_queue): crea la carpeta mínima en _EXTRA con tipo «revision» (aparece en Pruebas como solo revisión) y devuelve el pedido para empezar. Solo agrega: no pisa un ticket.json existente, no escribe en Redmine ni en GitLab.',
     shape: { ticket: z.string().regex(/^\d{1,7}$/).describe('Número del ticket, ej. 33380') },
     run: (args, call) => call('POST', `/api/review-queue/${encodeURIComponent(String(args['ticket']))}/start`),
+  },
+  {
+    name: 'discord_preview',
+    description: 'Muestra lo que se publicaría en el foro de MRs de Discord para la carpeta de un ticket (título, mensaje con ticket y MRs, etiquetas de los repos), si ya hay un hilo y qué falta para poder publicar. No publica nada.',
+    shape: { dir: z.string().describe('Carpeta del ticket en _EXTRA, ej. 33526-pendientes-firma') },
+    run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}/discord`),
+  },
+  {
+    name: 'discord_publish',
+    description: 'Crea el hilo del ticket en el foro de MRs de Discord con el formato del equipo y las etiquetas de sus repos, o actualiza el mensaje inicial del hilo que ya creó el panel. Usala SOLO si el usuario te lo pidió explícitamente en esta conversación (publica en un canal del equipo y no se puede deshacer desde acá). Mostrale antes la vista previa (discord_preview). No pinga a nadie, no borra ni cambia etiquetas.',
+    shape: { dir: z.string().describe('Carpeta del ticket en _EXTRA, ej. 33526-pendientes-firma') },
+    run: (args, call) => call('POST', `/api/tickets/${encodeURIComponent(String(args['dir']))}/discord`, { confirm: true }),
   },
   {
     name: 'mr_create',
