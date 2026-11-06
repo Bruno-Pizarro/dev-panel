@@ -17,6 +17,7 @@ const query = (params: Record<string, string | undefined>): string => {
 
 /**
  * Herramientas que Claude puede usar. Casi todo es lectura; las que escriben solo AGREGAN: `reminder_add` (un recordatorio local),
+ * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada),
  * `mr_create` y `mr_note_add` (un MR o un comentario en GitLab con el token diario, que el panel nunca devuelve). No hay forma de
  * cerrar, mergear ni borrar nada, ni de leer o cambiar la configuración o los valores de las variables de Claude (solo sus nombres).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
@@ -86,6 +87,13 @@ export const mcpTools: McpToolDef[] = [
       at: z.string().optional().describe('Cuándo: "AAAA-MM-DD" (ese día) o fecha y hora ISO con zona, ej. 2026-11-05T10:00:00-03:00. Vacío = pendiente sin fecha'),
     },
     run: (args, call) => call('POST', '/api/reminders', { text: args['text'], ...(args['at'] ? { at: args['at'] } : {}) }),
+  },
+  { name: 'review_queue', description: 'Tickets de otras personas que están en Revisión en el sprint actual y cuyo Control QA nadie tomó todavía (sin comentarios de revisores), con descripción, últimos comentarios, QA y MRs. Solo lectura.', shape: {}, run: (_a, call) => call('GET', '/api/review-queue') },
+  {
+    name: 'review_start',
+    description: 'Prepara la revisión de un ticket de la cola (review_queue): crea la carpeta mínima en _EXTRA con tipo «revision» (aparece en Pruebas como solo revisión) y devuelve el pedido para empezar. Solo agrega: no pisa un ticket.json existente, no escribe en Redmine ni en GitLab.',
+    shape: { ticket: z.string().regex(/^\d{1,7}$/).describe('Número del ticket, ej. 33380') },
+    run: (args, call) => call('POST', `/api/review-queue/${encodeURIComponent(String(args['ticket']))}/start`),
   },
   {
     name: 'mr_create',

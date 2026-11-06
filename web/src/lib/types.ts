@@ -391,6 +391,39 @@ export interface SprintPointsReport {
   reviewStatuses: string[];
 }
 
+/** Tickets en Revisión del sprint actual cuyo Control QA nadie tomó (ver `GET /api/review-queue`). */
+export interface ReviewComment {
+  user: string;
+  at: string;
+  notes: string;
+}
+export interface ReviewQueueItem {
+  id: number;
+  url: string;
+  title: string;
+  tracker: string;
+  status: string;
+  assignedTo: string | null;
+  storyPoints: number | null;
+  description: string;
+  comments: ReviewComment[];
+  qa: { id: number; url: string; status: string; assignedTo: string | null; author: string | null; description: string; comments: ReviewComment[]; reviewerComments: number } | null;
+  mrs: Array<{ url: string; repo: string | null; iid: number }>;
+  folder: string | null;
+}
+export interface ReviewQueue {
+  sprint: { id: number; subject: string; url: string } | null;
+  items: ReviewQueueItem[];
+  reviewerRole: string;
+  rolesKnown: boolean;
+}
+export interface StartedReview {
+  dir: string;
+  created: boolean;
+  kind: string;
+  prompt: string;
+}
+
 export interface WeeklyReport {
   range: { start: string; end: string; label: string };
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;

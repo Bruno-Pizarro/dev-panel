@@ -40,6 +40,18 @@ export const useServerEvent = <T,>(channel: string, onEvent: (data: T) => void):
   }, [channel]);
 };
 
+const STORED_EVENT = 'devpanel:stored';
+
+/** Escribe un valor en `localStorage` y avisa a los `useStoredState` abiertos con esa clave, para que lo tomen sin recargar. */
+export const writeStored = <T,>(key: string, value: T, source: object | null = null): void => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* sin almacenamiento */
+  }
+  window.dispatchEvent(new CustomEvent(STORED_EVENT, { detail: { key, source } }));
+};
+
 /** Estado guardado en localStorage (comodidad por usuario; si no está disponible, se comporta como useState). */
 export const useStoredState = <T,>(key: string, initial: T): [T, (value: T) => void] => {
   const [value, setValue] = useState<T>(() => {
@@ -50,14 +62,26 @@ export const useStoredState = <T,>(key: string, initial: T): [T, (value: T) => v
       return initial;
     }
   });
-  const update = useCallback(
-    (next: T) => {
-      setValue(next);
+  const self = useRef({});
+  // Otro componente (u otra parte de la pantalla) cambió esta clave: se toma el valor nuevo.
+  useEffect(() => {
+    const onStored = (event: Event) => {
+      const detail = (event as CustomEvent<{ key: string; source: object | null }>).detail;
+      if (detail.key !== key || detail.source === self.current) return;
       try {
-        window.localStorage.setItem(key, JSON.stringify(next));
+        const raw = window.localStorage.getItem(key);
+        if (raw) setValue(JSON.parse(raw) as T);
       } catch {
         /* sin almacenamiento */
       }
+    };
+    window.addEventListener(STORED_EVENT, onStored);
+    return () => window.removeEventListener(STORED_EVENT, onStored);
+  }, [key]);
+  const update = useCallback(
+    (next: T) => {
+      setValue(next);
+      writeStored(key, next, self.current);
     },
     [key],
   );

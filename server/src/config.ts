@@ -103,6 +103,8 @@ export const configSchema = z.object({
       approvedStatuses: z.array(z.string()).default(['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado']),
       /** Estados «en revisión»: sus SP se muestran aparte de los entregados. */
       reviewStatuses: z.array(z.string()).default(['Revisión']),
+      /** Rol de Redmine que se toma como «revisor» para saber si alguien ya tomó el Control QA de un ticket en revisión. */
+      reviewerRole: z.string().default('Desarrollador'),
     })
     .default({}),
   /** GitLab (solo lectura): estado de los MRs y sus pipelines. El token sale de GITLAB_TOKEN o de `token` (opcional, solo en este config.json local). */
@@ -236,7 +238,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
-  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'] },
+  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador' },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
   claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },
