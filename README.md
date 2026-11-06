@@ -7,6 +7,18 @@ Panel web **local** para el entorno de desarrollo de e-sueldos: levantar el stac
 - Docker con Compose y `git`.
 - Opcionales: la CLI `claude` (cuentas y skills) y una API key de Redmine (Kanban y datos de tickets).
 
+## Cada dev, su propio panel
+`main` es la **base compartida** y no se modifica. Cada dev trabaja en **su propia rama `dev/<su-nombre>`**, creada desde `main`, e integra ahí las herramientas que le sirven. Los PRs apuntan siempre a la rama propia, nunca a `main`. Detalle y recetas para agregar o sacar cosas: [docs/PERSONALIZAR.md](docs/PERSONALIZAR.md).
+
+## Primer día
+```bash
+git clone <url-del-repo> dev-panel && cd dev-panel
+git switch -c dev/<tu-nombre>
+yarn install
+yarn doctor      # qué falta configurar y cómo resolverlo (no muestra credenciales)
+```
+Después abrí **Claude Code en esta carpeta**: su `CLAUDE.md` le indica que revise el entorno con vos, te pida lo que falte (rutas, accesos opcionales, hooks) y te ayude a personalizar el panel. Tus preferencias quedan en `docs/PERSONAL.md` (se crea desde `docs/PERSONAL.example.md`).
+
 ## Cómo arrancarlo
 ```bash
 yarn install
@@ -30,7 +42,7 @@ En el primer arranque se abre un **asistente** que detecta Docker, tus rutas y l
 | Claude | Cuentas con su uso (recarga manual) y skills instaladas con su fecha de modificación |
 | Configuración | Rutas, nombre, API key de Redmine, jornada, orden de levantado |
 
-Además: búsqueda rápida (`Ctrl+K`), **temas de color** (selector en la barra superior) y un servidor MCP de solo lectura para que Claude consulte el panel.
+Además: búsqueda rápida (`Ctrl+K`), **temas de color** (selector en la barra superior) y un servidor MCP para que Claude consulte el panel (sin herramientas destructivas: lectura, agregar y publicar en Discord solo a pedido).
 
 ## Para usar Pruebas y Desarrollo
 Esas vistas leen un `ticket.json` por carpeta de la base de conocimiento (`_EXTRA`), que escriben las skills del pipeline (`ing-requisitos-sdd`, `arquitecto-sdd`, `desarrollador-sdd`, `gitlab-review`, `ship`). Este repo trae la skill [`skills/dev-panel`](skills/dev-panel/SKILL.md) con la convención; se instala con un enlace simbólico y las skills del pipeline (que viven fuera del repo) se preparan una vez por máquina: ver [docs/skills-sdd/](docs/skills-sdd/README.md). Convención del archivo: [docs/TICKET_JSON.md](docs/TICKET_JSON.md).

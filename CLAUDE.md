@@ -2,6 +2,17 @@
 
 Panel web local (modo oscuro) para el entorno de desarrollo de e-sueldos. Plan y fases: [docs/PLAN.md](docs/PLAN.md). Convención de `ticket.json`: [docs/TICKET_JSON.md](docs/TICKET_JSON.md). Prototipo previo: `_EXTRA/dev-panel` (no se modifica).
 
+## Primera sesión en este repo (leé esto antes de nada)
+Este repo se comparte entre varios devs, pero **cada dev tiene su propio Dev Panel en su propia rama `dev/<su-nombre>`**. `main` es la base compartida que mantiene Bruno (el dueño): **no se modifica y no se hacen PRs a `main`**. Cualquier PR de un dev apunta a **su rama**, nunca a `main`; si algo le sirve a todos, el dev se lo cuenta a Bruno. Las novedades de la base se traen con `git merge origin/main` en la rama del dev. Guía completa y recetas para agregar o sacar cosas: [docs/PERSONALIZAR.md](docs/PERSONALIZAR.md).
+
+Al empezar una sesión (si el usuario pide algo urgente, atendelo primero y dejá esto para después):
+1. `git branch --show-current`. Si está en `main`, explicale el modelo y proponé crear su rama `dev/<nombre>` desde `main` (es una operación de git: pedí confirmación; no commitees en `main`).
+2. Si existe `docs/PERSONAL.md`, leelo: son sus preferencias y decisiones. Si no existe, ofrecé crearlo desde [docs/PERSONAL.example.md](docs/PERSONAL.example.md) con preguntas cortas (una o dos por vez) y guardá ahí lo que vaya contando.
+3. Corré `yarn doctor` (con `--json` si preferís leerlo como datos). Por cada **✗ (falta)** ayudalo a resolverlo ahora. Por cada **· (opcional)** preguntale si lo quiere, en una línea de para qué sirve, y no insistas si dice que no. Anotá en `docs/PERSONAL.md` lo que decida. Volvé a correrlo si cambia de máquina o dice que «no anda».
+4. **Nunca le pidas pegar tokens o claves en el chat** ni los escribas en archivos del repo: mandalo a Configuración o a Claude → Variables. Los hooks y guardas de `~/.claude/settings.json` los instala **él** con los scripts de `server/scripts` (explicale el comando); las skills no se modifican sin su OK explícito (ver «Skills del pipeline»).
+5. Preguntale qué partes del panel va a usar y si quiere sacar o sumar algo; para sumar, seguí las recetas de `docs/PERSONALIZAR.md` (archivos nuevos y cambios mínimos en los compartidos, para no chocar al traer `main`).
+6. Al terminar cada cambio: `yarn verify` en verde y, si toca la interfaz, probarla en el navegador.
+
 ## Qué hace (vistas)
 | Vista | Qué hace |
 |---|---|
@@ -84,18 +95,19 @@ Si el usuario pregunta "¿qué tengo acá?" o es la primera vez, explicalo así,
 - **Claude**: tus cuentas con su uso (se recarga a mano) y las skills instaladas con su fecha de modificación.
 - **Configuración**: rutas, tu nombre, la API key de Redmine, el token de GitLab (opcional), horarios de la jornada, orden de levantado y repos.
 - **Barra superior**: búsqueda rápida (`Ctrl+K`), uso de Claude con botón de recarga, selector de **tema de colores** (índigo, ámbar, violeta, bosque, océano, rosa, medianoche, eclipse, claro) y estado del servidor. El menú lateral se puede colapsar.
-- **Claude puede usar el panel**: hay un servidor MCP de solo lectura (ver "Servidor MCP") para pedirle, por ejemplo, el reporte semanal o el estado del entorno.
-Lo que el panel **no** hace: escribir en GitLab o en Redmine (GitLab solo se lee, con token opcional), marcar entrada/salida de verdad ni guardar el historial de consumo de Claude.
+- **Claude puede usar el panel**: hay un servidor MCP (ver "Servidor MCP") para pedirle, por ejemplo, el reporte semanal o el estado del entorno. No expone nada destructivo: casi todo es lectura y las pocas herramientas que escriben solo AGREGAN (un recordatorio, un MR o un comentario de MR) o publican en Discord **solo a pedido del usuario**.
+Lo que el panel **no** hace: escribir en Redmine (solo lectura), cerrar, mergear, editar ni borrar nada en GitLab (solo crear un MR y comentar, con el token de escritura opcional), publicar en Discord sin que el usuario lo pida, marcar entrada/salida de verdad ni guardar el historial de consumo de Claude.
 
 ## Reglas fijas
 - **Siempre `yarn`** (v1.22). Nunca `npm` ni `npx`, ni en scripts, ni en docs, ni en comandos que le pidas al usuario.
 - Código (variables, funciones, tipos, archivos) **en inglés**; textos de la interfaz y comentarios en **español**.
 - Nada de texto menor a 14 px (en Tailwind `text-xs` y `text-sm` valen 14 px a propósito). Prioridad permanente: estética oscura, cómoda para programadores.
 - Sin credenciales en el repo, en logs ni en pantalla: los `.env` de otros repos se muestran siempre enmascarados.
-- Git: no crear/cambiar/borrar ramas ni hacer push sin confirmar con el usuario. Commits simples sí.
+- Git: no crear/cambiar/borrar ramas ni hacer push sin confirmar con el usuario. Commits simples sí. **Cada dev trabaja solo en su propia rama `dev/<nombre>`; nunca se modifica `main` y los PRs apuntan a la rama del dev** (ver «Primera sesión» y [docs/PERSONALIZAR.md](docs/PERSONALIZAR.md)).
 - Node de esta máquina: 18.14. `.yarnrc` tiene `ignore-engines true` por eso; las versiones están elegidas para Node 18 (Vite 5, Tailwind 3.4, Fastify 4).
 
 ## Puesta en marcha en una máquina nueva
+`yarn doctor` revisa lo que falta y dice cómo resolverlo (ver «Primera sesión»).
 ```bash
 yarn install
 yarn dev        # servidor (127.0.0.1:4777) + Vite con recarga (http://127.0.0.1:5173)
@@ -173,6 +185,7 @@ Las vistas Pruebas y Desarrollo viven de `ticket.json`, que escriben las skills 
 | `yarn lint` | ESLint en server y web |
 | `yarn test` | Vitest en server y web |
 | `yarn verify` | typecheck + lint + test + build (correrlo antes de commitear) |
+| `yarn doctor` | Revisa qué le falta a esta instalación (herramientas, rama, `config.json`, accesos, MCP, hooks) y qué hacer con cada cosa; no muestra valores de credenciales (`--json` para leerlo como datos) |
 
 Para un solo paquete: `yarn workspace @dev-panel/server test`, `yarn workspace @dev-panel/web build`.
 
