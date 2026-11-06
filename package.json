@@ -17,6 +17,7 @@
     "lint": "yarn workspaces run lint",
     "typecheck": "yarn workspaces run typecheck",
     "test": "yarn workspaces run test",
+    "doctor": "node server/scripts/doctor.mjs",
     "verify": "yarn typecheck && yarn lint && yarn test && yarn build"
   },
   "devDependencies": {
