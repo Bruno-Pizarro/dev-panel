@@ -149,6 +149,28 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     expect(JSON.parse(readFileSync(join(dir, 'discord-threads.json'), 'utf8'))['33526']).toMatchObject({ threadId: 'THREAD2', messageId: 'MSG2' });
   });
 
+  it('también cuenta como borrado si Discord contesta «Unknown Channel» o «Unknown Message» con otro estado', async () => {
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster());
+    const unknown = (code: number, status = 400) => async (url: string, init: { method: string; body?: string }) => {
+      calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : {} });
+      return init.method === 'POST' ? { ok: true, status: 200, json: async () => ({ id: 'MSG3', channel_id: 'THREAD3', guild_id: 'GUILD1' }) } : { ok: false, status, json: async () => ({ message: 'Unknown Channel', code }) };
+    };
+    expect(await previewThread(config, '33526-pendientes-firma', unknown(10003))).toMatchObject({ action: 'create', forgotten: true });
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster());
+    calls.length = 0;
+    const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, unknown(10008));
+    expect(result).toMatchObject({ action: 'created', threadId: 'THREAD3' });
+  });
+
+  it('un rechazo de Discord que no es «borrado» muestra lo que contestó, sin la URL del webhook', async () => {
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, byMethod({ GET: 200 })).catch(() => undefined);
+    const rejecting = async (_url: string, init: { method: string; body?: string }) =>
+      init.method === 'PATCH' ? { ok: false, status: 403, json: async () => ({ message: 'Missing Permissions', code: 50013 }) } : { ok: true, status: 200, json: async () => ({ id: 'MSG4', channel_id: 'THREAD4' }) };
+    const failure = publishThread(config, '33526-pendientes-firma', { confirm: true }, rejecting);
+    await expect(failure).rejects.toThrow(/403.*Missing Permissions/);
+    await expect(failure).rejects.not.toThrow(/inventadoinventado/);
+  });
+
   it('si el hilo ya no existe al publicar, se crea uno nuevo sin pasos extra', async () => {
     calls.length = 0;
     const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, byMethod({ GET: 404, POST: 200 }));

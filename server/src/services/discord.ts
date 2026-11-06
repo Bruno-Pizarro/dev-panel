@@ -119,6 +119,31 @@ export interface DiscordPreview {
 type Poster = (url: string, init: { method: string; body?: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 const defaultPoster: Poster = (url, init) => fetch(url, { ...init, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000) }) as never;
 
+/**
+ * ¿Discord dice que el hilo o su mensaje ya no existen? Un 404, o los códigos de «Unknown Channel» (10003) y «Unknown Message» (10008),
+ * que según el caso llegan con otro estado. Se lee el cuerpo con cuidado: nunca debe romper la comprobación.
+ */
+const isGone = async (response: { status: number; json: () => Promise<unknown> }): Promise<boolean> => {
+  if (response.status === 404) return true;
+  if (response.status < 400 || response.status >= 500) return false;
+  try {
+    const body = (await response.json()) as { code?: number };
+    return body.code === 10003 || body.code === 10008;
+  } catch {
+    return false;
+  }
+};
+
+/** Lo que contestó Discord (su `message` y `code`, nunca la URL del webhook) para que el error diga algo útil. */
+const discordReason = async (response: { json: () => Promise<unknown> }): Promise<string> => {
+  try {
+    const body = (await response.json()) as { message?: string; code?: number };
+    return body.message ? `: ${body.message}${body.code ? ` (código ${body.code})` : ''}` : '';
+  } catch {
+    return '';
+  }
+};
+
 const threadLink = (record: ThreadRecord) => (record.guildId ? `https://discord.com/channels/${record.guildId}/${record.threadId}` : null);
 
 /**
@@ -128,7 +153,7 @@ const threadLink = (record: ThreadRecord) => (record.guildId ? `https://discord.
 const threadStillExists = async (webhook: string, record: ThreadRecord, post: Poster): Promise<boolean> => {
   try {
     const response = await post(`${webhook}/messages/${record.messageId}?thread_id=${record.threadId}`, { method: 'GET' });
-    return response.status !== 404;
+    return !(await isGone(response));
   } catch {
     return true;
   }
@@ -188,8 +213,8 @@ export const publishThread = async (config: DevPanelConfig, dir: string, options
 
   if (existing) {
     const response = await post(`${webhook}/messages/${existing.messageId}?thread_id=${existing.threadId}`, { method: 'PATCH', body: JSON.stringify({ content: draft.content, allowed_mentions: mentions(config.discord.userId) }) });
-    if (response.status !== 404) {
-      if (!response.ok) throw new DiscordError(`Discord no aceptó el cambio (${response.status})`, 502);
+    if (!(await isGone(response))) {
+      if (!response.ok) throw new DiscordError(`Discord no aceptó el cambio (${response.status})${await discordReason(response)}`, 502);
       records[ticket] = { ...existing, updatedAt: new Date().toISOString() };
       writeRecords(records);
       return { action: 'updated', threadId: existing.threadId, link: threadLink(existing) };
@@ -200,7 +225,7 @@ export const publishThread = async (config: DevPanelConfig, dir: string, options
   }
 
   const response = await post(`${webhook}?wait=true`, { method: 'POST', body: JSON.stringify({ thread_name: draft.name, content: draft.content, applied_tags: draft.tags, username, flags: SUPPRESS_EMBEDS, allowed_mentions: mentions(config.discord.userId) }) });
-  if (!response.ok) throw new DiscordError(`Discord no aceptó el hilo (${response.status})`, 502);
+  if (!response.ok) throw new DiscordError(`Discord no aceptó el hilo (${response.status})${await discordReason(response)}`, 502);
   const message = (await response.json()) as { id?: string; channel_id?: string; guild_id?: string };
   if (!message.id || !message.channel_id) throw new DiscordError('Discord no devolvió el id del hilo', 502);
   const now = new Date().toISOString();
