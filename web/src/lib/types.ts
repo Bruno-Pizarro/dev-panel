@@ -442,6 +442,18 @@ export interface DiscordPreview {
   existing: { name: string; link: string; replies: number } | null;
 }
 
+/** Mensaje al hilo de Discord del ticket (ver `GET /api/tickets/:dir/discord/message`). */
+export interface DiscordMessagePreview {
+  ticket: string | null;
+  threadId: string | null;
+  link: string | null;
+  content: string;
+  mentioned: Array<{ name: string; id: string }>;
+  /** Nombres que se pueden etiquetar (de `discord.people`). */
+  people: string[];
+  problems: string[];
+}
+
 export interface WeeklyReport {
   range: { start: string; end: string; label: string };
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;

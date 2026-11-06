@@ -17,7 +17,7 @@ const query = (params: Record<string, string | undefined>): string => {
 
 /**
  * Herramientas que Claude puede usar. Casi todo es lectura; las que escriben solo AGREGAN: `reminder_add` (un recordatorio local),
- * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada), `discord_threads` y `discord_thread_messages` solo LEEN el foro, `discord_publish` (el hilo del ticket en el foro de MRs, solo a pedido),
+ * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada), `discord_threads` y `discord_thread_messages` solo LEEN el foro, `discord_publish` (el hilo del ticket en el foro de MRs, solo a pedido) y `discord_message_send` (un mensaje al hilo, etiquetando por nombre, solo a pedido),
  * `mr_create` y `mr_note_add` (un MR o un comentario en GitLab con el token diario, que el panel nunca devuelve). No hay forma de
  * cerrar, mergear ni borrar nada, ni de leer o cambiar la configuración o los valores de las variables de Claude (solo sus nombres).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
@@ -113,6 +113,26 @@ export const mcpTools: McpToolDef[] = [
     description: 'Crea el hilo del ticket en el foro de MRs de Discord con el formato del equipo y las etiquetas de sus repos, o actualiza el mensaje inicial del hilo que ya creó el panel. Usala SOLO si el usuario te lo pidió explícitamente en esta conversación (publica en un canal del equipo y no se puede deshacer desde acá). Mostrale antes la vista previa (discord_preview). No pinga a nadie, no borra ni cambia etiquetas.',
     shape: { dir: z.string().describe('Carpeta del ticket en _EXTRA, ej. 33526-pendientes-firma') },
     run: (args, call) => call('POST', `/api/tickets/${encodeURIComponent(String(args['dir']))}/discord`, { confirm: true }),
+  },
+  {
+    name: 'discord_message_preview',
+    description: 'Muestra el mensaje que se enviaría al hilo de Discord del ticket (con las menciones resueltas por nombre desde discord.people), a qué hilo iría y qué falta para poder enviarlo. No envía nada.',
+    shape: {
+      dir: z.string().describe('Carpeta del ticket en _EXTRA, ej. 33526-pendientes-firma'),
+      text: z.string().max(4000).describe('Texto del mensaje'),
+      to: z.array(z.string().max(60)).max(10).default([]).describe('Nombres a etiquetar, como figuran en discord.people (ej. ["Mariano"])'),
+    },
+    run: (args, call) => call('GET', `/api/tickets/${encodeURIComponent(String(args['dir']))}/discord/message${query({ text: String(args['text'] ?? ''), to: ((args['to'] as string[] | undefined) ?? []).join(',') })}`),
+  },
+  {
+    name: 'discord_message_send',
+    description: 'Envía un mensaje al hilo de Discord del ticket, etiquetando por nombre a las personas indicadas (solo ellas, nunca @everyone ni roles). Usala SOLO si el usuario te pidió explícitamente en esta conversación enviar ese mensaje (lo ve todo el equipo y no se puede deshacer desde acá). Mostrale antes la vista previa (discord_message_preview).',
+    shape: {
+      dir: z.string().describe('Carpeta del ticket en _EXTRA, ej. 33526-pendientes-firma'),
+      text: z.string().min(1).max(4000).describe('Texto del mensaje'),
+      to: z.array(z.string().max(60)).max(10).default([]).describe('Nombres a etiquetar, como figuran en discord.people'),
+    },
+    run: (args, call) => call('POST', `/api/tickets/${encodeURIComponent(String(args['dir']))}/discord/message`, { confirm: true, text: String(args['text'] ?? ''), to: (args['to'] as string[] | undefined) ?? [] }),
   },
   {
     name: 'mr_create',
