@@ -74,16 +74,21 @@ export const groupByTicket = (events: ActivityEvent[]): TicketWeek[] => {
 
 const bullets = (title: string, items: string[]): string[] => (items.length ? [`  - ${title}: ${[...new Set(items)].slice(0, 6).join(' · ')}`] : []);
 
+/** Las líneas de un ticket (encabezado y lo hecho): las comparten el resumen semanal y el pedido de notas del día. */
+export const ticketLines = (item: TicketWeek): string[] => {
+  const lines: string[] = [];
+  lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.kind === 'revision' ? ' [SOLO REVISIÓN de desarrollo ajeno]' : ''}` : '- Sin número de ticket');
+  const repos = [...new Set(item.commits.map((commit) => commit.repo))].filter(Boolean);
+  if (item.commits.length) lines.push(`  - ${item.commits.length} commits${repos.length ? ` en ${repos.join(', ')}` : ''}: ${item.commits.slice(0, 6).map((commit) => commit.subject).join(' · ')}${item.commits.length > 6 ? ` · … y ${item.commits.length - 6} más` : ''}`);
+  if (item.pushes) lines.push(`  - ${item.pushes} push`);
+  lines.push(...bullets('MRs', item.mergeRequests), ...bullets('Revisiones (code review)', item.reviews), ...bullets('Pruebas', item.tests), ...bullets('Análisis / definición', item.analyses), ...bullets('Estimación', item.estimations));
+  return lines;
+};
+
 export const formatWeekData = (range: WeekRange, tickets: TicketWeek[]): string => {
   const lines = [`Semana ${range.label}`, ''];
   if (!tickets.length) lines.push('(sin actividad registrada en git ni en la base de conocimiento)');
-  for (const item of tickets) {
-    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.kind === 'revision' ? ' [SOLO REVISIÓN de desarrollo ajeno]' : ''}` : '- Sin número de ticket');
-    const repos = [...new Set(item.commits.map((commit) => commit.repo))].filter(Boolean);
-    if (item.commits.length) lines.push(`  - ${item.commits.length} commits${repos.length ? ` en ${repos.join(', ')}` : ''}: ${item.commits.slice(0, 6).map((commit) => commit.subject).join(' · ')}${item.commits.length > 6 ? ` · … y ${item.commits.length - 6} más` : ''}`);
-    if (item.pushes) lines.push(`  - ${item.pushes} push`);
-    lines.push(...bullets('MRs', item.mergeRequests), ...bullets('Revisiones (code review)', item.reviews), ...bullets('Pruebas', item.tests), ...bullets('Análisis / definición', item.analyses), ...bullets('Estimación', item.estimations));
-  }
+  for (const item of tickets) lines.push(...ticketLines(item));
   return lines.join('\n');
 };
 

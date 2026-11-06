@@ -32,7 +32,7 @@ describe('herramientas MCP', () => {
     const spy: CallApi = async (method, path) => (calls.push([method, path]), {});
     for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today', text: 'recordar' }, spy);
     const posts = calls.filter(([method]) => method === 'POST').map(([, path]) => path);
-    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/gitlab/mr', '/api/gitlab/mr-note', '/api/reminders', '/api/review-queue/33526/start', '/api/startup/run', '/api/tickets/x/discord']);
+    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/gitlab/mr', '/api/gitlab/mr-note', '/api/reminders', '/api/review-queue/33526/start', '/api/startup/run', '/api/tickets/x/discord', '/api/tickets/x/discord/message']);
   });
 
   it('ninguna herramienta toca la configuración ni los valores de las variables de Claude, ni borra o edita', async () => {

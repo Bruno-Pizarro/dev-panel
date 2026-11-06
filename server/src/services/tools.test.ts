@@ -170,6 +170,27 @@ describe('scripts desde una carpeta configurable', () => {
     expect(() => resolveBackupScript(config, 'no-existe.sh')).toThrow(/no está en la carpeta/);
   });
 
+  it('las opciones de restauración nuevas solo se pasan a scripts que las traen, y solo con --restore', async () => {
+    writeFileSync(join(folder, 'backup_improved5.sh'), '#!/bin/bash\n# acepta --type --keep-superadmin --backup-local\necho "ARGS: $@"');
+    const { runRemoteBackup, backupScriptFeatures } = await import('./mongo.js');
+    expect(backupScriptFeatures(config)['backup_improved5.sh']).toEqual({ keepSuperadmin: true, backupLocal: true });
+    expect(backupScriptFeatures(config)['backup_improved4.sh']).toEqual({ keepSuperadmin: false, backupLocal: false });
+    const lines: string[] = [];
+    const base = { types: ['legajo'], dryRun: true, keepSuperadmin: true, backupLocal: true };
+    await runRemoteBackup(config, { ...base, restore: true, script: 'backup_improved5.sh' }, (line) => lines.push(line));
+    const args = lines.find((line) => line.startsWith('ARGS:')) ?? '';
+    expect(args).toContain('--restore');
+    expect(args).toContain(`--keep-superadmin --superadmin-email ${config.mongo.superadmin.email}`);
+    expect(args).toMatch(/--backup-local --backup-local-dir \S*backups-locales/);
+    // sin --restore las opciones no viajan
+    lines.length = 0;
+    await runRemoteBackup(config, { ...base, restore: false, script: 'backup_improved5.sh' }, (line) => lines.push(line));
+    expect(lines.find((line) => line.startsWith('ARGS:'))).not.toMatch(/keep-superadmin|backup-local/);
+    // un script viejo avisa en vez de ignorarlas en silencio
+    await expect(runRemoteBackup(config, { ...base, restore: true, script: 'backup_improved4.sh' }, () => undefined)).rejects.toThrow(/no tiene la opción de conservar el superadmin/);
+    await expect(runRemoteBackup(config, { ...base, keepSuperadmin: false, restore: true, script: 'backup_improved4.sh' }, () => undefined)).rejects.toThrow(/no tiene la opción de guardar la copia local/);
+  });
+
   it('una configuración vieja con ruta absoluta sigue funcionando', async () => {
     const { resolveBackupScript } = await import('./mongo.js');
     expect(resolveBackupScript({ ...config, remoteBackup: { ...config.remoteBackup, script: '/opt/scripts/mi.sh' } })).toBe('/opt/scripts/mi.sh');

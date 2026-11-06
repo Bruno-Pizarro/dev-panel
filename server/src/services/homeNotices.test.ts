@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MrInfo } from './gitlab.js';
-import { currentSprint, dayOf, plainNote, reminderNotices, sprintsOfToday, dueNotices, holidayNotices, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
+import { currentSprint, dayOf, plainNote, reminderNotices, sprintsOfToday, dueNotices, holidayNotices, offDaysOf, mrNotices, parseSprintDates, reviewNotices, routineNotices, sprintNotice } from './homeNotices.js';
 import { mapIssue, type RedmineIssue } from './redmine.js';
 
 const issue = (over: Record<string, unknown> = {}): RedmineIssue =>
@@ -177,5 +177,21 @@ describe('6. rutinas', () => {
   });
   it('dayOf usa el día local', () => {
     expect(dayOf(new Date(2026, 10, 4, 23, 59))).toBe('2026-11-04');
+  });
+});
+
+describe('días no laborables para las frases', () => {
+  const holidays = [
+    { date: '2026-11-09', name: 'Visita del papa León XIV', type: 'inamovible' },
+    { date: '2026-11-23', name: 'Día de la Soberanía Nacional', type: 'trasladable' },
+    { date: '2026-11-11', name: 'Puente turístico no laborable', type: 'puente' },
+    { date: '2026-11-02', name: 'Ya pasó', type: 'inamovible' },
+    { date: '2026-11-09', name: 'Repetido', type: 'inamovible' },
+  ];
+
+  it('toma los inamovibles y trasladables de los próximos días, sin puentes, sin pasados y sin repetir', () => {
+    expect(offDaysOf(holidays, '2026-11-06')).toEqual(['2026-11-09']);
+    expect(offDaysOf(holidays, '2026-11-06', 20)).toEqual(['2026-11-09', '2026-11-23']);
+    expect(offDaysOf(holidays, '2026-11-09')).toEqual(['2026-11-09']);
   });
 });

@@ -73,7 +73,7 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Buenas noches. Hasta el panel baja el brillo.' },
     { text: 'Buenas noches, {name}. ¿Ya marcaste la salida?', named: true },
     { text: 'Modo noche activado: menos estrés, más commits chiquitos.' },
-    { text: '{name}, lo que no está commiteado a esta hora, mañana será otro problema.', named: true },
+    { text: '{name}, lo que no está commiteado a esta hora, {tomorrow} será otro problema.', named: true },
     { text: 'Cerrá la jornada con un buen mensaje de commit. Tu yo del futuro lo agradece.' },
     { text: 'Noche tranquila: sin alertas rojas, sin rebases pendientes (ojalá).' },
     { text: 'Ya se te pasó la hora ¿vamos cerrando?' },
@@ -113,7 +113,7 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
     from: 22,
     to: 24,
     phrases: [
-      { text: 'Son más de las 10 de la noche. El ticket no se va a ofender si lo dejás para mañana.' },
+      { text: 'Son más de las 10 de la noche. El ticket no se va a ofender si lo dejás para {tomorrow}.' },
       { text: '{name}, a esta hora hasta los servicios en producción están por irse a dormir.', named: true },
       { text: 'Horario extra: lo que hagas ahora no figura en ningún sprint.' },
       { text: 'Cena, ducha, cama. El deploy puede esperar a la mañana.' },
@@ -173,7 +173,7 @@ export const DAY_PHRASES: Record<number, Phrase[]> = {
   1: [{ text: 'Lunes: respiremos hondo y vayamos de a un ticket por vez.' }, { text: 'Lunes: la daily de ayer sigue en pie, el café también.' }, { text: 'Lunes, {name}. Todavía hay tiempo de fingir que el finde fue largo.', named: true }],
   5: [{ text: 'Viernes: prohibido hacer deploy. (ojalá)' }, { text: '¡Viernes, {name}! Que los tests pasen y el finde llegue sin incidentes.', named: true }],
   6: [{ text: 'Sábado de guardia: el panel te acompaña.' }, { text: 'Sábado, {name}. Si estás acá, algo importante se rompió.', named: true }],
-  0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla mañana... o el mes que viene.', named: true }],
+  0: [{ text: 'Domingo de código: ¿seguro que no preferís descansar?' }, { text: 'Domingo, {name}. Lo que se rompa hoy, se arregla {tomorrow}... o el mes que viene.', named: true }],
 };
 
 import { minutesSince } from './workday';
@@ -204,8 +204,26 @@ export const workdayPhase = (now: Date, workday: { entry: string; exit: string }
   return null;
 };
 
+const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const isoOf = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/**
+ * Cuándo se vuelve a trabajar, para las frases que dicen «mañana»: «mañana» si mañana es día hábil; si no (sábado, domingo o feriado),
+ * el próximo día hábil con su nombre: «el lunes», «el martes»… `offDays` son los feriados que no se trabajan (AAAA-MM-DD).
+ */
+export const nextWorkdayLabel = (date: Date, offDays: string[] = []): string => {
+  for (let ahead = 1; ahead <= 14; ahead += 1) {
+    const day = new Date(date.getFullYear(), date.getMonth(), date.getDate() + ahead);
+    if (day.getDay() === 0 || day.getDay() === 6 || offDays.includes(isoOf(day))) continue;
+    return ahead === 1 ? 'mañana' : `el ${WEEKDAYS[day.getDay()]}`;
+  }
+  return 'mañana';
+};
+
 /** Lo que el Inicio sabe de hoy y puede mencionar en el saludo (viene de los avisos del día). */
 export interface GreetingContext {
+  /** Próximos feriados que no se trabajan (AAAA-MM-DD): las frases que dicen «mañana» pasan a «el martes», etc. */
+  offDays?: string[];
   /** Nombre del feriado de hoy, si hoy es feriado. */
   holiday?: string | null;
   /** Cantidad de avisos importantes (comentarios nuevos, vencimientos de hoy o mañana, MRs con problemas…). */
@@ -238,26 +256,26 @@ export const WORKDAY_PHRASES: Record<WorkdayPhase, Phrase[]> = {
   ],
   lastHour: [
     { text: 'Queda poco para la salida: nada de empezar cosas nuevas ahora.' },
-    { text: '{name}, última hora de la jornada. Cerrá lo que puedas y dejá notas para mañana.', named: true },
+    { text: '{name}, última hora de la jornada. Cerrá lo que puedas y dejá notas para {tomorrow}.', named: true },
     { text: 'Falta poco para salir: un buen commit y una buena nota valen más que un parche apurado.' },
-    { text: 'Última hora: si algo no entra hoy, que entre ordenado mañana.' },
+    { text: 'Última hora: si algo no entra hoy, que entre ordenado {tomorrow}.' },
   ],
   afterExit: [
     { text: 'Tu jornada ya terminó. Lo que hiciste hoy alcanza, {name}.', named: true },
     { text: 'Ya pasó tu horario de salida. El código también descansa.' },
     { text: 'Fin de jornada: cerrá la laptop sin culpa.' },
-    { text: 'Hora de salir. Mañana vas a ver los problemas con otros ojos.' },
+    { text: 'Hora de salir. {Tomorrow} vas a ver los problemas con otros ojos.' },
   ],
   afterExitHours: [
     { text: 'Ya podrías ir cerrando. ¿Cargaste las horas?' },
     { text: '{name}, terminó tu jornada: cargá las horas y desconectá.', named: true },
-    { text: 'Antes de irte, las horas: dos minutos y te olvidás hasta mañana.' },
+    { text: 'Antes de irte, las horas: dos minutos y te olvidás hasta {tomorrow}.' },
     { text: 'Pasó tu horario de salida y las horas siguen sin cargar. Cerrá el día así.' },
   ],
   longAfter: [
     { text: '{name}, ya hace rato que terminó tu jornada. Lo que falte puede esperar.', named: true },
     { text: 'Pasaron horas de tu salida. Descansar también es parte del trabajo.' },
-    { text: 'Si no es urgente de verdad, mañana lo resolvés con la cabeza fresca.' },
+    { text: 'Si no es urgente de verdad, {tomorrow} lo resolvés con la cabeza fresca.' },
     { text: 'Ya es tarde para tu jornada: cuidate, que el sprint no se va a ir a ningún lado.' },
   ],
 };
@@ -270,7 +288,7 @@ export const HOLIDAY_PHRASES: Phrase[] = [
   { text: 'Hoy no se compila: {holiday}. Aprovechá.' },
   { text: '{name}, ¿trabajando en feriado? Dejá el mouse y andá a descansar.', named: true },
   { text: 'Día no laborable. El único deploy que corresponde hoy es el de la siesta.' },
-  { text: 'Feriado de {holiday}: si el build falla, que falle mañana.' },
+  { text: 'Feriado de {holiday}: si el build falla, que falle {tomorrow}.' },
   { text: '{name}, descansá: el sprint no se va a achicar por un feriado… ¿o sí?', named: true },
 ];
 
@@ -304,8 +322,11 @@ export const ATTENTION_PHRASES: Record<'important' | 'dueSoon' | 'reviews' | 'sp
 /** Las frases posibles para esa hora, día y situación, con o sin nombre. */
 export const poolFor = (date: Date, name: string, context: GreetingContext = {}): string[] => {
   const hasName = name.trim().length > 0;
+  const tomorrow = nextWorkdayLabel(date, context.offDays);
   const fill = (phrase: Phrase, extra: Record<string, string> = {}) =>
-    Object.entries(extra).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), phrase.text).replace(/\{name\}/g, name.trim());
+    Object.entries({ ...extra, tomorrow, Tomorrow: `${tomorrow.charAt(0).toUpperCase()}${tomorrow.slice(1)}` })
+      .reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), phrase.text)
+      .replace(/\{name\}/g, name.trim());
   const usable = (phrases: Phrase[]) => phrases.filter((phrase) => !phrase.named || hasName);
 
   // Un feriado manda: hoy el saludo es de feriado.

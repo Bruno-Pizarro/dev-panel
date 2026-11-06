@@ -195,10 +195,12 @@ const PasswordTab = () => {
 const RemoteTab = () => {
   const toast = useToast();
   const { job, follow } = useJob();
-  const options = useAsync(() => api.get<{ types: string[]; scriptsDir: string; scriptsDirExists: boolean; scripts: string[]; selected: string; selectedExists: boolean }>('/api/data/remote-backup/options'));
+  const options = useAsync(() => api.get<{ types: string[]; scriptsDir: string; scriptsDirExists: boolean; scripts: string[]; features?: Record<string, { keepSuperadmin: boolean; backupLocal: boolean }>; selected: string; selectedExists: boolean }>('/api/data/remote-backup/options'));
   const [script, setScript] = useState<string | null>(null);
   const [types, setTypes] = useState<Set<string>>(new Set());
   const [restore, setRestore] = useState(false);
+  const [keepSuperadmin, setKeepSuperadmin] = useState(false);
+  const [backupLocal, setBackupLocal] = useState(false);
   const [dryRun, setDryRun] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -206,7 +208,7 @@ const RemoteTab = () => {
   const start = async () => {
     setBusy(true);
     try {
-      follow((await api.post<{ jobId: string }>('/api/data/remote-backup', { types: [...types], restore, dryRun, confirm: true, ...(script ? { script } : {}) })).jobId);
+      follow((await api.post<{ jobId: string }>('/api/data/remote-backup', { types: [...types], restore, dryRun, confirm: true, ...(restore ? { keepSuperadmin, backupLocal } : {}), ...(script ? { script } : {}) })).jobId);
       setConfirming(false);
     } catch (error) {
       toast('error', (error as Error).message);
@@ -214,6 +216,10 @@ const RemoteTab = () => {
       setBusy(false);
     }
   };
+  const current = script ?? options.data?.selected ?? '';
+  const features = options.data?.features?.[current];
+  // Las opciones nuevas solo existen en scripts que las traen: si el elegido no, se avisa (y el servidor tampoco las pasa).
+  const supported = (!keepSuperadmin || features?.keepSuperadmin === true) && (!backupLocal || features?.backupLocal === true);
   const toggle = (type: string) => setTypes((current) => { const next = new Set(current); if (next.has(type)) next.delete(type); else next.add(type); return next; });
 
   return (
@@ -237,12 +243,22 @@ const RemoteTab = () => {
           <Chip selected={restore} onToggle={() => setRestore(!restore)} hint="Restaura en el Mongo local">Restaurar en Mongo local</Chip>
           <Chip selected={dryRun} onToggle={() => setDryRun(!dryRun)} hint="No descarga ni restaura nada: solo muestra qué haría">Solo simular (dry-run)</Chip>
         </div>
-        <Button className="mt-5" variant={dryRun ? 'primary' : 'danger'} icon={<DatabaseBackup className="size-4" />} disabled={types.size === 0} loading={busy} onClick={() => (dryRun ? start() : setConfirming(true))}>{dryRun ? 'Simular' : 'Ejecutar'}</Button>
+        {restore && (
+          <div className="mt-3 space-y-2" data-testid="backup-restore-options">
+            <div className="flex flex-wrap gap-2">
+              <Chip selected={backupLocal} onToggle={() => setBackupLocal(!backupLocal)} hint="Antes de restaurar guarda una copia de cada base local; si la copia falla, esa base no se restaura">Guardar mi backup local antes de restaurar</Chip>
+              <Chip selected={keepSuperadmin} onToggle={() => setKeepSuperadmin(!keepSuperadmin)} hint="Conserva tu superadmin local (colección users) para no perder su configuración, por ejemplo la empresa">No pisar al superadmin</Chip>
+            </div>
+            {(backupLocal || keepSuperadmin) && !supported && <p className="text-sm text-warning">El script elegido ({current}) no trae estas opciones: usá backup_improved5.sh o uno más nuevo.</p>}
+            {backupLocal && <p className="text-sm text-muted">Las copias quedan en la carpeta <span className="font-mono">backups-locales</span> de los datos del panel.</p>}
+          </div>
+        )}
+        <Button className="mt-5" variant={dryRun ? 'primary' : 'danger'} icon={<DatabaseBackup className="size-4" />} disabled={types.size === 0 || (restore && !supported)} loading={busy} onClick={() => (dryRun ? start() : setConfirming(true))}>{dryRun ? 'Simular' : 'Ejecutar'}</Button>
         <p className="mt-3 text-sm text-warning">Sin probar contra el servidor real: empezá siempre con "Solo simular".</p>
       </Card>
       <JobOutput job={job} />
       <ConfirmModal open={confirming} title="Ejecutar backup remoto" confirmLabel="Ejecutar" danger loading={busy} onCancel={() => setConfirming(false)} onConfirm={start}>
-        Se va a descargar {[...types].join(', ')}{restore ? ' y restaurar en el Mongo local, reemplazando esas bases' : ''}.
+        Se va a descargar {[...types].join(', ')}{restore ? ' y restaurar en el Mongo local, reemplazando esas bases' : ''}{restore && backupLocal ? ', guardando antes una copia de tus bases locales' : ''}{restore && keepSuperadmin ? ' y conservando tu superadmin local' : ''}.
       </ConfirmModal>
     </div>
   );

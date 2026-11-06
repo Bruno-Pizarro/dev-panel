@@ -67,12 +67,12 @@ export const snowflakeDate = (id: string | null | undefined): string | null => (
 /** `[Ticket #33526] Título` / `#33526 …` → "33526". */
 export const ticketOf = (title: string): string | null => /#(\d{4,7})\b/.exec(title)?.[1] ?? null;
 
-const botToken = (config: DevPanelConfig): string | null => {
+export const botToken = (config: DevPanelConfig): string | null => {
   const value = readVars()[config.discord.botTokenVar];
   return value && value.trim() ? value.trim() : null;
 };
 
-const headers = (token: string) => ({ Authorization: `Bot ${token}`, 'User-Agent': 'DiscordBot (https://github.com/Bruno-Pizarro/dev-panel, 1.0)' });
+export const botHeaders = (token: string) => ({ Authorization: `Bot ${token}`, 'User-Agent': 'DiscordBot (https://github.com/Bruno-Pizarro/dev-panel, 1.0)' });
 
 interface RawThread {
   id: string;
@@ -98,7 +98,7 @@ export const listThreads = async (config: DevPanelConfig, options: { force?: boo
   if (!options.force && cached && cached.key === key && now - cached.at < CACHE_MS) return cached.value;
 
   const get = async (path: string): Promise<unknown> => {
-    const response = await fetcher(`${API}${path}`, { headers: headers(token) });
+    const response = await fetcher(`${API}${path}`, { headers: botHeaders(token) });
     if (!response.ok) {
       let detail = '';
       try {
@@ -156,7 +156,7 @@ export const threadMessages = async (config: DevPanelConfig, threadId: string, o
   if (!known) throw new DiscordBotError('Ese hilo no es del foro de MRs configurado', 404);
   const limit = Math.min(MAX_MESSAGES, Math.max(1, Math.round(options.limit ?? 30)));
   const fetcher = options.fetcher ?? defaultFetcher;
-  const response = await fetcher(`${API}/channels/${threadId}/messages?limit=${limit}`, { headers: headers(token) });
+  const response = await fetcher(`${API}/channels/${threadId}/messages?limit=${limit}`, { headers: botHeaders(token) });
   if (!response.ok) throw new DiscordBotError(`Discord respondió ${response.status}`);
   const raw = (await response.json()) as Array<{ id?: string; mentions?: Array<{ id: string }>; author?: { id?: string; username?: string; global_name?: string | null }; timestamp: string; content?: string; reactions?: Array<{ emoji?: { name?: string | null }; count?: number }>; attachments?: unknown[] }>;
   return raw

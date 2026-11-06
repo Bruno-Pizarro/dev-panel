@@ -49,8 +49,8 @@ No son secretos (sin acceso al servidor no sirven de nada). Se cargan en `config
 ## Webhook (secreto)
 La URL del webhook del foro **da permiso para publicar**: va solo en las variables de Claude del panel (pestaña Claude → Variables), con el nombre `DISCORD_WEBHOOK_MR`. Nunca en el repo, en un MD ni en un chat. El webhook publica con el nombre «<userName> · Dev Panel». Puede crear hilos con etiquetas y editar **sus propios** mensajes (por eso el panel guarda en `data/discord-threads.json` el id del hilo y del mensaje inicial); no puede leer, borrar ni cambiar las etiquetas de un hilo ya creado, ni tocar los hilos que se crearon a mano.
 
-## Bot de solo lectura (etapa 2)
-Un bot **compartido por el equipo** lee el foro de MRs para que el panel y Claude sepan qué pasa en los hilos, incluidos los que se crean a mano. **No envía nada** (ni se le da el permiso).
+## Bot del equipo: lectura (etapa 2) y mensajes al hilo (etapa 3)
+Un bot **compartido por el equipo** lee el foro de MRs para que el panel y Claude sepan qué pasa en los hilos, incluidos los que se crean a mano. **La lectura no envía nada**; los mensajes al hilo (etapa 3, abajo) son una función aparte, manual y que necesita permisos extra.
 
 **Configurarlo (una sola vez, en el portal de desarrolladores de Discord)**
 1. Crear la aplicación y su bot. En *Bot → Privileged Gateway Intents* activar **Message Content Intent** (sin esto Discord entrega los mensajes sin texto).
@@ -71,3 +71,11 @@ Un bot **compartido por el equipo** lee el foro de MRs para que el panel y Claud
 **Hilos a mano y duplicados.** La tarjeta «Discord · foro de MRs» (pestaña Estado) también consulta al bot: si el foro ya tiene un hilo con el número del ticket y NO lo creó el panel, muestra «hilo existente» con su enlace y **no deja crear otro** (se duplicaría, y el webhook no puede editar hilos ajenos). Si el bot no está configurado o falla, se comporta como antes.
 
 **Avisos del Inicio** (`services/discordNotices.ts`). En «Para tener en cuenta» aparecen, con el tipo «Discord»: alguien escribió en el hilo de un ticket tuyo, te mencionaron (en cualquier hilo) o le pusieron «Estado: Testeado» a un ticket tuyo. «Tus tickets» = las carpetas de `_EXTRA` que no son de revisión. Los mensajes tuyos no cuentan: hace falta tu id de usuario (Configuración → Discord). A diferencia de los otros avisos no se revisan una vez por día sino al pedir el Inicio (los hilos se guardan 5 min); la primera vez solo toma la foto del foro (no avisa de nada viejo), cada aviso se conserva 36 h, y se mira como máximo 8 hilos con novedades por vez. El estado vive en `data/discord-notices.json`.
+
+## Mensajes al hilo del ticket (etapa 3)
+El panel puede **mandar un mensaje al hilo de un ticket** etiquetando a las personas por nombre. Es **siempre manual**: lo pedís vos con el botón o le pedís a Claude que use el MCP; nunca se envía solo ni como reacción a un push.
+- **Permisos del bot:** además de los de lectura, **Enviar mensajes** y **Enviar mensajes en hilos** (se agregan al invitarlo; sin ellos Discord responde 403 `Missing Permissions` y el panel lo muestra).
+- **Panel:** pestaña Estado → tarjeta «Discord · foro de MRs» → «Mensaje al hilo» (aparece cuando el ticket tiene hilo, creado por el panel o a mano). Escribís el texto, marcás las personas, pedís la **vista previa** (muestra exactamente qué sale y a quién menciona) y recién entonces «Enviar al hilo». Cualquier cambio apaga el envío hasta una nueva vista previa.
+- **MCP:** `discord_message_preview` (no envía) y `discord_message_send` (solo si el usuario lo pidió en esa conversación; muestra antes la vista previa).
+- **Nombres:** salen de `discord.people` (local, ver arriba); no distinguen mayúsculas ni tildes. Un nombre que no está se avisa y bloquea el envío, no se ignora en silencio.
+- **Seguridad:** solo se menciona a quienes nombrás (`allowed_mentions` sin `@everyone`, `@here` ni roles, aunque el texto los escriba); los enlaces no arman tarjeta; el mensaje admite hasta 1800 caracteres. El token es el mismo del bot (`DISCORD_BOT_TOKEN`) y nunca se devuelve ni se registra. Los tests usan un bot simulado: nunca postean a Discord.

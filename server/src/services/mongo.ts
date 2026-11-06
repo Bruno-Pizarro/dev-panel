@@ -219,8 +219,21 @@ export const resolveBackupScript = (config: DevPanelConfig, chosen?: string): st
   return isAbsolute(name) ? name : join(scriptsDir(config), basename(name));
 };
 
+/** ¿El script entiende esta opción? Se mira su texto: así las opciones nuevas solo se pasan a scripts que las traen (backup_improved5.sh en adelante). */
+export const scriptSupports = (scriptPath: string, flag: string): boolean => {
+  try {
+    return readFileSync(scriptPath, 'utf8').includes(flag);
+  } catch {
+    return false;
+  }
+};
+
+/** Qué opciones nuevas de restauración trae cada script de backup de la carpeta. */
+export const backupScriptFeatures = (config: DevPanelConfig): Record<string, { keepSuperadmin: boolean; backupLocal: boolean }> =>
+  Object.fromEntries(listBackupScripts(config).map((name) => [name, { keepSuperadmin: scriptSupports(join(scriptsDir(config), name), '--keep-superadmin'), backupLocal: scriptSupports(join(scriptsDir(config), name), '--backup-local') }]));
+
 // ---- Backup remoto: envuelve el script existente ----
-export const runRemoteBackup = (config: DevPanelConfig, options: { types: string[]; restore: boolean; dryRun: boolean; script?: string | undefined }, log: (line: string) => void): Promise<void> =>
+export const runRemoteBackup = (config: DevPanelConfig, options: { types: string[]; restore: boolean; dryRun: boolean; script?: string | undefined; keepSuperadmin?: boolean; backupLocal?: boolean }, log: (line: string) => void): Promise<void> =>
   new Promise((resolve, reject) => {
     let script: string;
     try {
@@ -233,6 +246,15 @@ export const runRemoteBackup = (config: DevPanelConfig, options: { types: string
     if (!types.length) return reject(new Error('Elegí al menos un tipo de backup'));
     const args = [script, '--type', types.join(',')];
     if (options.restore) args.push('--restore', '--container', config.mongo.container);
+    // Opciones de restauración: solo con --restore y solo si el script las entiende (si no, se avisa en vez de ignorarlas en silencio).
+    if (options.restore && options.keepSuperadmin) {
+      if (!scriptSupports(script, '--keep-superadmin')) return reject(new Error(`${basename(script)} no tiene la opción de conservar el superadmin: elegí backup_improved5.sh o uno más nuevo`));
+      args.push('--keep-superadmin', '--superadmin-email', config.mongo.superadmin.email);
+    }
+    if (options.restore && options.backupLocal) {
+      if (!scriptSupports(script, '--backup-local')) return reject(new Error(`${basename(script)} no tiene la opción de guardar la copia local: elegí backup_improved5.sh o uno más nuevo`));
+      args.push('--backup-local', '--backup-local-dir', join(paths.data, 'backups-locales'));
+    }
     if (options.dryRun) args.push('--dry-run');
     log(`$ bash ${script.split('/').pop()} ${args.slice(1).join(' ')}`);
     const child = spawn('bash', args, { cwd: join(script, '..') });

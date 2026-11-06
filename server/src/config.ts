@@ -164,7 +164,7 @@ export const configSchema = z.object({
   checklists: z
     .object({
       test: z.array(z.string().min(1).max(60)).default(['Actualizar el ticket en Redmine', 'Subir los comentarios']),
-      daily: z.array(z.string().min(1).max(60)).default(['Marcar entrada', 'Marcar salida', 'Cargar horas']),
+      daily: z.array(z.string().min(1).max(60)).default(['Marcar entrada', 'Marcar salida', 'Cargar horas', 'Cargar notas']),
     })
     .default({}),
   /** Pantalla de Inicio: qué avisos se calculan (una vez por día) y sus umbrales. */

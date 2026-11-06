@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
-import type { ClosingReport, DiscordPreview, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
+import type { ClosingReport, DiscordMessagePreview, DiscordPreview, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -271,9 +271,83 @@ const Discord = ({ dir, state, onChanged }: { dir: string; state: { data: Discor
             {(data.record?.link ?? data.existing?.link) && <a href={(data.record?.link ?? data.existing?.link) as string} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Abrir el hilo<ExternalLink className="size-4" aria-hidden /></a>}
             <Hint>Nunca se publica solo. Las etiquetas «Estado: …» y borrar la publicación al llegar a Producción siguen siendo a mano.</Hint>
           </div>
+          {(data.record || data.existing) && <DiscordMessage dir={dir} />}
         </div>
       )}
     </Card>
+  );
+};
+
+/**
+ * Mensaje al hilo del ticket: texto y personas a etiquetar (por nombre, de `discord.people`). Primero se pide la vista previa, que muestra
+ * exactamente qué sale y a quién menciona; «Enviar» queda habilitado solo para esa vista previa y se apaga apenas cambiás algo.
+ */
+const DiscordMessage = ({ dir }: { dir: string }) => {
+  const toast = useToast();
+  const [text, setText] = useState('');
+  const [to, setTo] = useState<string[]>([]);
+  const [preview, setPreview] = useState<DiscordMessagePreview | null>(null);
+  // Los nombres que se pueden etiquetar salen de `discord.people`; se piden al abrir, sin texto, para mostrar los selectores desde el inicio.
+  const names = useAsync(() => api.get<DiscordMessagePreview>(`${base(dir)}/discord/message`));
+  const people = names.data?.people ?? null;
+  const [busy, setBusy] = useState(false);
+  const stale = () => setPreview(null);
+  const ask = async (): Promise<DiscordMessagePreview> => api.get<DiscordMessagePreview>(`${base(dir)}/discord/message?text=${encodeURIComponent(text)}&to=${encodeURIComponent(to.join(','))}`);
+  const show = async () => {
+    setBusy(true);
+    try {
+      const result = await ask();
+      setPreview(result);
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const send = async () => {
+    setBusy(true);
+    try {
+      await api.post(`${base(dir)}/discord/message`, { confirm: true, text, to });
+      toast('success', 'Mensaje enviado al hilo.');
+      setText('');
+      setTo([]);
+      setPreview(null);
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggle = (name: string) => {
+    setTo((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]));
+    stale();
+  };
+  return (
+    <div className="space-y-3 border-t border-line pt-4" data-testid="discord-message-box">
+      <p className="font-medium">Mensaje al hilo</p>
+      <textarea value={text} onChange={(event) => { setText(event.target.value.slice(0, 1700)); stale(); }} spellCheck={false} placeholder="Ej.: Ya subí las correcciones de la revisión." className="h-24 w-full resize-y rounded-xl border border-line bg-bg p-3 text-sm outline-none placeholder:text-muted focus:border-accent/60" data-testid="discord-message-text" />
+      {people && people.length > 0 && (
+        <div className="flex flex-wrap gap-2" data-testid="discord-people">
+          {people.map((name) => (
+            <label key={name} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm">
+              <input type="checkbox" checked={to.includes(name)} onChange={() => toggle(name)} />
+              {name}
+            </label>
+          ))}
+        </div>
+      )}
+      {preview && (
+        <div className="space-y-2" data-testid="discord-message-preview">
+          <pre className="whitespace-pre-wrap break-words rounded-lg bg-surface-2 p-3 font-mono text-sm">{preview.content || '(vacío)'}</pre>
+          {preview.problems.length > 0 && <ul className="space-y-1 text-sm text-warning">{preview.problems.map((problem) => <li key={problem}>• {problem}</li>)}</ul>}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="secondary" disabled={busy || !text.trim()} onClick={show}>Vista previa</Button>
+        <Button variant="primary" disabled={busy || !preview || preview.problems.length > 0} icon={<MessageSquare className="size-4" />} onClick={send} title="Envía al hilo lo que ves en la vista previa">Enviar al hilo</Button>
+        <Hint>Solo se etiqueta a quien marques. {people !== null && people.length === 0 ? 'No hay personas en discord.people.' : ''}</Hint>
+      </div>
+    </div>
   );
 };
 

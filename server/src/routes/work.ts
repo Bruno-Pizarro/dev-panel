@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { KEEP_DAYS, refreshActivity } from '../services/activity.js';
 import { CONCLUSIONS, ChecklistError, addManualCase, getDailyChecklist, getManualTests, getTestState, itemId, localDay, removeManualCase, resetManualDone, setDailyItem, setManualDone, setTestRun, type ManualCaseInput } from '../services/checklists.js';
 import { getTicket, ignoredDirs } from '../services/tickets.js';
+import { buildNotesRequest } from '../services/dailyNotes.js';
 import { buildWeeklyReport, REPORT_EXAMPLE } from '../services/weekly.js';
 import { requireConfig } from './helpers.js';
 
@@ -26,6 +27,13 @@ export const registerWorkRoutes = (app: FastifyInstance): void => {
     const body = z.object({ week: z.enum(['current', 'previous']).default('current') }).safeParse(request.body ?? {});
     if (!body.success) return reply.code(400).send({ error: 'Parámetro inválido' });
     return buildWeeklyReport(config, body.data.week);
+  });
+
+  /** Pedido para que Claude deje en cada ticket trabajado hoy una nota con lo avanzado (revisiones aparte: ya generan su nota). */
+  app.post('/api/daily/notes', async (_request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    return buildNotesRequest(config);
   });
 
   /** El ejemplo por defecto del resumen semanal (para que Ajustes pueda volver a él). */
