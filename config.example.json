@@ -252,5 +252,10 @@
     "legajo",
     "front",
     "security"
-  ]
+  ],
+  "discord": {
+    "people": {
+      "ejemplo-nombre": "123456789012345678"
+    }
+  }
 }

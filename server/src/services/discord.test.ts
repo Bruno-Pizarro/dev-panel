@@ -32,7 +32,7 @@ describe('hilo de Discord: piezas puras', () => {
   });
 
   it('el borrador lleva el número de ticket en el título (cortado a 100) y las etiquetas de los repos del ticket y de sus MRs', () => {
-    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '' } };
+    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} } };
     const draft = buildDraft({ ticket: '33526', title: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'documentos', iid: 9, url: 'https://g/documentos/-/merge_requests/9' }] }, config);
     expect(draft.name).toBe('[Ticket #33526] Pestaña Pendientes de firma en el Perfil');
     expect(draft.tags).toEqual(['111111', '222222', '333333']);
@@ -59,7 +59,7 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     config.paths.extra = extra;
     config.paths.daily = join(extra, 'daily');
     config.userName = 'Bruno';
-    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '', userId: '111222333444555666', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '' };
+    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '', userId: '111222333444555666', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} };
     mkdirSync(join(extra, '33526-pendientes-firma'), { recursive: true });
     writeFileSync(join(extra, '33526-pendientes-firma', 'ticket.json'), JSON.stringify({ ticket: '33526', titulo: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'front', iid: 165, url: 'https://g/front/-/merge_requests/165' }] }));
   });

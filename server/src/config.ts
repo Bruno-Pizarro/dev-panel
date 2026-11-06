@@ -201,6 +201,11 @@ export const configSchema = z.object({
       channelId: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
       /** Etiqueta «Estado: Testeado» (ticket aprobado) para reconocerlo en los hilos. */
       approvedTag: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
+      /**
+       * Quién es cada id de Discord (nombre o apodo → id), para mencionar por nombre sin buscar el id. Son datos de personas:
+       * van solo en tu config.json local (que no se sube), nunca en el repo. Se comparte por un canal privado del equipo.
+       */
+      people: z.record(z.string().min(1).max(60), z.string().regex(/^\d{5,25}$/)).default({}),
     })
     .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
@@ -269,7 +274,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
   weekly: { template: '' },
-  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '' },
+  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,
