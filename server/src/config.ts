@@ -105,6 +105,8 @@ export const configSchema = z.object({
       reviewStatuses: z.array(z.string()).default(['Revisión']),
       /** Rol de Redmine que se toma como «revisor» para saber si alguien ya tomó el Control QA de un ticket en revisión. */
       reviewerRole: z.string().default('Desarrollador'),
+      /** Usuario «bolsa» al que se asignan los Control QA que nadie tomó: junto con los asignados a mí, son los que entran en «Tickets para revisión». */
+      backlogUser: z.string().default('Backlog e-sueldos'),
     })
     .default({}),
   /** GitLab (solo lectura): estado de los MRs y sus pipelines. El token sale de GITLAB_TOKEN o de `token` (opcional, solo en este config.json local). */
@@ -238,7 +240,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
-  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador' },
+  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador', backlogUser: 'Backlog e-sueldos' },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
   claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },

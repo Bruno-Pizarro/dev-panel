@@ -124,7 +124,7 @@ const ReviewQueueContent = ({ onClose, onChanged }: { onClose: () => void; onCha
         {queue.loading && !data ? <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div> : queue.error || !data ? <p className="text-danger">{queue.error}</p> : (
           <>
             <p className="mb-3 text-sm text-muted">
-              {data.sprint ? `${data.sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')} · ` : ''}Tickets de otras personas en Revisión cuyo Control QA no tiene comentarios de {data.reviewerRole === 'Desarrollador' ? 'desarrolladores' : `usuarios con el rol «${data.reviewerRole}»`} (aparte de quien armó el QA).
+              {data.sprint ? `${data.sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')} · ` : ''}Tickets de otras personas en Revisión que no tienen Control QA, o cuyo QA está asignado a vos o a Backlog e-sueldos y no tiene comentarios de {data.reviewerRole === 'Desarrollador' ? 'desarrolladores' : `usuarios con el rol «${data.reviewerRole}»`} (aparte de quien armó el QA). Si el QA ya está asignado a otra persona, es una revisión para ella.
             </p>
             {!data.rolesKnown && <p className="mb-3 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">No pude leer qué usuarios tienen el rol «{data.reviewerRole}» en Redmine: se muestran todos los de Revisión, incluso los que alguien ya tomó.</p>}
             {!data.sprint ? <p className="py-8 text-center text-muted">No se encontró el sprint actual.</p> : data.items.length === 0 ? <p className="py-8 text-center text-muted" data-testid="review-empty">No hay tickets esperando revisión: todos los de Revisión del sprint ya los tomó alguien.</p> : (

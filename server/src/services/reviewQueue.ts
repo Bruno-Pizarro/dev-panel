@@ -7,7 +7,8 @@ import { normalizeStatus, statusIn } from './sprintPoints.js';
 
 /**
  * Tickets en Revisión del sprint actual (de cualquier persona, menos los míos) cuyo Control QA todavía no tomó nadie, para empezar
- * a revisarlos. «Nadie lo tomó» = el QA no tiene comentarios de usuarios con el rol de revisor (por defecto «Desarrollador») que no
+ * a revisarlos. Entran los que no tienen Control QA y los que lo tienen asignado a mí o al usuario Backlog e-sueldos (si está asignado a
+ * otra persona, es una revisión de otro). Además, «nadie lo tomó» = el QA no tiene comentarios de usuarios con el rol de revisor (por defecto «Desarrollador») que no
  * sean el autor del propio QA (el autor es quien armó el plan de pruebas). Solo lectura contra Redmine; lo único que se escribe es
  * la carpeta local del ticket (`startReview`).
  */
@@ -104,6 +105,13 @@ export const extractMrs = (texts: string[]): ReviewMr[] => {
 export const reviewerCommentCount = (journals: RawJournal[] | undefined, reviewerIds: ReadonlySet<number>, authorId: number | null): number =>
   (journals ?? []).filter((journal) => journal.notes?.trim() && journal.user && reviewerIds.has(journal.user.id) && journal.user.id !== authorId).length;
 
+/**
+ * El Control QA es «para mí» si no tiene a nadie asignado, está asignado a mí o al usuario bolsa (Backlog e-sueldos). Cualquier otra
+ * persona asignada significa que es una revisión de otro.
+ */
+export const qaIsForMe = (assignee: { id: number; name: string } | null | undefined, meId: number | null, backlogUser: string): boolean =>
+  !assignee || assignee.id === meId || normalizeStatus(assignee.name) === normalizeStatus(backlogUser);
+
 /** Sin revisor = ningún comentario de revisor; con los roles sin leer no se puede descartar a nadie. */
 export const isUnclaimed = (reviewerComments: number, rolesKnown: boolean): boolean => !rolesKnown || reviewerComments === 0;
 
@@ -189,6 +197,8 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
     if (qaChild) {
       qaRaw = ((await get(`/issues/${qaChild.id}.json?include=journals`)) as { issue?: RawDetail }).issue;
       if (qaRaw) {
+        // Ya asignado a otra persona: es una revisión para ese otro
+        if (!qaIsForMe(qaRaw.assigned_to, me.user?.id ?? null, config.redmine.backlogUser)) continue;
         const reviewerComments = reviewerCommentCount(qaRaw.journals, reviewerIds, qaRaw.author?.id ?? null);
         if (!isUnclaimed(reviewerComments, rolesKnown)) continue;
         qa = { id: qaRaw.id, url: `${credentials.baseUrl}/issues/${qaRaw.id}`, status: qaRaw.status?.name ?? '—', assignedTo: qaRaw.assigned_to?.name ?? null, author: qaRaw.author?.name ?? null, description: clip(plainNote(qaRaw.description ?? ''), 3000), comments: lastComments(qaRaw.journals), reviewerComments };
@@ -222,7 +232,7 @@ export const reviewPrompt = (item: ReviewQueueItem, dir: string): string => {
     '',
     '## Datos',
     `- Ticket: ${item.url}`,
-    item.qa ? `- Control QA: ${item.qa.url} (nadie lo tomó todavía; estado ${item.qa.status})` : '- Control QA: no tiene subtarea de QA todavía.',
+    item.qa ? `- Control QA: ${item.qa.url} (nadie lo tomó todavía${item.qa.assignedTo ? `, asignado a ${item.qa.assignedTo}` : ''}; estado ${item.qa.status})` : '- Control QA: no tiene subtarea de QA todavía.',
     `- Carpeta en la base de conocimiento: _EXTRA/${dir} (ya creada con tipo «revision»; en el Dev Panel aparece en Pruebas como solo revisión)`,
     '- Merge requests:',
     mrs,
