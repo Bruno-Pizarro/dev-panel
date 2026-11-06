@@ -414,6 +414,9 @@ export interface ReviewQueueItem {
 export interface ReviewQueue {
   sprint: { id: number; subject: string; url: string } | null;
   items: ReviewQueueItem[];
+  skipped: Array<{ id: number; title: string; reason: 'mine' | 'qa-other' | 'taken'; detail: string }>;
+  sprintTickets: number;
+  inReview: number;
   reviewerRole: string;
   rolesKnown: boolean;
 }

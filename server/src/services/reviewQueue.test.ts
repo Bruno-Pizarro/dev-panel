@@ -46,6 +46,9 @@ describe('cola de revisión: piezas puras', () => {
     expect(qaIsForMe({ id: 8, name: 'Backlog e-Sueldos' }, 1, 'Backlog e-sueldos')).toBe(true);
     expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, 1, 'Backlog e-sueldos')).toBe(false);
     expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, null, 'Backlog e-sueldos')).toBe(false);
+    // asignado a la misma persona que el ticket padre: nadie más lo tomó
+    expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, 1, 'Backlog e-sueldos', 5)).toBe(true);
+    expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, 1, 'Backlog e-sueldos', 6)).toBe(false);
   });
 
   it('sin revisores comentando está sin tomar; si los roles no se pudieron leer no se descarta a nadie', () => {
@@ -96,10 +99,10 @@ describe('cola de revisión: Redmine simulado y carpeta local', () => {
     const json = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
     if (path.startsWith('/users/current')) return json({ user: { id: 1 } });
     if (path.startsWith('/issues.json?tracker_id=22')) return json({ issues: [{ id: 33677, subject: 'Sprint Semana 02/11/26 al 06/11/26' }] });
-    if (path === '/issues/33677.json?include=relations') return json({ issue: { relations: [{ issue_id: 33677, issue_to_id: 100 }, { issue_id: 33677, issue_to_id: 200 }, { issue_id: 33677, issue_to_id: 300 }, { issue_id: 33677, issue_to_id: 400 }, { issue_id: 33677, issue_to_id: 500 }, { issue_id: 33677, issue_to_id: 600 }, { issue_id: 33677, issue_to_id: 700 }] } });
+    if (path === '/issues/33677.json?include=relations') return json({ issue: { relations: [{ issue_id: 33677, issue_to_id: 100 }, { issue_id: 33677, issue_to_id: 200 }, { issue_id: 33677, issue_to_id: 300 }, { issue_id: 33677, issue_to_id: 400 }, { issue_id: 33677, issue_to_id: 500 }, { issue_id: 33677, issue_to_id: 600 }, { issue_id: 33677, issue_to_id: 700 }, { issue_id: 33677, issue_to_id: 800 }] } });
     if (path.startsWith('/issues.json?issue_id=') && path.includes('assigned_to_id=me')) return json({ issues: [] });
     if (path.startsWith('/issues.json?issue_id=')) {
-      return json({ issues: [issue(100, '[5 SP] Libre para revisar', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(200, '[3 SP] Ya tomado', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(300, '[2 SP] Mío', 'Revisión', { id: 1, name: 'Bruno Pizarro' }), issue(400, '[8 SP] En desarrollo', 'Desarrollo', { id: 6, name: 'Otro' }), issue(500, '[1 SP] QA de otro', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(600, '[2 SP] QA mío', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(700, '[4 SP] Sin QA', 'Revisión', { id: 6, name: 'Otro' })] });
+      return json({ issues: [issue(100, '[5 SP] Libre para revisar', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(200, '[3 SP] Ya tomado', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(300, '[2 SP] Mío', 'Revisión', { id: 1, name: 'Bruno Pizarro' }), issue(400, '[8 SP] En desarrollo', 'Desarrollo', { id: 6, name: 'Otro' }), issue(500, '[1 SP] QA de otro', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(600, '[2 SP] QA mío', 'Revisión', { id: 5, name: 'Alvaro Blanco' }), issue(700, '[4 SP] Sin QA', 'Revisión', { id: 6, name: 'Otro' }), issue(800, '[3 SP] QA a nombre del dev', 'Revisión', { id: 5, name: 'Alvaro Blanco' })] });
     }
     if (path.startsWith('/projects/262/memberships')) return json({ memberships: [{ user: { id: 5 }, roles: [{ name: 'Desarrollador' }] }, { user: { id: 7 }, roles: [{ name: 'Desarrollador' }] }, { user: { id: 9 }, roles: [{ name: 'Gerente' }] }] });
     if (path.startsWith('/issues/100.json')) return json({ issue: { id: 100, description: 'Descripción con !MR http://g/e-sueldos-v3/legajo/-/merge_requests/61', journals: [{ user: { id: 5, name: 'Alvaro Blanco' }, created_on: '2026-11-03T10:00:00Z', notes: 'Listo para revisar' }], children: [{ id: 101, tracker: { name: 'Control QA' } }] } });
@@ -110,6 +113,8 @@ describe('cola de revisión: Redmine simulado y carpeta local', () => {
     if (path.startsWith('/issues/501.json')) return json({ issue: { id: 501, status: { name: 'Nueva' }, author: { id: 5, name: 'Alvaro Blanco' }, assigned_to: { id: 7, name: 'Luana Trevisan' }, description: '', journals: [] } });
     if (path.startsWith('/issues/600.json')) return json({ issue: { id: 600, description: '', journals: [], children: [{ id: 601, tracker: { name: 'Control QA' } }] } });
     if (path.startsWith('/issues/601.json')) return json({ issue: { id: 601, status: { name: 'Nueva' }, author: { id: 5, name: 'Alvaro Blanco' }, assigned_to: { id: 1, name: 'Bruno Pizarro' }, description: '', journals: [] } });
+    if (path.startsWith('/issues/800.json')) return json({ issue: { id: 800, description: '', journals: [], children: [{ id: 801, tracker: { name: 'Control QA' } }] } });
+    if (path.startsWith('/issues/801.json')) return json({ issue: { id: 801, status: { name: 'Nueva' }, author: { id: 5, name: 'Alvaro Blanco' }, assigned_to: { id: 5, name: 'Alvaro Blanco' }, description: '', journals: [{ user: { id: 5, name: 'Alvaro Blanco' }, created_on: '2026-11-04T09:00:00Z', notes: 'Plan de pruebas' }] } });
     if (path.startsWith('/issues/700.json')) return json({ issue: { id: 700, description: '', journals: [], children: [] } });
     return { ok: false, status: 404, json: async () => ({}) };
   }) as never;
@@ -120,7 +125,12 @@ describe('cola de revisión: Redmine simulado y carpeta local', () => {
     expect(result.sprint?.id).toBe(33677);
     expect(result.rolesKnown).toBe(true);
     // 200: ya lo toma Luana (comentó); 500: su QA está asignado a otra persona; 300: es mío; 400: no está en Revisión
-    expect(result.items.map((item) => item.id)).toEqual([100, 600, 700]);
+    expect(result.items.map((item) => item.id)).toEqual([100, 600, 700, 800]);
+    // y los que se evaluaron y no entraron dicen por qué
+    expect(result.skipped.map((entry) => [entry.id, entry.reason]).sort()).toEqual([[200, 'taken'], [300, 'mine'], [500, 'qa-other']]);
+    expect(result.skipped.find((entry) => entry.id === 500)!.detail).toContain('Luana Trevisan');
+    expect(result.sprintTickets).toBe(8);
+    expect(result.inReview).toBe(7);
     expect(result.items.find((item) => item.id === 700)!.qa).toBeNull();
     expect(result.items.find((item) => item.id === 600)!.qa).toMatchObject({ assignedTo: 'Bruno Pizarro' });
     const item = result.items[0]!;

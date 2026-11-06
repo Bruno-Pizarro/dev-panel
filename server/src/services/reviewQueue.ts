@@ -52,9 +52,23 @@ export interface ReviewQueueItem {
   folder: string | null;
 }
 
+export interface ReviewSkipped {
+  id: number;
+  title: string;
+  /** Por qué no está en la lista. */
+  reason: 'mine' | 'qa-other' | 'taken';
+  /** Detalle legible (a quién está asignado el QA, quién comentó…). */
+  detail: string;
+}
+
 export interface ReviewQueue {
   sprint: { id: number; subject: string; url: string } | null;
   items: ReviewQueueItem[];
+  /** Los de Revisión del sprint que se evaluaron y NO entraron, con el motivo (para entender por qué falta uno). */
+  skipped: ReviewSkipped[];
+  /** Cuántos tickets tiene relacionados el sprint (de cualquiera) y cuántos de ellos están en Revisión: un ticket que no está relacionado al sprint no se puede ver. */
+  sprintTickets: number;
+  inReview: number;
   /** Rol de Redmine que se toma como «revisor». */
   reviewerRole: string;
   /** `false` si no se pudieron leer los roles del proyecto: no se pudo descartar a nadie y se muestran todos los de Revisión. */
@@ -106,11 +120,12 @@ export const reviewerCommentCount = (journals: RawJournal[] | undefined, reviewe
   (journals ?? []).filter((journal) => journal.notes?.trim() && journal.user && reviewerIds.has(journal.user.id) && journal.user.id !== authorId).length;
 
 /**
- * El Control QA es «para mí» si no tiene a nadie asignado, está asignado a mí o al usuario bolsa (Backlog e-sueldos). Cualquier otra
- * persona asignada significa que es una revisión de otro.
+ * El Control QA es «para mí» si no tiene a nadie asignado, está asignado a mí, al usuario bolsa (Backlog e-sueldos) o a la MISMA
+ * persona que el ticket padre (nadie más lo tomó: lo dejó a su nombre). Cualquier otra persona asignada significa que es una revisión
+ * de otro.
  */
-export const qaIsForMe = (assignee: { id: number; name: string } | null | undefined, meId: number | null, backlogUser: string): boolean =>
-  !assignee || assignee.id === meId || normalizeStatus(assignee.name) === normalizeStatus(backlogUser);
+export const qaIsForMe = (assignee: { id: number; name: string } | null | undefined, meId: number | null, backlogUser: string, parentAssigneeId: number | null = null): boolean =>
+  !assignee || assignee.id === meId || normalizeStatus(assignee.name) === normalizeStatus(backlogUser) || (parentAssigneeId !== null && assignee.id === parentAssigneeId);
 
 /** Sin revisor = ningún comentario de revisor; con los roles sin leer no se puede descartar a nadie. */
 export const isUnclaimed = (reviewerComments: number, rolesKnown: boolean): boolean => !rolesKnown || reviewerComments === 0;
@@ -155,7 +170,7 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
   const reviewerRole = config.redmine.reviewerRole;
 
   const found: CurrentSprint | null = await findCurrentSprint(get, credentials, fetcher, dayOf(now));
-  if (!found) return { sprint: null, items: [], reviewerRole, rolesKnown: true };
+  if (!found) return { sprint: null, items: [], skipped: [], sprintTickets: 0, inReview: 0, reviewerRole, rolesKnown: true };
   const sprint = { id: found.sprint.id, subject: found.sprint.subject, url: `${credentials.baseUrl}/issues/${found.sprint.id}` };
 
   // Todos los tickets del sprint (de cualquiera) que están en Revisión y no son míos ni de QA
@@ -163,13 +178,20 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
   const listed = (await get(`/issues.json?issue_id=${found.related.join(',')}&status_id=*&limit=100`)) as { issues?: Parameters<typeof mapIssue>[0][] };
   const inReview = (listed.issues ?? [])
     .map((raw) => ({ raw: raw as unknown as RawDetail, issue: mapIssue(raw, credentials.baseUrl) }))
-    .filter(({ issue, raw }) => statusIn(issue.status, config.redmine.reviewStatuses) && issue.tracker !== 'Control QA' && raw.assigned_to?.id !== me.user?.id)
-    .slice(0, MAX_ITEMS);
+    .filter(({ issue }) => statusIn(issue.status, config.redmine.reviewStatuses) && issue.tracker !== 'Control QA');
+  const sprintTickets = (listed.issues ?? []).length;
+  const skipped: ReviewSkipped[] = [];
+  // Los míos no se revisan (y no cuestan llamadas); el tope se aplica después, sobre los que sí hay que mirar
+  const toCheck = inReview.filter(({ issue, raw }) => {
+    if (raw.assigned_to?.id !== me.user?.id) return true;
+    skipped.push({ id: issue.id, title: issue.title, reason: 'mine', detail: 'Es un ticket tuyo' });
+    return false;
+  }).slice(0, MAX_ITEMS);
 
   // Roles del proyecto: quiénes son «revisores»
   let rolesKnown = true;
   const reviewerIds = new Set<number>();
-  const projectId = inReview[0]?.raw.project?.id;
+  const projectId = toCheck[0]?.raw.project?.id;
   if (projectId && rolesCache && rolesCache.projectId === projectId && now.getTime() - rolesCache.at < ROLES_MS) {
     rolesCache.ids.forEach((id) => reviewerIds.add(id));
     rolesKnown = reviewerIds.size > 0;
@@ -187,7 +209,7 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
   }
 
   const items: ReviewQueueItem[] = [];
-  for (const { issue } of inReview) {
+  for (const { issue, raw: listedRaw } of toCheck) {
     const detail = (await get(`/issues/${issue.id}.json?include=journals,children`)) as { issue?: RawDetail };
     const raw = detail.issue;
     if (!raw) continue;
@@ -198,9 +220,15 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
       qaRaw = ((await get(`/issues/${qaChild.id}.json?include=journals`)) as { issue?: RawDetail }).issue;
       if (qaRaw) {
         // Ya asignado a otra persona: es una revisión para ese otro
-        if (!qaIsForMe(qaRaw.assigned_to, me.user?.id ?? null, config.redmine.backlogUser)) continue;
+        if (!qaIsForMe(qaRaw.assigned_to, me.user?.id ?? null, config.redmine.backlogUser, listedRaw.assigned_to?.id ?? null)) {
+          skipped.push({ id: issue.id, title: issue.title, reason: 'qa-other', detail: `El QA #${qaRaw.id} está asignado a ${qaRaw.assigned_to?.name ?? '—'}${listedRaw.assigned_to ? `, y el ticket a ${listedRaw.assigned_to.name}` : ''}` });
+          continue;
+        }
         const reviewerComments = reviewerCommentCount(qaRaw.journals, reviewerIds, qaRaw.author?.id ?? null);
-        if (!isUnclaimed(reviewerComments, rolesKnown)) continue;
+        if (!isUnclaimed(reviewerComments, rolesKnown)) {
+          skipped.push({ id: issue.id, title: issue.title, reason: 'taken', detail: `El QA #${qaRaw.id} tiene ${reviewerComments} comentario${reviewerComments === 1 ? '' : 's'} de revisores (alguien ya lo tomó)` });
+          continue;
+        }
         qa = { id: qaRaw.id, url: `${credentials.baseUrl}/issues/${qaRaw.id}`, status: qaRaw.status?.name ?? '—', assignedTo: qaRaw.assigned_to?.name ?? null, author: qaRaw.author?.name ?? null, description: clip(plainNote(qaRaw.description ?? ''), 3000), comments: lastComments(qaRaw.journals), reviewerComments };
       }
     }
@@ -219,7 +247,7 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
       folder: existingFolder(config.paths.extra, issue.id),
     });
   }
-  const value: ReviewQueue = { sprint, items, reviewerRole, rolesKnown };
+  const value: ReviewQueue = { sprint, items, skipped, sprintTickets, inReview: inReview.length, reviewerRole, rolesKnown };
   cached = { at: now.getTime(), value };
   return value;
 };
