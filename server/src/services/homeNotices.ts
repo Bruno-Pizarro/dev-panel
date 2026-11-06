@@ -14,7 +14,7 @@ import { statusIn, summarizeSprintPoints, type PointsStatuses, type SprintPoints
  * y se guardan en `data/home-notices.json`; abrir el Inicio de nuevo solo lee lo guardado. Todo es solo lectura (Redmine y GitLab).
  * Los avisos de rutina (viernes, horas) dependen del momento y se calculan al pedirlos, sin consultar nada afuera.
  */
-export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder' | 'discord';
 export type NoticeLevel = 'important' | 'info';
 
 export interface Notice {

@@ -46,14 +46,18 @@ export interface ThreadList {
 }
 
 export interface ThreadMessage {
+  id: string;
   author: string;
+  authorId: string | null;
+  /** Ids de los usuarios mencionados en el mensaje. */
+  mentions: string[];
   at: string;
   content: string;
   reactions: string[];
   attachments: number;
 }
 
-type Fetcher = (url: string, init: { headers: Record<string, string> }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+export type Fetcher = (url: string, init: { headers: Record<string, string> }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 const defaultFetcher: Fetcher = (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(15_000) }) as never;
 
 const DISCORD_EPOCH = 1_420_070_400_000n;
@@ -154,9 +158,12 @@ export const threadMessages = async (config: DevPanelConfig, threadId: string, o
   const fetcher = options.fetcher ?? defaultFetcher;
   const response = await fetcher(`${API}/channels/${threadId}/messages?limit=${limit}`, { headers: headers(token) });
   if (!response.ok) throw new DiscordBotError(`Discord respondió ${response.status}`);
-  const raw = (await response.json()) as Array<{ author?: { username?: string; global_name?: string | null }; timestamp: string; content?: string; reactions?: Array<{ emoji?: { name?: string | null }; count?: number }>; attachments?: unknown[] }>;
+  const raw = (await response.json()) as Array<{ id?: string; mentions?: Array<{ id: string }>; author?: { id?: string; username?: string; global_name?: string | null }; timestamp: string; content?: string; reactions?: Array<{ emoji?: { name?: string | null }; count?: number }>; attachments?: unknown[] }>;
   return raw
     .map((message): ThreadMessage => ({
+      id: message.id ?? '',
+      authorId: message.author?.id ?? null,
+      mentions: (message.mentions ?? []).map((user) => user.id),
       author: message.author?.global_name || message.author?.username || '—',
       at: message.timestamp,
       content: cleanBlock(message.content ?? '', MAX_TEXT) ?? '',

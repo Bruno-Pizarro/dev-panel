@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getDailyChecklist } from '../services/checklists.js';
 import { getNotices, reminderNotices } from '../services/homeNotices.js';
+import { getDiscordNotices } from '../services/discordNotices.js';
 import { dueReminders } from '../services/reminders.js';
 import { fetchWeather, isValidCoordinates } from '../services/weather.js';
 import { requireConfig } from './helpers.js';
@@ -18,8 +19,10 @@ export const registerHomeRoutes = (app: FastifyInstance): void => {
       /* sin checklist: no se avisa de las horas */
       hoursLoaded = true;
     }
-    // Los recordatorios no se guardan con la revisión del día: se calculan al pedirlos.
-    return { ...(await getNotices(config, { refresh: request.query.refresh === '1', hoursLoaded })), reminders: reminderNotices(dueReminders()) };
+    // Los recordatorios y los avisos de Discord no se guardan con la revisión del día: se calculan al pedirlos (Discord, con su propia caché de 5 min).
+    const discord = await getDiscordNotices(config).catch((error: Error) => ({ notices: [], errors: [{ source: 'Discord', message: error.message }] }));
+    const report = await getNotices(config, { refresh: request.query.refresh === '1', hoursLoaded });
+    return { ...report, errors: [...report.errors, ...discord.errors], discord: discord.notices, reminders: reminderNotices(dueReminders()) };
   });
 
   app.get('/api/weather', async (request, reply) => {

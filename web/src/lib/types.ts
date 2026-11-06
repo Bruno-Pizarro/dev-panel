@@ -503,10 +503,10 @@ export interface AgentRun { id: string; sessionId: string; type: string; descrip
 export interface AgentStep { tool: string; summary: string }
 export interface AgentDetail extends AgentRun { request: string | null; response: string | null; steps?: AgentStep[] | null }
 
-export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder' | 'discord';
 export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null; reminderId?: string }
 export interface ReminderItem { id: string; text: string; at: string | null; createdAt: string; done: boolean; doneAt: string | null }
-export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; fromCache: boolean }
+export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; discord?: HomeNotice[]; fromCache: boolean }
 export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
 
 export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }

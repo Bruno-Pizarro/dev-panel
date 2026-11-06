@@ -1,4 +1,4 @@
-import { Bell, BellOff, CalendarClock, Check, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
+import { Bell, BellOff, CalendarClock, Check, ExternalLink, Flag, GitPullRequest, ListChecks, MessageSquare, MessagesSquare, PartyPopper, RefreshCw, X, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { setDnd, useDnd } from '../lib/dnd';
 import { useShortcutMap } from '../lib/useShortcuts';
@@ -14,8 +14,8 @@ import { Skeleton } from './Skeleton';
 import { api } from '../lib/api';
 import { uniqueById } from '../lib/uniqueById';
 
-const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell };
-const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio' };
+const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell, discord: MessagesSquare };
+const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio', discord: 'Discord' };
 
 const Notice = ({ notice, onDismiss, onDone }: { notice: HomeNotice; onDismiss: () => void; onDone: (id: string) => void }) => {
   const Icon = KIND_ICONS[notice.kind];
@@ -45,7 +45,7 @@ export const HomeNotices = ({ state }: { state: HomeNoticesState }) => {
   const [remindersOpen, setRemindersOpen] = useState(false);
   const markDone = (id: string) => void api.put(`/api/reminders/${id}`, { done: true }).catch(() => undefined);
   // Sin ids repetidos: un informe guardado antes de la corrección puede traer el mismo aviso dos veces, y con claves repetidas React no los quita al ocultarlos.
-  const all = useMemo(() => uniqueById([...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.notices ?? [])]), [report]);
+  const all = useMemo(() => uniqueById([...(report?.reminders ?? []), ...(report?.routines ?? []), ...(report?.discord ?? []), ...(report?.notices ?? [])]), [report]);
   const visible = useMemo(() => all.filter((notice) => !hidden.includes(notice.id)).sort((a, b) => (a.level === b.level ? 0 : a.level === 'important' ? -1 : 1)), [all, hidden]);
   const dismissFirst = () => {
     const first = visible[0];

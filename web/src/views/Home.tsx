@@ -44,7 +44,7 @@ const Greeting = ({ name, notices, workday }: { name: string; notices: HomeNotic
     const items = checklist.data?.items ?? [];
     const phase = workdayPhase(now, workday, { entry: items.some((item) => item.id === 'marcar-entrada' && item.done), hours: items.some((item) => item.id === 'cargar-horas' && item.done) });
     // Los avisos que ocultaste por hoy no cuentan para el saludo.
-    const all = notices.report ? uniqueById([...notices.report.reminders, ...notices.report.routines, ...notices.report.notices]) : [];
+    const all = notices.report ? uniqueById([...notices.report.reminders, ...notices.report.routines, ...(notices.report.discord ?? []), ...notices.report.notices]) : [];
     const context: GreetingContext = { ...contextFromNotices(all.filter((notice) => !notices.hidden.includes(notice.id)), todayIso()), workday: phase };
     let last: string | null = null;
     try {
