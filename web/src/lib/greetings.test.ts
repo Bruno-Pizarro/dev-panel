@@ -8,7 +8,17 @@ const at = (hour: number, day = 3) => {
 
 describe('frases del Inicio', () => {
   it('slotOf divide el día: madrugada, mañana, mediodía, tarde y noche', () => {
-    expect([0, 5, 6, 7, 11, 12, 13, 14, 19, 20, 23].map(slotOf)).toEqual(['madrugada', 'madrugada', 'madrugada', 'manana', 'manana', 'mediodia', 'mediodia', 'tarde', 'tarde', 'noche', 'noche']);
+    expect([0, 4, 5, 6, 7, 11, 12, 13, 14, 19, 20, 23].map(slotOf)).toEqual(['madrugada', 'madrugada', 'amanecer', 'amanecer', 'manana', 'manana', 'mediodia', 'mediodia', 'tarde', 'tarde', 'noche', 'noche']);
+  });
+
+  it('a las 5 y a las 6 no se le dice que no durmió: son frases de quien empezó muy temprano', () => {
+    for (const hour of [5, 6]) {
+      const pool = poolFor(at(hour), 'Ana');
+      expect(pool.some((text) => /no durmi|nunca te fuiste|dormir|despierto|guardia/i.test(text))).toBe(false);
+      expect(pool.some((text) => text.includes('temprano') || text.includes('Madrugador'))).toBe(true);
+    }
+    // a las 3 sí sigue el tono de «andá a dormir»
+    expect(poolFor(at(3), 'Ana').some((text) => /dormí|dormir/i.test(text))).toBe(true);
   });
 
   it('cada franja tiene varias frases, con y sin nombre', () => {
@@ -83,7 +93,7 @@ describe('frases del Inicio', () => {
 
   it('los rangos de horarios raros no se pisan, cubren de 22 a 7 y solo suman en su hora', () => {
     const sorted = [...ODD_HOUR_PHRASES].sort((a, b) => a.from - b.from);
-    expect(sorted.map((range) => [range.from, range.to])).toEqual([[0, 2], [2, 4], [4, 6], [6, 7], [22, 24]]);
+    expect(sorted.map((range) => [range.from, range.to])).toEqual([[0, 2], [2, 4], [4, 5], [5, 7], [22, 24]]);
     for (const range of ODD_HOUR_PHRASES) {
       expect(range.phrases.length).toBeGreaterThanOrEqual(3);
       expect(range.phrases.filter((phrase) => phrase.named).every((phrase) => phrase.text.includes('{name}'))).toBe(true);

@@ -16,7 +16,7 @@ import { uniqueById } from '../lib/uniqueById';
 import { contextFromNotices, pickGreeting, slotOf, workdayPhase, type GreetingContext, type Slot } from '../lib/greetings';
 import { useHomeNotices, type HomeNoticesState } from '../lib/useHomeNotices';
 
-const SLOT_ICONS: Record<Slot, LucideIcon> = { madrugada: Moon, manana: Sunrise, mediodia: Sun, tarde: Sunset, noche: Moon };
+const SLOT_ICONS: Record<Slot, LucideIcon> = { madrugada: Moon, amanecer: Sunrise, manana: Sunrise, mediodia: Sun, tarde: Sunset, noche: Moon };
 const LAST_GREETING_KEY = 'dev-panel.greeting.last';
 
 /** Saludo simpático según la hora; una vez por visita, distinto del anterior. Las frases con nombre solo salen si hay nombre configurado. */

@@ -2,7 +2,7 @@
  * Frases del Inicio: un saludo simpático según la hora (y a veces el día), algunas con el nombre configurado. Si no hay
  * nombre, solo se usan las frases que no lo llevan.
  */
-export type Slot = 'madrugada' | 'manana' | 'mediodia' | 'tarde' | 'noche';
+export type Slot = 'madrugada' | 'amanecer' | 'manana' | 'mediodia' | 'tarde' | 'noche';
 
 interface Phrase {
   text: string;
@@ -10,7 +10,8 @@ interface Phrase {
   named?: boolean;
 }
 
-export const slotOf = (hour: number): Slot => (hour < 7 ? 'madrugada' : hour < 12 ? 'manana' : hour < 14 ? 'mediodia' : hour < 20 ? 'tarde' : 'noche');
+/** `madrugada` (0 a 5) es de quien no durmió; `amanecer` (5 a 7) es de quien empezó muy temprano: no se le dice que no durmió. */
+export const slotOf = (hour: number): Slot => (hour < 5 ? 'madrugada' : hour < 7 ? 'amanecer' : hour < 12 ? 'manana' : hour < 14 ? 'mediodia' : hour < 20 ? 'tarde' : 'noche');
 
 export const PHRASES: Record<Slot, Phrase[]> = {
   madrugada: [
@@ -24,6 +25,16 @@ export const PHRASES: Record<Slot, Phrase[]> = {
     { text: 'Si compila a esta hora, desconfiá.' },
     { text: '{name}, el sueño también es una dependencia crítica.', named: true },
     { text: 'Un commit más y duermo. (Mentira, siempre es uno más.)' },
+  ],
+  amanecer: [
+    { text: 'Arranque temprano: a esta hora nadie te interrumpe.' },
+    { text: 'Buen día, {name}. Las primeras horas son las más tranquilas del día.', named: true },
+    { text: 'Madrugar tiene premio: silencio, café y cero reuniones.' },
+    { text: 'Empezaste temprano: acordate de cortar temprano también.' },
+    { text: '{name}, qué temprano arrancás. Que el café te acompañe.', named: true },
+    { text: 'Las primeras horas rinden el doble. Aprovechalas, sin pasarte.' },
+    { text: 'Amaneciendo: hora ideal para el ticket que pide concentración.' },
+    { text: 'Todavía no hay mails ni chats. Es tu mejor momento para avanzar.' },
   ],
   manana: [
     { text: '¡Buen día! El café ya debería estar haciendo efecto.' },
@@ -133,9 +144,9 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
   },
   {
     from: 4,
-    to: 6,
+    to: 5,
     phrases: [
-      { text: 'Las 4 o las 5: o madrugaste muchísimo o nunca te fuiste a dormir.' },
+      { text: 'Las 4: o madrugaste muchísimo o nunca te fuiste a dormir.' },
       { text: '{name}, ya casi amanece. Dormir ahora es como un rollback pero con culpa.', named: true },
       { text: 'Si seguís despierto desde ayer, esto ya cuenta como guardia.' },
       { text: 'Amanece en un rato. Los pájaros ya empezaron el standup.' },
@@ -143,13 +154,16 @@ export const ODD_HOUR_PHRASES: Array<{ from: number; to: number; phrases: Phrase
     ],
   },
   {
-    from: 6,
+    // A partir de las 5 se asume que empezó muy temprano (no que no durmió)
+    from: 5,
     to: 7,
     phrases: [
       { text: 'Madrugador: ni el café está listo todavía.' },
       { text: '{name}, qué temprano. El resto del equipo recién está apagando la alarma.', named: true },
       { text: 'Antes de las 7 no hay reuniones, ni mails, ni excusas.' },
-      { text: '{name}, ¿A esta hora ya marcás?', named: true },
+      { text: '{name}, ¿a esta hora ya marcás?', named: true },
+      { text: 'Si arrancaste temprano, la tarde es tuya: planificá cortar a horario.' },
+      { text: 'Primera hora del día: el mejor momento para lo que pide concentración.' },
     ],
   },
 ];
