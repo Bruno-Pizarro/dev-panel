@@ -4,7 +4,7 @@ import { cn } from '../lib/cn';
 import type { SpHistory } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
-import { Card } from './Card';
+import { CollapsibleCard } from './CollapsibleCard';
 import { Skeleton } from './Skeleton';
 import { Tooltip } from './Tooltip';
 
@@ -20,8 +20,16 @@ export const SpHistoryCard = () => {
   const ordered = [...data.weeks].reverse();
 
   return (
-    <Card
+    <CollapsibleCard
       className="mb-5"
+      storageKey="dev-panel.kanban.sp-history.collapsed"
+      testId="sp-history-card"
+      summary={
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1" data-testid="sp-history-compact">
+          <span><strong className="text-xl font-semibold text-accent">{data.average}</strong> <span className="text-sm text-muted">SP por semana (promedio de las 4)</span></span>
+          {data.weeks.map((week, index) => <span key={week.weekStart} className="text-sm text-muted"><strong className="font-mono text-fg">{week.sp}</strong> {index === 0 ? 'esta semana (en curso)' : index === 1 ? 'semana pasada' : weekLabel(week.weekStart, index).replace('Semana del ', 'sem. ')}</span>)}
+        </div>
+      }
       title={<span className="inline-flex items-center gap-2"><TrendingUp className="size-5 text-accent" aria-hidden />Story points por semana</span>}
       action={
         <div className="flex items-center gap-2">
@@ -52,6 +60,6 @@ export const SpHistoryCard = () => {
           {data.averageClosed !== null && <div><div className="text-xl font-semibold">{data.averageClosed}</div><div className="text-sm text-muted">promedio sin la semana en curso</div></div>}
         </div>
       </div>
-    </Card>
+    </CollapsibleCard>
   );
 };
