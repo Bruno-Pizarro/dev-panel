@@ -99,6 +99,18 @@ describe('buildShipChecklist', () => {
     expect(level('mrs')).toBe('warn');
     expect(summarizeShip(items).ready).toBe(false);
   });
+  it('merge requests: un repo parado en la rama de OTRO ticket no cuenta para este (su MR es de aquel)', () => {
+    const own = repo({ repo: 'legajo', branch: 'feature/33528-x' });
+    const other = repo({ repo: 'documentos', branch: 'feature/33527-y' });
+    const items = buildShipChecklist({ ...base, repos: [own, other], meta: { rama: 'feature/33528-x', repos: ['legajo', 'documentos'], mrs: [{ repo: 'legajo', iid: 70 }] } });
+    expect(items.find((item) => item.id === 'mrs')).toMatchObject({ level: 'ok', detail: '1 MR registrados' });
+    // si el repo propio no tiene MR, sigue avisando solo por ése
+    const missing = buildShipChecklist({ ...base, repos: [own, other], meta: { rama: 'feature/33528-x', repos: ['legajo', 'documentos'], mrs: [] } });
+    expect(missing.find((item) => item.id === 'mrs')).toMatchObject({ level: 'warn', detail: 'Falta el MR de legajo' });
+    // sin rama declarada en ticket.json se cuentan todos, como antes
+    const noBranch = buildShipChecklist({ ...base, repos: [own, other], meta: { repos: ['legajo', 'documentos'], mrs: [{ repo: 'legajo', iid: 70 }] } });
+    expect(noBranch.find((item) => item.id === 'mrs')?.detail).toContain('documentos');
+  });
   it('tests con fallo y commits posteriores', () => {
     const items = buildShipChecklist({ ...base, meta: { ...meta, pruebas: [{ fecha: '2026-10-20', resultado: 'A 2/3' }] } });
     expect(items.find((item) => item.id === 'tests')?.detail).toContain('A 2/3');

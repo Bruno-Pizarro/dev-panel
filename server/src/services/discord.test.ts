@@ -68,14 +68,20 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
   });
 
   const calls: Array<{ url: string; method: string; body: Record<string, unknown> }> = [];
-  const poster = (status = 200, body: unknown = { id: 'MSG1', channel_id: 'THREAD1', guild_id: 'GUILD1' }) => async (url: string, init: { method: string; body: string }) => {
-    calls.push({ url, method: init.method, body: JSON.parse(init.body) });
+  const poster = (status = 200, body: unknown = { id: 'MSG1', channel_id: 'THREAD1', guild_id: 'GUILD1' }) => async (url: string, init: { method: string; body?: string }) => {
+    calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : {} });
     return { ok: status < 300, status, json: async () => body };
   };
+  /** Discord según el método: la comprobación del hilo (GET), la edición (PATCH) y la creación (POST) pueden responder distinto. */
+  const byMethod = (answers: Record<string, number>) => async (url: string, init: { method: string; body?: string }) => {
+    calls.push({ url, method: init.method, body: init.body ? JSON.parse(init.body) : {} });
+    const status = answers[init.method] ?? 200;
+    return { ok: status < 300, status, json: async () => ({ id: 'MSG2', channel_id: 'THREAD2', guild_id: 'GUILD1' }) };
+  };
 
-  it('la vista previa dice qué se publicaría y nunca devuelve el webhook', () => {
-    const preview = previewThread(config, '33526-pendientes-firma');
-    expect(preview).toMatchObject({ webhookReady: true, ticket: '33526', action: 'create', problems: [] });
+  it('la vista previa dice qué se publicaría y nunca devuelve el webhook', async () => {
+    const preview = await previewThread(config, '33526-pendientes-firma', poster());
+    expect(preview).toMatchObject({ webhookReady: true, ticket: '33526', action: 'create', problems: [], hasMrs: true, forgotten: false });
     expect(preview.draft!.name).toBe('[Ticket #33526] Pestaña Pendientes de firma en el Perfil');
     expect(preview.draft!.tags).toEqual(['111111', '222222']);
     expect(JSON.stringify(preview)).not.toContain('inventadoinventado');
@@ -98,7 +104,7 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     expect(String(calls[0]!.body['content'])).toContain('front: <https://g/front/-/merge_requests/165>');
     expect(String(calls[0]!.body['content'])).toContain('👤 <@111222333444555666>');
     expect(JSON.parse(readFileSync(join(dir, 'discord-threads.json'), 'utf8'))['33526']).toMatchObject({ threadId: 'THREAD1', messageId: 'MSG1' });
-    expect(previewThread(config, '33526-pendientes-firma')).toMatchObject({ action: 'update', record: { link: 'https://discord.com/channels/GUILD1/THREAD1' } });
+    expect(await previewThread(config, '33526-pendientes-firma', poster())).toMatchObject({ action: 'update', record: { link: 'https://discord.com/channels/GUILD1/THREAD1' }, forgotten: false });
   });
 
   it('con el hilo ya creado edita el mensaje inicial con los MRs nuevos en vez de crear otro', async () => {
@@ -106,19 +112,48 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     calls.length = 0;
     const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster(200, {}));
     expect(result.action).toBe('updated');
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.method).toBe('PATCH');
-    expect(calls[0]!.url).toBe(`${WEBHOOK}/messages/MSG1?thread_id=THREAD1`);
-    expect(String(calls[0]!.body['content'])).toContain('legajo: <https://g/legajo/-/merge_requests/65>');
-    expect(calls[0]!.body['allowed_mentions']).toEqual({ parse: [], users: ['111222333444555666'] });
-    expect(calls[0]!.body).not.toHaveProperty('applied_tags');
+    // primero comprueba que el hilo exista (GET) y después edita su mensaje inicial (PATCH)
+    expect(calls.map((call) => call.method)).toEqual(['GET', 'PATCH']);
+    const patch = calls[1]!;
+    expect(patch.url).toBe(`${WEBHOOK}/messages/MSG1?thread_id=THREAD1`);
+    expect(String(patch.body['content'])).toContain('legajo: <https://g/legajo/-/merge_requests/65>');
+    expect(patch.body['allowed_mentions']).toEqual({ parse: [], users: ['111222333444555666'] });
+    expect(patch.body).not.toHaveProperty('applied_tags');
   });
 
-  it('si el hilo ya no existe en Discord olvida el vínculo y avisa, sin crear otro solo', async () => {
+  it('la vista previa comprueba en Discord que el hilo siga existiendo: si lo borraron vuelve a «sin crear»', async () => {
     calls.length = 0;
-    await expect(publishThread(config, '33526-pendientes-firma', { confirm: true }, poster(404, {}))).rejects.toMatchObject({ status: 409 });
-    expect(calls).toHaveLength(1);
-    expect(previewThread(config, '33526-pendientes-firma').action).toBe('create');
+    const gone = await previewThread(config, '33526-pendientes-firma', byMethod({ GET: 404 }));
+    expect(calls[0]).toMatchObject({ method: 'GET', url: `${WEBHOOK}/messages/MSG1?thread_id=THREAD1` });
+    expect(gone).toMatchObject({ action: 'create', record: null, forgotten: true });
+    // y quedó olvidado: la próxima vista previa ya no lo busca
+    calls.length = 0;
+    expect(await previewThread(config, '33526-pendientes-firma', poster())).toMatchObject({ action: 'create', forgotten: false });
+    expect(calls).toEqual([]);
+  });
+
+  it('un error de Discord o un corte de red al comprobar NO borra el vínculo', async () => {
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster());
+    expect(await previewThread(config, '33526-pendientes-firma', byMethod({ GET: 500 }))).toMatchObject({ action: 'update', forgotten: false });
+    const offline = async () => {
+      throw new Error('sin red');
+    };
+    expect(await previewThread(config, '33526-pendientes-firma', offline)).toMatchObject({ action: 'update', forgotten: false });
+  });
+
+  it('si el hilo se borró entre la comprobación y el cambio, se crea de nuevo en la misma publicación', async () => {
+    calls.length = 0;
+    const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, byMethod({ GET: 200, PATCH: 404, POST: 200 }));
+    expect(result).toMatchObject({ action: 'created', threadId: 'THREAD2' });
+    expect(calls.map((call) => call.method)).toEqual(['GET', 'PATCH', 'POST']);
+    expect(JSON.parse(readFileSync(join(dir, 'discord-threads.json'), 'utf8'))['33526']).toMatchObject({ threadId: 'THREAD2', messageId: 'MSG2' });
+  });
+
+  it('si el hilo ya no existe al publicar, se crea uno nuevo sin pasos extra', async () => {
+    calls.length = 0;
+    const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, byMethod({ GET: 404, POST: 200 }));
+    expect(result.action).toBe('created');
+    expect(calls.map((call) => call.method)).toEqual(['GET', 'POST']);
   });
 
   it('no publica si a un repo le falta la etiqueta, si no hay MRs o si no hay webhook', async () => {
@@ -130,7 +165,7 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     writeFileSync(join(extra, '40001-sin-mrs', 'ticket.json'), JSON.stringify({ ticket: '40001', titulo: 'Sin MRs', url: 'https://r/issues/40001', repos: ['front'] }));
     await expect(publishThread(config, '40001-sin-mrs', { confirm: true }, poster())).rejects.toThrow(/MRs/);
     writeFileSync(join(dataDir, 'claude-test.env'), 'OTRA=1\n');
-    expect(previewThread(config, '33526-pendientes-firma')).toMatchObject({ webhookReady: false });
+    expect(await previewThread(config, '33526-pendientes-firma')).toMatchObject({ webhookReady: false });
     await expect(publishThread(config, '33526-pendientes-firma', { confirm: true }, poster())).rejects.toThrow(/webhook/i);
     expect(calls).toEqual([]);
   });

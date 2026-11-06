@@ -8,7 +8,7 @@ export const registerDiscordRoutes = (app: FastifyInstance): void => {
   app.get<{ Params: { dir: string } }>('/api/tickets/:dir/discord', async (request, reply) => {
     const config = requireConfig(reply);
     if (!config) return reply;
-    return previewThread(config, request.params.dir);
+    return await previewThread(config, request.params.dir);
   });
 
   app.post<{ Params: { dir: string } }>('/api/tickets/:dir/discord', async (request, reply) => {

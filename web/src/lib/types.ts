@@ -437,6 +437,8 @@ export interface DiscordPreview {
   record: { threadId: string; messageId: string; guildId: string | null; createdAt: string; updatedAt: string; link: string | null } | null;
   problems: string[];
   action: 'create' | 'update';
+  hasMrs: boolean;
+  forgotten: boolean;
 }
 
 export interface WeeklyReport {

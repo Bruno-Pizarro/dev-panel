@@ -235,31 +235,27 @@ const Closing = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
  * Hilo del ticket en el foro de MRs de Discord. Nada se publica solo: el botón muestra antes exactamente qué sale (título, mensaje y
  * etiquetas) y publica cuando lo apretás; si el panel ya creó el hilo, actualiza su mensaje inicial con los MRs nuevos.
  */
-const Discord = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+const Discord = ({ dir, state, onChanged }: { dir: string; state: { data: DiscordPreview | null; loading: boolean; error: string | null }; onChanged: () => void }) => {
   const toast = useToast();
-  const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const publish = async () => {
     setBusy(true);
     try {
       const result = await api.post<{ action: 'created' | 'updated'; link: string | null }>(`${base(dir)}/discord`, { confirm: true });
       toast('success', result.action === 'created' ? 'Hilo creado en Discord.' : 'Hilo actualizado con los MRs.');
-      setVersion((value) => value + 1);
+      onChanged();
     } catch (error) {
       toast('error', (error as Error).message);
     } finally {
       setBusy(false);
     }
   };
+  const data = state.data;
   return (
-    <Section<DiscordPreview>
-      title="Discord · foro de MRs"
-      url={`${base(dir)}/discord`}
-      refreshKey={refreshKey + version}
-      action={(data) => <Badge tone={data.record ? 'success' : 'neutral'}>{data.record ? 'hilo creado' : 'sin hilo'}</Badge>}
-    >
-      {(data) => (
+    <Card title="Discord · foro de MRs" action={data ? <Badge tone={data.record ? 'success' : 'neutral'}>{data.record ? 'hilo creado' : 'sin hilo'}</Badge> : undefined}>
+      {state.loading && !data ? <Skeleton className="h-24" /> : state.error || !data ? <p className="text-danger">{state.error}</p> : (
         <div className="space-y-4" data-testid="discord-card">
+          {data.forgotten && <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="discord-forgotten">El hilo ya no existe en Discord (lo borraron): volvió a quedar sin crear. Podés publicarlo de nuevo.</p>}
           {data.draft && (
             <div className="space-y-2">
               <p className="font-medium">{data.draft.name}</p>
@@ -277,19 +273,28 @@ const Discord = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
           </div>
         </div>
       )}
-    </Section>
+    </Card>
   );
 };
 
 /** Pestaña Estado: lo que hay que mirar antes de pasar un ticket a MR. Todo es solo lectura. */
-export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
-  <div className="space-y-6">
-    <Ship dir={dir} refreshKey={refreshKey} />
-    <Git dir={dir} refreshKey={refreshKey} />
-    <Gitlab dir={dir} refreshKey={refreshKey} />
-    <Services dir={dir} refreshKey={refreshKey} />
-    <TestData dir={dir} refreshKey={refreshKey} />
-    <Discord dir={dir} refreshKey={refreshKey} />
-    <Closing dir={dir} refreshKey={refreshKey} />
-  </div>
-);
+export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+  // La tarjeta de Discord sube a ocupar el lugar de «lo siguiente» apenas el ticket tiene MRs registrados (justo después del semáforo
+  // de «listo para abrir los MRs»); mientras no los tenga queda abajo, antes del cierre.
+  const discord = useAsync(() => api.get<DiscordPreview>(`${base(dir)}/discord`));
+  useReloadOn(refreshKey, discord.reload);
+  const card = <Discord dir={dir} state={discord} onChanged={discord.reload} />;
+  const withMrs = discord.data?.hasMrs === true;
+  return (
+    <div className="space-y-6">
+      <Ship dir={dir} refreshKey={refreshKey} />
+      {withMrs && card}
+      <Git dir={dir} refreshKey={refreshKey} />
+      <Gitlab dir={dir} refreshKey={refreshKey} />
+      <Services dir={dir} refreshKey={refreshKey} />
+      <TestData dir={dir} refreshKey={refreshKey} />
+      {!withMrs && card}
+      <Closing dir={dir} refreshKey={refreshKey} />
+    </div>
+  );
+};

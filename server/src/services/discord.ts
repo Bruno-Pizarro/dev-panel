@@ -110,14 +110,37 @@ export interface DiscordPreview {
   problems: string[];
   /** `create` = hilo nuevo; `update` = actualizar el mensaje inicial del hilo que ya creó el panel. */
   action: 'create' | 'update';
+  /** El ticket ya tiene MRs registrados en ticket.json (el hilo se publica con ellos). */
+  hasMrs: boolean;
+  /** Si el hilo que el panel recordaba ya no existe en Discord (lo borraron), se olvidó y vuelve a quedar «sin crear». */
+  forgotten: boolean;
 }
 
-/** Lo que se publicaría para la carpeta de un ticket, sin publicar nada. */
-export const previewThread = (config: DevPanelConfig, dir: string): DiscordPreview => {
+type Poster = (url: string, init: { method: string; body?: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+const defaultPoster: Poster = (url, init) => fetch(url, { ...init, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000) }) as never;
+
+const threadLink = (record: ThreadRecord) => (record.guildId ? `https://discord.com/channels/${record.guildId}/${record.threadId}` : null);
+
+/**
+ * ¿Sigue existiendo el mensaje inicial del hilo que el panel creó? Un 404 = lo borraron (se olvida el vínculo y el ticket vuelve a
+ * quedar «sin crear»). Cualquier otra respuesta o un corte de red NO borra nada: ante la duda se conserva lo que se recordaba.
+ */
+const threadStillExists = async (webhook: string, record: ThreadRecord, post: Poster): Promise<boolean> => {
+  try {
+    const response = await post(`${webhook}/messages/${record.messageId}?thread_id=${record.threadId}`, { method: 'GET' });
+    return response.status !== 404;
+  } catch {
+    return true;
+  }
+};
+
+/** Lo que se publicaría para la carpeta de un ticket, sin publicar nada. Comprueba en Discord que el hilo recordado siga existiendo. */
+export const previewThread = async (config: DevPanelConfig, dir: string, post: Poster = defaultPoster): Promise<DiscordPreview> => {
   const detail = getTicket(config.paths.extra, dir, ignoredDirs(config));
-  const webhookReady = webhookOf(config) !== null;
+  const webhook = webhookOf(config);
+  const webhookReady = webhook !== null;
   const base = { webhookReady, webhookVar: config.discord.webhookVar };
-  if (!detail) return { ...base, ticket: null, draft: null, record: null, problems: ['No encontré la carpeta del ticket'], action: 'create' };
+  if (!detail) return { ...base, ticket: null, draft: null, record: null, problems: ['No encontré la carpeta del ticket'], action: 'create', hasMrs: false, forgotten: false };
   const meta = detail.meta;
   const ticket = meta?.ticket ?? null;
   const problems: string[] = [];
@@ -129,19 +152,17 @@ export const previewThread = (config: DevPanelConfig, dir: string): DiscordPrevi
   if (draft?.missingTags.length) problems.push(`Sin etiqueta del foro para: ${draft.missingTags.join(', ')} (agregala en discord.tags de la configuración)`);
   if (draft && draft.tags.length > MAX_TAGS) problems.push(`Discord admite hasta ${MAX_TAGS} etiquetas y este ticket tiene ${draft.tags.length}`);
   if (draft && draft.tags.length === 0 && draft.missingTags.length === 0) problems.push('El ticket no tiene repos: las etiquetas de los repos son obligatorias');
-  const record = ticket ? readRecords()[ticket] : undefined;
-  return {
-    ...base,
-    ticket,
-    draft,
-    record: record ? { ...record, link: record.guildId ? `https://discord.com/channels/${record.guildId}/${record.threadId}` : null } : null,
-    problems,
-    action: record ? 'update' : 'create',
-  };
+  let record = ticket ? readRecords()[ticket] : undefined;
+  let forgotten = false;
+  if (ticket && record && webhook && !(await threadStillExists(webhook, record, post))) {
+    const records = readRecords();
+    delete records[ticket];
+    writeRecords(records);
+    record = undefined;
+    forgotten = true;
+  }
+  return { ...base, ticket, draft, record: record ? { ...record, link: threadLink(record) } : null, problems, action: record ? 'update' : 'create', hasMrs: mrs.length > 0, forgotten };
 };
-
-type Poster = (url: string, init: { method: string; body: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
-const defaultPoster: Poster = (url, init) => fetch(url, { ...init, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000) }) as never;
 
 export interface PublishResult {
   action: 'created' | 'updated';
@@ -155,26 +176,27 @@ export interface PublishResult {
  */
 export const publishThread = async (config: DevPanelConfig, dir: string, options: { confirm: boolean }, post: Poster = defaultPoster): Promise<PublishResult> => {
   if (!options.confirm) throw new DiscordError('Falta la confirmación: publicar en Discord lo tiene que pedir el usuario', 400);
-  const preview = previewThread(config, dir);
+  const preview = await previewThread(config, dir, post);
   const webhook = webhookOf(config);
   if (!webhook || !preview.draft || !preview.ticket) throw new DiscordError(preview.problems[0] ?? 'No se puede publicar', 409);
   if (preview.problems.length) throw new DiscordError(preview.problems.join(' · '), 409);
   const { draft, ticket } = preview;
   const username = clip(`${config.userName || 'Dev'} · Dev Panel`, 80);
   const records = readRecords();
+  // La vista previa ya comprobó que el hilo siga existiendo: si lo borraron, el registro se olvidó y se crea uno nuevo.
   const existing = records[ticket];
 
   if (existing) {
     const response = await post(`${webhook}/messages/${existing.messageId}?thread_id=${existing.threadId}`, { method: 'PATCH', body: JSON.stringify({ content: draft.content, allowed_mentions: mentions(config.discord.userId) }) });
-    if (response.status === 404) {
-      delete records[ticket];
+    if (response.status !== 404) {
+      if (!response.ok) throw new DiscordError(`Discord no aceptó el cambio (${response.status})`, 502);
+      records[ticket] = { ...existing, updatedAt: new Date().toISOString() };
       writeRecords(records);
-      throw new DiscordError('El hilo o el mensaje ya no existe en Discord (¿lo borraron?). Se olvidó el vínculo: publicá de nuevo para crear otro.', 409);
+      return { action: 'updated', threadId: existing.threadId, link: threadLink(existing) };
     }
-    if (!response.ok) throw new DiscordError(`Discord no aceptó el cambio (${response.status})`, 502);
-    records[ticket] = { ...existing, updatedAt: new Date().toISOString() };
+    // Lo borraron entre la comprobación y el cambio: se olvida el vínculo y se crea el hilo de nuevo
+    delete records[ticket];
     writeRecords(records);
-    return { action: 'updated', threadId: existing.threadId, link: existing.guildId ? `https://discord.com/channels/${existing.guildId}/${existing.threadId}` : null };
   }
 
   const response = await post(`${webhook}?wait=true`, { method: 'POST', body: JSON.stringify({ thread_name: draft.name, content: draft.content, applied_tags: draft.tags, username, flags: SUPPRESS_EMBEDS, allowed_mentions: mentions(config.discord.userId) }) });
