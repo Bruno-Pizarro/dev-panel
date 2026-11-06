@@ -51,6 +51,18 @@ describe('cambios de MRs de GitLab', () => {
     expect(await readMrSignature(config, meta, 'front !7', 'nada.ts', deps)).toMatchObject({ ok: false, status: 404 });
   });
 
+  it('los diffs de varios archivos pedidos a la vez comparten una sola descarga del MR', async () => {
+    const calls: string[] = [];
+    const slow: Fetcher = async (url, init) => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return fetcher(calls)(url, init);
+    };
+    const deps = { fetcher: slow };
+    const results = await Promise.all(Array.from({ length: 8 }, () => readMrFileDiff(config, meta, 'front !7', 'a.ts', deps)));
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
   it('sin token no intenta nada y explica por qué', async () => {
     const calls: string[] = [];
     const report = await readMrChanges({ gitlab: { ...config.gitlab, token: '' } } as never, { ticket: '1', mrs: [{ repo: 'front', iid: 7 }] } as never, {}, false, { fetcher: fetcher(calls), env: {} });

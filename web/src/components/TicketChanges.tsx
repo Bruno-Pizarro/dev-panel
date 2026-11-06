@@ -1,5 +1,5 @@
 import { Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitCompare } from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useReloadOn, useStoredState } from '../lib/hooks';
@@ -21,20 +21,27 @@ type Scope = 'committed' | 'working';
 /** De dónde salen los cambios: la copia local de los repos (`changes`) o los MRs de GitLab (`mr-changes`). */
 type Segment = 'changes' | 'mr-changes';
 
-/** Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento. */
-const DiffView = ({ dir, segment, repo, path, scope }: { dir: string; segment: Segment; repo: string; path: string; scope: Scope }) => {
+/**
+ * Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento.
+ * `memo` y el resaltado calculado una sola vez por diff: marcar un archivo como visto o moverse con N / P vuelve a pintar
+ * todas las secciones, y sin esto cada una volvía a resaltar todas sus líneas.
+ */
+const DiffView = memo(({ dir, segment, repo, path, scope }: { dir: string; segment: Segment; repo: string; path: string; scope: Scope }) => {
   const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/${segment}/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
   const slash = path.lastIndexOf('/');
-  const language = languageOf(path);
-  const lines = useMemo(() => (diff.data?.diff ? parseDiffLines(diff.data.diff) : []), [diff.data]);
+  const rows = useMemo(() => {
+    if (!diff.data?.diff) return [];
+    const language = languageOf(path);
+    return parseDiffLines(diff.data.diff).map((line) => ({ line, tokens: line.kind !== 'hunk' && line.text ? tokenizeLine(line.text, language) : null }));
+  }, [diff.data, path]);
   return (
     <div className="editor mb-3">
       <div className="editor-bar">
         <span className="min-w-0 truncate"><span>{slash >= 0 ? path.slice(0, slash + 1) : ''}</span><span className="font-semibold" style={{ color: 'var(--ed-fg)' }}>{path.slice(slash + 1)}</span></span>
       </div>
-      {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : lines.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
+      {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : rows.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
         <div className="editor-code">
-          {lines.map((line, index) =>
+          {rows.map(({ line, tokens }, index) =>
             line.kind === 'hunk' ? (
               <div key={index} className="editor-hunk">{line.text}</div>
             ) : (
@@ -42,7 +49,7 @@ const DiffView = ({ dir, segment, repo, path, scope }: { dir: string; segment: S
                 <span className="editor-num">{line.old ?? ''}</span>
                 <span className="editor-num">{line.next ?? ''}</span>
                 <span className="editor-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
-                <span>{line.text ? tokenizeLine(line.text, language).map((token, position) => <span key={position} className={token.cls ? `tok-${token.cls}` : undefined}>{token.text}</span>) : ' '}</span>
+                <span>{tokens ? tokens.map((token, position) => <span key={position} className={token.cls ? `tok-${token.cls}` : undefined}>{token.text}</span>) : ' '}</span>
               </div>
             )
           )}
@@ -50,7 +57,7 @@ const DiffView = ({ dir, segment, repo, path, scope }: { dir: string; segment: S
       )}
     </div>
   );
-};
+});
 
 /** Estado de "visto" que comparten todos los archivos: la marca se guarda en el servidor y la pantalla la refleja al instante. */
 interface Review {

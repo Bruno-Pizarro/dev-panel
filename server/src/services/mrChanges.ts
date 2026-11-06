@@ -67,8 +67,13 @@ export interface MrChangesReport {
 const empty = (message: string): MrChangesReport => ({ baseBranch: '', repos: [], progress: { total: 0, viewed: 0, pending: [] }, message });
 
 const cache = new Map<string, { at: number; value: RawChanges }>();
-const TTL_MS = 60_000;
-export const clearMrChangesCache = (): void => cache.clear();
+const TTL_MS = 300_000;
+/** Descargas en curso: los diffs de varios archivos se piden a la vez y comparten una sola descarga del MR. */
+const inFlight = new Map<string, Promise<RawChanges>>();
+export const clearMrChangesCache = (): void => {
+  cache.clear();
+  inFlight.clear();
+};
 
 interface Deps {
   fetcher?: Fetcher;
@@ -78,10 +83,19 @@ interface Deps {
 }
 
 const fetchRaw = async (config: DevPanelConfig, ref: MrRef, fresh: boolean, deps: Deps): Promise<RawChanges> => {
-  const { fetcher = fetch as unknown as Fetcher, runner = run, now = Date.now(), env = process.env } = deps;
   const key = `${ref.project}!${ref.iid}`;
   const hit = cache.get(key);
-  if (!fresh && hit && now - hit.at < TTL_MS) return hit.value;
+  if (!fresh && hit && (deps.now ?? Date.now()) - hit.at < TTL_MS) return hit.value;
+  const pending = inFlight.get(key);
+  if (pending && !fresh) return pending;
+  const download = downloadRaw(config, ref, deps).finally(() => inFlight.delete(key));
+  inFlight.set(key, download);
+  return download;
+};
+
+const downloadRaw = async (config: DevPanelConfig, ref: MrRef, deps: Deps): Promise<RawChanges> => {
+  const { fetcher = fetch as unknown as Fetcher, runner = run, now = Date.now(), env = process.env } = deps;
+  const key = `${ref.project}!${ref.iid}`;
   const resolved = config.gitlab.enabled ? await resolveToken(config, env, runner, now) : { token: null, fixed: false, error: null };
   if (!resolved.token) throw new GitlabError(resolved.error ?? 'Falta el token de GitLab (Configuración → GitLab)', 401);
   let token = resolved.token;
@@ -103,18 +117,23 @@ const fetchRaw = async (config: DevPanelConfig, ref: MrRef, fresh: boolean, deps
 export const readMrChanges = async (config: DevPanelConfig, meta: TicketMeta | null, viewed: ViewedMap, fresh = false, deps: Deps = {}): Promise<MrChangesReport> => {
   const refs = refsForTicket(config, meta);
   if (!refs.length) return empty('El ticket no tiene MRs en ticket.json.');
-  const repos: RepoChanges[] = [];
   let message: string | null = null;
-  for (const ref of refs.sort((a, b) => a.order - b.order || a.iid - b.iid)) {
-    const label = mrLabel(ref);
-    try {
-      const raw = await fetchRaw(config, ref, fresh, deps);
-      repos.push({ repo: label, exists: true, branch: raw.source_branch ?? null, base: raw.target_branch ?? null, commits: [], committed: mapMrFiles(raw, viewed, label), working: [], ignored: raw.overflow ? ['GitLab recortó la lista: hay más archivos de los que muestra'] : [] });
-    } catch (error) {
-      message = error instanceof GitlabError ? error.message : 'No se pudo conectar con GitLab';
-      if (!repos.length && refs.length === 1) return empty(message);
-    }
-  }
+  // Un MR por repo: se leen a la vez (comparten el token) y el resultado conserva el orden del ticket.
+  const ordered = refs.sort((x, y) => x.order - y.order || x.iid - y.iid);
+  const outcomes = await Promise.all(
+    ordered.map(async (ref) => {
+      const label = mrLabel(ref);
+      try {
+        const raw = await fetchRaw(config, ref, fresh, deps);
+        return { repo: { repo: label, exists: true, branch: raw.source_branch ?? null, base: raw.target_branch ?? null, commits: [], committed: mapMrFiles(raw, viewed, label), working: [], ignored: raw.overflow ? ['GitLab recortó la lista: hay más archivos de los que muestra'] : [] } as RepoChanges, error: null as string | null };
+      } catch (error) {
+        return { repo: null, error: error instanceof GitlabError ? error.message : 'No se pudo conectar con GitLab' };
+      }
+    }),
+  );
+  const repos = outcomes.flatMap((outcome) => (outcome.repo ? [outcome.repo] : []));
+  for (const outcome of outcomes) if (outcome.error) message = outcome.error;
+  if (!repos.length && refs.length === 1 && message) return empty(message);
   return { baseBranch: repos[0]?.base ?? '', repos, progress: viewedProgress(repos), message };
 };
 

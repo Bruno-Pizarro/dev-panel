@@ -65,6 +65,15 @@ export const parseNameStatus = (text: string): Map<string, string> =>
     })
   );
 
+/** `git diff --raw --no-renames`: ":<modo> <modo> <blob viejo> <blob nuevo> <estado>\t<ruta>" → estado (primera letra) por ruta. */
+export const parseRawStatuses = (text: string): Map<string, string> =>
+  new Map(
+    text.split('\n').flatMap((line) => {
+      const match = /^:\d+ \d+ [0-9a-f]+ [0-9a-f]+ (\S+)\t(.+)$/.exec(line);
+      return match ? [[match[2]!, match[1]!.charAt(0)] as [string, string]] : [];
+    })
+  );
+
 /** `git diff --raw --no-renames --abbrev=40`: ":<modo> <modo> <blob viejo> <blob nuevo> <estado>\t<ruta>" → huella "<viejo>><nuevo>" por ruta. */
 export const parseRawSignatures = (text: string): Map<string, string> =>
   new Map(
@@ -96,6 +105,14 @@ const configuredBase = async (git: ReturnType<typeof gitIn>, baseBranch: string)
   return null;
 };
 
+/**
+ * La base se calcula con cientos de consultas a git (una por rama candidata): se recuerda un rato por repo y commit actual
+ * (cada archivo que se abre en Cambios la necesita). Cambia si cambia el HEAD; el vencimiento cubre ramas nuevas.
+ */
+const BASE_CACHE_MS = 120_000;
+const baseCache = new Map<string, { at: number; base: string | null }>();
+export const clearBaseCache = (): void => baseCache.clear();
+
 const MAX_BASE_CANDIDATES = 200;
 const BASE_HISTORY_COMMITS = 300;
 const BASE_CONCURRENCY = 8;
@@ -105,7 +122,17 @@ const BASE_CONCURRENCY = 8;
  * Así una rama cortada de otra feature (sin mergear) se compara con esa feature y no con `desarrollo`, que arrastraría
  * los cambios de la rama padre. Ante empate gana la rama de configuración; sin candidatas, se usa esa.
  */
-const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
+const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string, repoDir = ''): Promise<string | null> => {
+  const head = (await git(['rev-parse', 'HEAD'])).stdout;
+  const cacheKey = `${repoDir}|${baseBranch}|${head}`;
+  const hit = repoDir && head ? baseCache.get(cacheKey) : undefined;
+  if (hit && Date.now() - hit.at < BASE_CACHE_MS) return hit.base;
+  const base = await computeBase(git, baseBranch);
+  if (repoDir && head) baseCache.set(cacheKey, { at: Date.now(), base });
+  return base;
+};
+
+const computeBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
   const fallback = await configuredBase(git, baseBranch);
   const current = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout;
   // Ramas que apuntan a los últimos commits del historial de HEAD (ya contenidas en HEAD): una consulta barata en lugar de recorrer todas las ramas.
@@ -141,13 +168,13 @@ const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): P
 const withStatus = (stats: ReturnType<typeof parseNumstat>, statuses: Map<string, string>, signatures: Map<string, string>): ChangedFile[] =>
   stats.map((stat) => ({ ...stat, status: statuses.get(stat.path) ?? 'M', untracked: false, signature: signatures.get(stat.path) ?? '', viewed: 'no' }));
 
-const committedFiles = async (git: ReturnType<typeof gitIn>, base: string): Promise<ChangedFile[]> => {
-  const range = `${base}...HEAD`;
-  const stats = parseNumstat((await git(['diff', '--numstat', '--no-renames', range])).stdout);
-  const statuses = parseNameStatus((await git(['diff', '--name-status', '--no-renames', range])).stdout);
-  const signatures = parseRawSignatures((await git(['diff', '--raw', '--no-renames', '--abbrev=40', range])).stdout);
-  return withStatus(stats, statuses, signatures);
+/** Una sola llamada a git para las tres vistas (cantidades, estado y huella): `--raw --numstat` imprime primero lo uno y después lo otro. */
+const diffFiles = async (git: ReturnType<typeof gitIn>, args: string[], pathspec: string[] = []): Promise<ChangedFile[]> => {
+  const text = (await git(['diff', ...args, '--raw', '--numstat', '--no-renames', '--abbrev=40', ...(pathspec.length ? ['--', ...pathspec] : [])])).stdout;
+  return withStatus(parseNumstat(text), parseRawStatuses(text), parseRawSignatures(text));
 };
+
+const committedFiles = (git: ReturnType<typeof gitIn>, base: string, pathspec: string[] = []): Promise<ChangedFile[]> => diffFiles(git, [`${base}...HEAD`], pathspec);
 
 /** Huella de los archivos del árbol de trabajo (hash de su contenido actual; "deleted" si ya no existen). */
 const hashWorking = async (git: ReturnType<typeof gitIn>, paths: string[]): Promise<Map<string, string>> => {
@@ -158,11 +185,15 @@ const hashWorking = async (git: ReturnType<typeof gitIn>, paths: string[]): Prom
   return result;
 };
 
-const workingFiles = async (git: ReturnType<typeof gitIn>): Promise<ChangedFile[]> => {
-  const stats = parseNumstat((await git(['diff', 'HEAD', '--numstat', '--no-renames'])).stdout);
-  const statuses = parseNameStatus((await git(['diff', 'HEAD', '--name-status', '--no-renames'])).stdout);
+const workingFiles = async (git: ReturnType<typeof gitIn>, pathspec: string[] = []): Promise<ChangedFile[]> => {
+  const [trackedRaw, status] = await Promise.all([
+    git(['diff', 'HEAD', '--raw', '--numstat', '--no-renames', '--abbrev=40', ...(pathspec.length ? ['--', ...pathspec] : [])]),
+    git(['status', '--porcelain', '--untracked-files=all', ...(pathspec.length ? ['--', ...pathspec] : [])]),
+  ]);
+  const stats = parseNumstat(trackedRaw.stdout);
+  const statuses = parseRawStatuses(trackedRaw.stdout);
   const known = new Set(stats.map((stat) => stat.path));
-  const untrackedPaths = parsePorcelain((await git(['status', '--porcelain', '--untracked-files=all'])).stdout)
+  const untrackedPaths = parsePorcelain(status.stdout)
     .filter((entry) => entry.status === '??' && !known.has(entry.path))
     .map((entry) => entry.path);
   // El árbol de trabajo no tiene blobs guardados: la huella es el hash del contenido actual de cada archivo.
@@ -173,34 +204,32 @@ const workingFiles = async (git: ReturnType<typeof gitIn>): Promise<ChangedFile[
 };
 
 /** Cambios de la rama de cada repo del ticket (commiteados contra la base y sin commitear), sin los `.env` que administra el panel. Solo lectura. */
-export const readTicketChanges = async (config: DevPanelConfig, repos: string[], runner: Runner = run, viewed: ViewedMap = {}): Promise<RepoChanges[]> => {
-  const result: RepoChanges[] = [];
-  for (const repo of repos) {
-    const repoDir = join(config.paths.projects, repo);
-    if (!existsSync(join(repoDir, '.git'))) {
-      result.push({ repo, exists: false, branch: null, base: null, commits: [], committed: [], working: [], ignored: [] });
-      continue;
-    }
-    const git = gitIn(repoDir, runner);
-    const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout || null;
-    const base = await resolveBase(git, config.git.baseBranch);
-    const managed = config.envProfiles[repo]?.file;
-    const working = await workingFiles(git);
-    const ignored = managed ? working.filter((file) => file.path === managed).map((file) => file.path) : [];
-    const commits = base ? parseLog((await git(['log', `-${MAX_COMMITS}`, '--pretty=format:%h%x09%s%x09%cr%x09%an', `${base}..HEAD`])).stdout) : [];
-    result.push({
-      repo,
-      exists: true,
-      branch,
-      base,
-      commits,
-      committed: (base ? await committedFiles(git, base) : []).map((file) => ({ ...file, viewed: viewedStateOf(viewed, viewKey(repo, 'committed', file.path), file.signature) })),
-      working: working.filter((file) => !ignored.includes(file.path)).map((file) => ({ ...file, viewed: viewedStateOf(viewed, viewKey(repo, 'working', file.path), file.signature) })),
-      ignored,
-    });
-  }
-  return result;
-};
+export const readTicketChanges = async (config: DevPanelConfig, repos: string[], runner: Runner = run, viewed: ViewedMap = {}): Promise<RepoChanges[]> =>
+  // Los repos son independientes: se leen a la vez (el resultado conserva el orden del ticket).
+  Promise.all(
+    repos.map(async (repo): Promise<RepoChanges> => {
+      const repoDir = join(config.paths.projects, repo);
+      if (!existsSync(join(repoDir, '.git'))) return { repo, exists: false, branch: null, base: null, commits: [], committed: [], working: [], ignored: [] };
+      const git = gitIn(repoDir, runner);
+      const managed = config.envProfiles[repo]?.file;
+      const [branchOut, base, working] = await Promise.all([git(['rev-parse', '--abbrev-ref', 'HEAD']), resolveBase(git, config.git.baseBranch, repoDir), workingFiles(git)]);
+      const ignored = managed ? working.filter((file) => file.path === managed).map((file) => file.path) : [];
+      const [commits, committed] = await Promise.all([
+        base ? git(['log', `-${MAX_COMMITS}`, '--pretty=format:%h%x09%s%x09%cr%x09%an', `${base}..HEAD`]).then((out) => parseLog(out.stdout)) : Promise.resolve([]),
+        base ? committedFiles(git, base) : Promise.resolve([]),
+      ]);
+      return {
+        repo,
+        exists: true,
+        branch: branchOut.stdout || null,
+        base,
+        commits,
+        committed: committed.map((file) => ({ ...file, viewed: viewedStateOf(viewed, viewKey(repo, 'committed', file.path), file.signature) })),
+        working: working.filter((file) => !ignored.includes(file.path)).map((file) => ({ ...file, viewed: viewedStateOf(viewed, viewKey(repo, 'working', file.path), file.signature) })),
+        ignored,
+      };
+    }),
+  );
 
 /** Huella actual de un archivo de los cambios (para guardar la marca de "visto"). Solo vale lo que figura entre los cambios del repo. */
 export const readFileSignature = async (config: DevPanelConfig, repo: string, path: string, scope: ChangeScope, runner: Runner = run): Promise<{ ok: true; signature: string } | { ok: false; status: number; error: string }> => {
@@ -208,9 +237,10 @@ export const readFileSignature = async (config: DevPanelConfig, repo: string, pa
   if (!existsSync(join(repoDir, '.git'))) return { ok: false, status: 404, error: 'El repo no existe en esta máquina' };
   if (!isSafeRelativePath(path)) return { ok: false, status: 400, error: 'Ruta inválida' };
   const git = gitIn(repoDir, runner);
-  const base = scope === 'committed' ? await resolveBase(git, config.git.baseBranch) : null;
+  const base = scope === 'committed' ? await resolveBase(git, config.git.baseBranch, repoDir) : null;
   if (scope === 'committed' && !base) return { ok: false, status: 404, error: `No se encontró la rama base ${config.git.baseBranch}` };
-  const files = scope === 'committed' ? await committedFiles(git, base!) : await workingFiles(git);
+  // Solo se consulta el archivo pedido (con la ruta como filtro de git): no hace falta listar todos los cambios del repo.
+  const files = scope === 'committed' ? await committedFiles(git, base!, [`:(literal)${path}`]) : await workingFiles(git, [`:(literal)${path}`]);
   const file = files.find((entry) => entry.path === path);
   if (!file || path === config.envProfiles[repo]?.file) return { ok: false, status: 404, error: 'Ese archivo no figura entre los cambios' };
   return { ok: true, signature: file.signature };
@@ -246,9 +276,10 @@ export const readFileDiff = async (config: DevPanelConfig, repo: string, path: s
   if (!existsSync(join(repoDir, '.git'))) return { ok: false, status: 404, error: 'El repo no existe en esta máquina' };
   if (!isSafeRelativePath(path)) return { ok: false, status: 400, error: 'Ruta inválida' };
   const git = gitIn(repoDir, runner);
-  const base = scope === 'committed' ? await resolveBase(git, config.git.baseBranch) : null;
+  const base = scope === 'committed' ? await resolveBase(git, config.git.baseBranch, repoDir) : null;
   if (scope === 'committed' && !base) return { ok: false, status: 404, error: `No se encontró la rama base ${config.git.baseBranch}` };
-  const files = scope === 'committed' ? await committedFiles(git, base!) : await workingFiles(git);
+  // Solo se consulta el archivo pedido (con la ruta como filtro de git): no hace falta listar todos los cambios del repo.
+  const files = scope === 'committed' ? await committedFiles(git, base!, [`:(literal)${path}`]) : await workingFiles(git, [`:(literal)${path}`]);
   const file = files.find((entry) => entry.path === path);
   if (!file || path === config.envProfiles[repo]?.file) return { ok: false, status: 404, error: 'Ese archivo no figura entre los cambios' };
   if (file.untracked) return { ok: true, value: { diff: '', truncated: true, reason: 'Archivo nuevo sin commitear: no se muestra su contenido' } };
