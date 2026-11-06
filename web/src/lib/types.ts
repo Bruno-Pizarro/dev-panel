@@ -439,6 +439,7 @@ export interface DiscordPreview {
   action: 'create' | 'update';
   hasMrs: boolean;
   forgotten: boolean;
+  existing: { name: string; link: string; replies: number } | null;
 }
 
 export interface WeeklyReport {

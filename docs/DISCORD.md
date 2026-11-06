@@ -65,3 +65,5 @@ Un bot **compartido por el equipo** lee el foro de MRs para que el panel y Claud
 - Se consulta la API cada tanto, no hay conexión abierta. El token nunca se devuelve ni se registra.
 
 **Ya no aplica:** la etiqueta «Estado: Producción» no existe ni va a existir; no hay aviso de borrar la publicación por eso.
+
+**Hilos a mano y duplicados.** La tarjeta «Discord · foro de MRs» (pestaña Estado) también consulta al bot: si el foro ya tiene un hilo con el número del ticket y NO lo creó el panel, muestra «hilo existente» con su enlace y **no deja crear otro** (se duplicaría, y el webhook no puede editar hilos ajenos). Si el bot no está configurado o falla, se comporta como antes.

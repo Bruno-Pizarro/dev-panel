@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { join } from 'node:path';
 import { paths, type DevPanelConfig } from '../config.js';
 import { readVars } from './claudeEnv.js';
+import { listThreads } from './discordBot.js';
 import { getTicket, ignoredDirs } from './tickets.js';
 
 /**
@@ -114,7 +115,12 @@ export interface DiscordPreview {
   hasMrs: boolean;
   /** Si el hilo que el panel recordaba ya no existe en Discord (lo borraron), se olvidó y vuelve a quedar «sin crear». */
   forgotten: boolean;
+  /** Un hilo del foro que ya tiene el número de este ticket y que NO creó el panel (lo leyó el bot): el panel no puede editarlo. */
+  existing: { name: string; link: string; replies: number } | null;
 }
+
+/** Busca el hilo del ticket en el foro (con el bot de solo lectura, si está configurado). Ante cualquier falla, no hay dato. */
+export type ThreadFinder = (ticket: string) => Promise<{ name: string; link: string; replies: number } | null>;
 
 type Poster = (url: string, init: { method: string; body?: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 const defaultPoster: Poster = (url, init) => fetch(url, { ...init, headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15_000) }) as never;
@@ -160,12 +166,12 @@ const threadStillExists = async (webhook: string, record: ThreadRecord, post: Po
 };
 
 /** Lo que se publicaría para la carpeta de un ticket, sin publicar nada. Comprueba en Discord que el hilo recordado siga existiendo. */
-export const previewThread = async (config: DevPanelConfig, dir: string, post: Poster = defaultPoster): Promise<DiscordPreview> => {
+export const previewThread = async (config: DevPanelConfig, dir: string, post: Poster = defaultPoster, findThread?: ThreadFinder): Promise<DiscordPreview> => {
   const detail = getTicket(config.paths.extra, dir, ignoredDirs(config));
   const webhook = webhookOf(config);
   const webhookReady = webhook !== null;
   const base = { webhookReady, webhookVar: config.discord.webhookVar };
-  if (!detail) return { ...base, ticket: null, draft: null, record: null, problems: ['No encontré la carpeta del ticket'], action: 'create', hasMrs: false, forgotten: false };
+  if (!detail) return { ...base, ticket: null, draft: null, record: null, problems: ['No encontré la carpeta del ticket'], action: 'create', hasMrs: false, forgotten: false, existing: null };
   const meta = detail.meta;
   const ticket = meta?.ticket ?? null;
   const problems: string[] = [];
@@ -186,7 +192,21 @@ export const previewThread = async (config: DevPanelConfig, dir: string, post: P
     record = undefined;
     forgotten = true;
   }
-  return { ...base, ticket, draft, record: record ? { ...record, link: threadLink(record) } : null, problems, action: record ? 'update' : 'create', hasMrs: mrs.length > 0, forgotten };
+  // Sin hilo propio: ¿ya hay uno en el foro (creado a mano o por otra persona)? Crear otro lo duplicaría y el panel no puede editar los ajenos.
+  let existing: DiscordPreview['existing'] = null;
+  if (ticket && !record) {
+    const finder: ThreadFinder = findThread ?? (async (id) => {
+      const found = (await listThreads(config)).threads.find((thread) => thread.ticket === id);
+      return found ? { name: found.name, link: found.link, replies: found.replies } : null;
+    });
+    try {
+      existing = await finder(ticket);
+    } catch {
+      existing = null;
+    }
+    if (existing) problems.push('Ya hay un hilo de este ticket en Discord (creado a mano o por otra persona): abrilo en vez de crear uno duplicado. El panel solo edita los que creó él.');
+  }
+  return { ...base, ticket, draft, record: record ? { ...record, link: threadLink(record) } : null, problems, action: record ? 'update' : 'create', hasMrs: mrs.length > 0, forgotten, existing };
 };
 
 export interface PublishResult {
@@ -199,9 +219,9 @@ export interface PublishResult {
  * Crea el hilo del ticket (o actualiza el mensaje inicial del que ya creó el panel). Exige `confirm: true`: el mensaje sale a un canal
  * del equipo y no se puede deshacer desde acá. No pinga a nadie (`allowed_mentions` vacío).
  */
-export const publishThread = async (config: DevPanelConfig, dir: string, options: { confirm: boolean }, post: Poster = defaultPoster): Promise<PublishResult> => {
+export const publishThread = async (config: DevPanelConfig, dir: string, options: { confirm: boolean }, post: Poster = defaultPoster, findThread?: ThreadFinder): Promise<PublishResult> => {
   if (!options.confirm) throw new DiscordError('Falta la confirmación: publicar en Discord lo tiene que pedir el usuario', 400);
-  const preview = await previewThread(config, dir, post);
+  const preview = await previewThread(config, dir, post, findThread);
   const webhook = webhookOf(config);
   if (!webhook || !preview.draft || !preview.ticket) throw new DiscordError(preview.problems[0] ?? 'No se puede publicar', 409);
   if (preview.problems.length) throw new DiscordError(preview.problems.join(' · '), 409);

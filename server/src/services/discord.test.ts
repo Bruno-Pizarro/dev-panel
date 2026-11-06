@@ -178,6 +178,35 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     expect(calls.map((call) => call.method)).toEqual(['GET', 'POST']);
   });
 
+  it('si el foro ya tiene un hilo de ese ticket (creado a mano o por otra persona) lo muestra y no deja crear uno duplicado', async () => {
+    mkdirSync(join(extra, '50000-con-hilo'), { recursive: true });
+    writeFileSync(join(extra, '50000-con-hilo', 'ticket.json'), JSON.stringify({ ticket: '50000', titulo: 'Con hilo', url: 'https://r/issues/50000', repos: ['front'], mrs: [{ repo: 'front', iid: 1, url: 'https://g/front/-/merge_requests/1' }] }));
+    const found = async () => ({ name: '[Ticket #50000] Con hilo', link: 'https://discord.com/channels/1/2', replies: 3 });
+    const preview = await previewThread(config, '50000-con-hilo', poster(), found);
+    expect(preview).toMatchObject({ action: 'create', existing: { link: 'https://discord.com/channels/1/2', replies: 3 } });
+    expect(preview.problems.join(' ')).toContain('duplicado');
+    calls.length = 0;
+    await expect(publishThread(config, '50000-con-hilo', { confirm: true }, poster(), found)).rejects.toThrow(/duplicado/);
+    expect(calls).toEqual([]);
+    // sin hilo en el foro, o si el bot falla, se puede crear
+    expect((await previewThread(config, '50000-con-hilo', poster(), async () => null)).problems).toEqual([]);
+    const broken = async () => {
+      throw new Error('Discord caído');
+    };
+    expect((await previewThread(config, '50000-con-hilo', poster(), broken)).existing).toBeNull();
+  });
+
+  it('con un hilo propio del panel no busca otro en el foro', async () => {
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster());
+    let searched = false;
+    const spy = async () => {
+      searched = true;
+      return null;
+    };
+    expect(await previewThread(config, '33526-pendientes-firma', poster(), spy)).toMatchObject({ action: 'update', existing: null });
+    expect(searched).toBe(false);
+  });
+
   it('no publica si a un repo le falta la etiqueta, si no hay MRs o si no hay webhook', async () => {
     mkdirSync(join(extra, '40000-otro'), { recursive: true });
     writeFileSync(join(extra, '40000-otro', 'ticket.json'), JSON.stringify({ ticket: '40000', titulo: 'Otro', url: 'https://r/issues/40000', repos: ['zscripts'], mrs: [{ repo: 'zscripts', iid: 1, url: 'https://g/z/-/merge_requests/1' }] }));
