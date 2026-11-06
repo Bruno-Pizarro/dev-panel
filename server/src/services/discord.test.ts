@@ -32,7 +32,7 @@ describe('hilo de Discord: piezas puras', () => {
   });
 
   it('el borrador lleva el número de ticket en el título (cortado a 100) y las etiquetas de los repos del ticket y de sus MRs', () => {
-    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '', userId: '' } };
+    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} } };
     const draft = buildDraft({ ticket: '33526', title: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'documentos', iid: 9, url: 'https://g/documentos/-/merge_requests/9' }] }, config);
     expect(draft.name).toBe('[Ticket #33526] Pestaña Pendientes de firma en el Perfil');
     expect(draft.tags).toEqual(['111111', '222222', '333333']);
@@ -59,7 +59,7 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     config.paths.extra = extra;
     config.paths.daily = join(extra, 'daily');
     config.userName = 'Bruno';
-    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '', userId: '111222333444555666' };
+    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '', userId: '111222333444555666', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} };
     mkdirSync(join(extra, '33526-pendientes-firma'), { recursive: true });
     writeFileSync(join(extra, '33526-pendientes-firma', 'ticket.json'), JSON.stringify({ ticket: '33526', titulo: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'front', iid: 165, url: 'https://g/front/-/merge_requests/165' }] }));
   });
@@ -176,6 +176,35 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     const result = await publishThread(config, '33526-pendientes-firma', { confirm: true }, byMethod({ GET: 404, POST: 200 }));
     expect(result.action).toBe('created');
     expect(calls.map((call) => call.method)).toEqual(['GET', 'POST']);
+  });
+
+  it('si el foro ya tiene un hilo de ese ticket (creado a mano o por otra persona) lo muestra y no deja crear uno duplicado', async () => {
+    mkdirSync(join(extra, '50000-con-hilo'), { recursive: true });
+    writeFileSync(join(extra, '50000-con-hilo', 'ticket.json'), JSON.stringify({ ticket: '50000', titulo: 'Con hilo', url: 'https://r/issues/50000', repos: ['front'], mrs: [{ repo: 'front', iid: 1, url: 'https://g/front/-/merge_requests/1' }] }));
+    const found = async () => ({ name: '[Ticket #50000] Con hilo', link: 'https://discord.com/channels/1/2', replies: 3 });
+    const preview = await previewThread(config, '50000-con-hilo', poster(), found);
+    expect(preview).toMatchObject({ action: 'create', existing: { link: 'https://discord.com/channels/1/2', replies: 3 } });
+    expect(preview.problems.join(' ')).toContain('duplicado');
+    calls.length = 0;
+    await expect(publishThread(config, '50000-con-hilo', { confirm: true }, poster(), found)).rejects.toThrow(/duplicado/);
+    expect(calls).toEqual([]);
+    // sin hilo en el foro, o si el bot falla, se puede crear
+    expect((await previewThread(config, '50000-con-hilo', poster(), async () => null)).problems).toEqual([]);
+    const broken = async () => {
+      throw new Error('Discord caído');
+    };
+    expect((await previewThread(config, '50000-con-hilo', poster(), broken)).existing).toBeNull();
+  });
+
+  it('con un hilo propio del panel no busca otro en el foro', async () => {
+    await publishThread(config, '33526-pendientes-firma', { confirm: true }, poster());
+    let searched = false;
+    const spy = async () => {
+      searched = true;
+      return null;
+    };
+    expect(await previewThread(config, '33526-pendientes-firma', poster(), spy)).toMatchObject({ action: 'update', existing: null });
+    expect(searched).toBe(false);
   });
 
   it('no publica si a un repo le falta la etiqueta, si no hay MRs o si no hay webhook', async () => {

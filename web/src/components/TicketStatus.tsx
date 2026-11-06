@@ -252,7 +252,7 @@ const Discord = ({ dir, state, onChanged }: { dir: string; state: { data: Discor
   };
   const data = state.data;
   return (
-    <Card title="Discord · foro de MRs" action={data ? <Badge tone={data.record ? 'success' : 'neutral'}>{data.record ? 'hilo creado' : 'sin hilo'}</Badge> : undefined}>
+    <Card title="Discord · foro de MRs" action={data ? <Badge tone={data.record ? 'success' : data.existing ? 'info' : 'neutral'}>{data.record ? 'hilo creado' : data.existing ? 'hilo existente' : 'sin hilo'}</Badge> : undefined}>
       {state.loading && !data ? <Skeleton className="h-24" /> : state.error || !data ? <p className="text-danger">{state.error}</p> : (
         <div className="space-y-4" data-testid="discord-card">
           {data.forgotten && <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="discord-forgotten">El hilo ya no existe en Discord (lo borraron): volvió a quedar sin crear. Podés publicarlo de nuevo.</p>}
@@ -268,7 +268,7 @@ const Discord = ({ dir, state, onChanged }: { dir: string; state: { data: Discor
             <Button variant="primary" disabled={busy || data.problems.length > 0} icon={<MessageSquare className="size-4" />} onClick={publish} title="Publica en el canal del equipo lo que ves arriba">
               {data.action === 'update' ? 'Actualizar el hilo en Discord' : 'Publicar en Discord'}
             </Button>
-            {data.record?.link && <a href={data.record.link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Abrir el hilo<ExternalLink className="size-4" aria-hidden /></a>}
+            {(data.record?.link ?? data.existing?.link) && <a href={(data.record?.link ?? data.existing?.link) as string} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Abrir el hilo<ExternalLink className="size-4" aria-hidden /></a>}
             <Hint>Nunca se publica solo. Las etiquetas «Estado: …» y borrar la publicación al llegar a Producción siguen siendo a mano.</Hint>
           </div>
         </div>

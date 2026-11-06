@@ -439,6 +439,7 @@ export interface DiscordPreview {
   action: 'create' | 'update';
   hasMrs: boolean;
   forgotten: boolean;
+  existing: { name: string; link: string; replies: number } | null;
 }
 
 export interface WeeklyReport {
@@ -495,17 +496,17 @@ export interface RepoChanges {
 }
 export interface ViewedProgress { total: number; viewed: number; pending: Array<{ repo: string; count: number }> }
 export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress; /** Solo en los MRs de GitLab: por qué no se pudo leer algún MR. */ message?: string | null }
-export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
+export interface FileDiff { diff: string; truncated: boolean; reason: string | null; /** Solo con «últimos cambios»: lo que cambió desde que se marcó como visto. */ since?: boolean; /** Aviso cuando se pidieron los últimos cambios pero se muestra el cambio completo. */ note?: string | null }
 
 export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean; hasSteps?: boolean }
 /** Un agente completo: lo que se le pidió y lo que contestó (con los secretos tapados). */
 export interface AgentStep { tool: string; summary: string }
 export interface AgentDetail extends AgentRun { request: string | null; response: string | null; steps?: AgentStep[] | null }
 
-export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder';
+export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder' | 'discord';
 export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null; reminderId?: string }
 export interface ReminderItem { id: string; text: string; at: string | null; createdAt: string; done: boolean; doneAt: string | null }
-export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; fromCache: boolean }
+export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; discord?: HomeNotice[]; fromCache: boolean }
 export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
 
 export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }

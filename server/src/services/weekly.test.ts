@@ -49,14 +49,14 @@ describe('texto del pedido', () => {
     expect(data).toContain('Ticket 33526 — Pestaña Pendientes de firma [estado en Redmine: Revisión]');
     expect(data).toContain('1 commits en front: feat: pestaña');
     expect(data).toContain('Pruebas: 31/31');
-    expect(data).toContain('— https://redmine.example.com/issues/33526');
+    expect(data).not.toContain('https://');
   });
 
   it('el pedido incluye el formato de ejemplo, las reglas contra inventar datos y los datos de la semana', () => {
     const prompt = buildReportPrompt(range, data);
     expect(prompt).toContain(REPORT_EXAMPLE);
     expect(prompt).toContain('No inventes');
-    expect(prompt).toContain('enlace completo de Redmine');
+    expect(prompt).toContain('Sin enlaces ni URLs');
     expect(prompt).toContain('2026-10-26 al 2026-11-01');
     expect(prompt).toContain('Ticket 33526');
     expect(REPORT_EXAMPLE).toContain('Se avanzaron los tickets:');
