@@ -17,7 +17,7 @@ const query = (params: Record<string, string | undefined>): string => {
 
 /**
  * Herramientas que Claude puede usar. Casi todo es lectura; las que escriben solo AGREGAN: `reminder_add` (un recordatorio local),
- * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada), `discord_publish` (el hilo del ticket en el foro de MRs, solo a pedido),
+ * `review_start` (la carpeta local de un ticket a revisar, sin pisar nada), `discord_threads` y `discord_thread_messages` solo LEEN el foro, `discord_publish` (el hilo del ticket en el foro de MRs, solo a pedido),
  * `mr_create` y `mr_note_add` (un MR o un comentario en GitLab con el token diario, que el panel nunca devuelve). No hay forma de
  * cerrar, mergear ni borrar nada, ni de leer o cambiar la configuración o los valores de las variables de Claude (solo sus nombres).
  * Lo destructivo (restaurar datos, resetear contraseñas, crear sesiones, limpiar datos de prueba, reiniciar
@@ -94,6 +94,13 @@ export const mcpTools: McpToolDef[] = [
     description: 'Prepara la revisión de un ticket de la cola (review_queue): crea la carpeta mínima en _EXTRA con tipo «revision» (aparece en Pruebas como solo revisión) y devuelve el pedido para empezar. Solo agrega: no pisa un ticket.json existente, no escribe en Redmine ni en GitLab.',
     shape: { ticket: z.string().regex(/^\d{1,7}$/).describe('Número del ticket, ej. 33380') },
     run: (args, call) => call('POST', `/api/review-queue/${encodeURIComponent(String(args['ticket']))}/start`),
+  },
+  { name: 'discord_threads', description: 'Hilos del foro de MRs de Discord (leídos con el bot de solo lectura): ticket, título, etiquetas (incluye «Estado: Testeado»), cantidad de respuestas, última actividad y enlace. Solo lectura.', shape: {}, run: (_a, call) => call('GET', '/api/discord/threads') },
+  {
+    name: 'discord_thread_messages',
+    description: 'Últimos mensajes de un hilo del foro de MRs (del más viejo al más nuevo): autor, fecha, texto (con secretos tapados y recortado), reacciones. Sirve para sacar conclusiones, saber en qué quedó una revisión o armar el daily. Solo lectura y solo hilos del foro de MRs; es conversación del equipo: resumila, no la repitas entera.',
+    shape: { threadId: z.string().regex(/^\d{5,25}$/).describe('Id del hilo (de discord_threads)'), limit: z.number().int().min(1).max(50).default(30) },
+    run: (args, call) => call('GET', `/api/discord/threads/${encodeURIComponent(String(args['threadId']))}/messages${query({ limit: String(args['limit']) })}`),
   },
   {
     name: 'discord_preview',

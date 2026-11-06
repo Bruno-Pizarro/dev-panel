@@ -1,6 +1,7 @@
 import { ExternalLink, GitBranch } from 'lucide-react';
 import type { TicketDetail } from '../lib/types';
 import { Badge, toneOf } from './Badge';
+import { DiscordThreadLink } from './DiscordThreadLink';
 
 export const TicketHeader = ({ detail }: { detail: TicketDetail }) => (
   <header className="mb-6">
@@ -12,6 +13,7 @@ export const TicketHeader = ({ detail }: { detail: TicketDetail }) => (
           Abrir ticket <ExternalLink className="size-4" aria-hidden />
         </a>
       )}
+      <DiscordThreadLink ticket={detail.ticket ?? null} />
     </div>
     <h1 className="mt-1 text-2xl font-semibold tracking-tight">{detail.title}</h1>
     <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-muted">

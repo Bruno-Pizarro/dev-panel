@@ -48,3 +48,20 @@ No son secretos (sin acceso al servidor no sirven de nada). Se cargan en `config
 
 ## Webhook (secreto)
 La URL del webhook del foro **da permiso para publicar**: va solo en las variables de Claude del panel (pestaña Claude → Variables), con el nombre `DISCORD_WEBHOOK_MR`. Nunca en el repo, en un MD ni en un chat. El webhook publica con el nombre «<userName> · Dev Panel». Puede crear hilos con etiquetas y editar **sus propios** mensajes (por eso el panel guarda en `data/discord-threads.json` el id del hilo y del mensaje inicial); no puede leer, borrar ni cambiar las etiquetas de un hilo ya creado, ni tocar los hilos que se crearon a mano.
+
+## Bot de solo lectura (etapa 2)
+Un bot **compartido por el equipo** lee el foro de MRs para que el panel y Claude sepan qué pasa en los hilos, incluidos los que se crean a mano. **No envía nada** (ni se le da el permiso).
+
+**Configurarlo (una sola vez, en el portal de desarrolladores de Discord)**
+1. Crear la aplicación y su bot. En *Bot → Privileged Gateway Intents* activar **Message Content Intent** (sin esto Discord entrega los mensajes sin texto).
+2. Invitarlo al servidor con **solo dos permisos**: **Ver canales** y **Leer el historial de mensajes** (nada de enviar mensajes, gestionar, mencionar ni reacciones). Mejor aún: darle esos dos permisos solo sobre el canal foro de MRs.
+3. Copiar el token del bot y cargarlo en Claude → Variables como `DISCORD_BOT_TOKEN` (cada dev lo pega en su panel; se comparte por un canal privado, nunca por el foro ni por un chat con Claude).
+4. El id del canal foro va en `discord.channelId` de `config.json` (ya está: `1546517490127872020`) y la etiqueta «Estado: Testeado» en `discord.approvedTag`.
+
+**Qué hace hoy**
+- `GET /api/discord/threads` (caché de 5 min, `?refresh=1` fuerza): hilos del foro (activos y archivados) con ticket (sacado del `#número` del título), etiquetas por nombre, respuestas, última actividad, si está aprobado (`Estado: Testeado`) y enlace.
+- En Pruebas y Desarrollo, el encabezado del ticket muestra **Hilo en Discord** si hay un hilo con su número.
+- MCP (solo lectura): `discord_threads` y `discord_thread_messages` (últimos mensajes de un hilo, con secretos tapados y recortados, solo hilos del foro configurado) para que Claude saque conclusiones, vea en qué quedó una revisión o arme el daily.
+- Se consulta la API cada tanto, no hay conexión abierta. El token nunca se devuelve ni se registra.
+
+**Ya no aplica:** la etiqueta «Estado: Producción» no existe ni va a existir; no hay aviso de borrar la publicación por eso.
