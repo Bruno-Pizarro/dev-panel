@@ -19,6 +19,27 @@ const NAME_PATTERN = /^[A-Z][A-Z0-9_]{0,63}$/;
  * Variables y tokens propios para que Claude los use sin leerlos. Se guardan en un archivo fuera del repo (permisos 600); acá
  * solo se ven los nombres: el valor se escribe una vez y no vuelve a mostrarse.
  */
+/**
+ * Campo de un secreto sin que el navegador ofrezca contraseñas guardadas: un `type="password"` dispara el autocompletado aunque se
+ * pida `off`. Donde se puede (Chrome, Edge, Safari) se usa un campo de texto enmascarado con `-webkit-text-security`; donde no
+ * (Firefox) se mantiene `type="password"` para no mostrar el valor en claro.
+ */
+const maskedTextSupported = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('-webkit-text-security', 'disc');
+const secretInput = {
+  type: maskedTextSupported ? 'text' : 'password',
+  autoComplete: 'off',
+  spellCheck: false,
+  autoCapitalize: 'off',
+  autoCorrect: 'off',
+  name: 'valor-de-la-variable',
+  style: maskedTextSupported ? ({ WebkitTextSecurity: 'disc' } as React.CSSProperties) : undefined,
+  // Los gestores de contraseñas más usados respetan estas marcas
+  'data-1p-ignore': true,
+  'data-lpignore': 'true',
+  'data-bwignore': 'true',
+  'data-form-type': 'other',
+} as const;
+
 export const ClaudeEnv = () => {
   const toast = useToast();
   const state = useAsync(() => api.get<ClaudeEnvResponse>('/api/claude-env'));
@@ -117,7 +138,7 @@ export const ClaudeEnv = () => {
       <Card title="Agregar o reemplazar una variable">
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Nombre" help="Mayúsculas, números y guion bajo." placeholder="GITHUB_TOKEN" value={name} onChange={(next) => setName(next.toUpperCase())} autoComplete="off" />
-          <Field label="Valor" help="No vuelve a mostrarse." type="password" placeholder="Pegá el token" value={value} onChange={setValue} autoComplete="new-password" />
+          <Field label="Valor" help="No vuelve a mostrarse." {...secretInput} placeholder="Pegá el token" value={value} onChange={setValue} />
         </div>
         <div className="mt-4">
           <Button variant="primary" icon={<Plus className="size-4" />} loading={saving} disabled={!nameOk || !value} onClick={save}>Guardar</Button>
