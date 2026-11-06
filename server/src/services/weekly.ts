@@ -78,7 +78,7 @@ export const formatWeekData = (range: WeekRange, tickets: TicketWeek[]): string 
   const lines = [`Semana ${range.label}`, ''];
   if (!tickets.length) lines.push('(sin actividad registrada en git ni en la base de conocimiento)');
   for (const item of tickets) {
-    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.url ? ` — ${item.url}` : ''}${item.kind === 'revision' ? ' [SOLO REVISIÓN de desarrollo ajeno]' : ''}` : '- Sin número de ticket');
+    lines.push(item.ticket ? `- Ticket ${item.ticket}${item.title ? ` — ${item.title}` : ''}${item.redmineStatus ? ` [estado en Redmine: ${item.redmineStatus}]` : ''}${item.kind === 'revision' ? ' [SOLO REVISIÓN de desarrollo ajeno]' : ''}` : '- Sin número de ticket');
     const repos = [...new Set(item.commits.map((commit) => commit.repo))].filter(Boolean);
     if (item.commits.length) lines.push(`  - ${item.commits.length} commits${repos.length ? ` en ${repos.join(', ')}` : ''}: ${item.commits.slice(0, 6).map((commit) => commit.subject).join(' · ')}${item.commits.length > 6 ? ` · … y ${item.commits.length - 6} más` : ''}`);
     if (item.pushes) lines.push(`  - ${item.pushes} push`);
@@ -119,7 +119,7 @@ export const buildReportPrompt = (range: WeekRange, data: string, template?: str
     '- Agrupá así (omití el bloque que no aplique): tickets avanzados; revisiones hechas a tickets de otros; correcciones subidas a pedido de una revisión; estimación, análisis y definición de tickets nuevos.',
     '- Usá solo lo que figura en los datos. No inventes quién revisó, fechas ni estados: si algo no está, omitilo o preguntámelo en una línea aparte, fuera del bloque.',
     '- Los títulos de los tickets, sin prefijos como "[5 SP]" ni "[Módulo: …]".',
-    '- Cada ticket lleva su enlace completo de Redmine (el que figura en los datos) justo después del título, como URL en texto plano: así queda clickeable al pegarlo en el Google Doc. Ej.: "- 32972 Saldo de licencia en el formulario de carga https://…/issues/32972".',
+    '- Sin enlaces ni URLs: cada ticket va solo con su número y su título.',
     '- Muy breve: sin detalles técnicos ni nombres de archivos.',
     '- Respondé con el texto final en un único bloque de código, listo para copiar y pegar.',
     '',
