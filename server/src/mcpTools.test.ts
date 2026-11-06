@@ -27,12 +27,12 @@ describe('herramientas MCP', () => {
     expect(schema.safeParse('x'.repeat(201)).success).toBe(false);
   });
 
-  it('los POST son el levantado en orden, cálculos de solo lectura, y los que solo AGREGAN (recordatorio, MR y comentario de MR)', async () => {
+  it('los POST son el levantado en orden, cálculos de solo lectura, y los que solo AGREGAN (recordatorio, carpeta de revisión, MR y comentario de MR)', async () => {
     const calls: Array<[string, string]> = [];
     const spy: CallApi = async (method, path) => (calls.push([method, path]), {});
     for (const tool of mcpTools) await tool.run({ services: ['firma'], dir: 'x', ticket: '33526', since: 'today', text: 'recordar' }, spy);
     const posts = calls.filter(([method]) => method === 'POST').map(([, path]) => path);
-    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/gitlab/mr', '/api/gitlab/mr-note', '/api/reminders', '/api/startup/run']);
+    expect(posts.sort()).toEqual(['/api/daily/draft', '/api/daily/weekly', '/api/gitlab/mr', '/api/gitlab/mr-note', '/api/reminders', '/api/review-queue/33526/start', '/api/startup/run', '/api/tickets/x/discord']);
   });
 
   it('ninguna herramienta toca la configuración ni los valores de las variables de Claude, ni borra o edita', async () => {

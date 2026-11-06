@@ -1,4 +1,4 @@
-import { ClipboardCheck } from 'lucide-react';
+import { ClipboardCheck, ListChecks } from 'lucide-react';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Badge, toneOf } from '../components/Badge';
@@ -20,6 +20,8 @@ import { TicketStatus } from '../components/TicketStatus';
 import { TicketHeader } from '../components/TicketHeader';
 import { TicketList } from '../components/TicketList';
 import { RefreshButton } from '../components/RefreshButton';
+import { Button } from '../components/Button';
+import { ReviewQueueModal } from '../components/ReviewQueueModal';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
@@ -97,12 +99,14 @@ export const Tests = () => {
   const list = useAsync(() => api.get<{ tickets: TicketSummary[]; extra: string }>('/api/tickets'));
   // "Actualizar" recarga el listado y avisa al ticket abierto para que vuelva a leer todo lo suyo.
   const [refreshKey, setRefreshKey] = useState(0);
+  const [queueOpen, setQueueOpen] = useState(false);
   const refreshAll = () => (list.reload(), setRefreshKey((value) => value + 1));
   // R: actualizar (el mismo botón de arriba).
   useShortcut('refresh', refreshAll);
   return (
     <div className="md:flex md:h-full md:min-h-0 md:flex-col">
-      <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} actions={<RefreshButton busy={list.loading} onRefresh={refreshAll} />} />
+      <PageHeader title="Pruebas" description={list.data ? `${list.data.tickets.length} carpetas en ${list.data.extra}` : 'Pruebas realizadas por ticket.'} actions={<div className="flex items-center gap-2"><Button icon={<ListChecks className="size-4" />} onClick={() => setQueueOpen(true)} title="Tickets en Revisión del sprint actual que nadie está revisando">Tickets para revisión</Button><RefreshButton busy={list.loading} onRefresh={refreshAll} /></div>} />
+      <ReviewQueueModal open={queueOpen} onClose={() => setQueueOpen(false)} onChanged={list.reload} />
       <div className="grid gap-6 md:min-h-0 md:flex-1 md:grid-rows-[minmax(0,1fr)] md:grid-cols-[20rem_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="relative min-h-0 md:h-full">
           {list.loading && !list.data ? <Skeleton className="h-96" /> : <TicketList tickets={list.data?.tickets ?? []} basePath="/pruebas" withTestFilters />}

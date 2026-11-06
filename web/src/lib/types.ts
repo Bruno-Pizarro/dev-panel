@@ -19,6 +19,7 @@ export interface DevPanelConfig {
   };
   home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number };
   weekly: { template: string };
+  discord?: { webhookVar: string; tags: Record<string, string>; otherTag: string; userId: string };
   repos: string[];
 }
 
@@ -374,6 +375,70 @@ export interface SpHistory {
   doneStatuses: string[];
   source: 'redmine' | 'saved';
   generatedAt: string;
+}
+
+/** Los SP de mis tickets del sprint actual, separados (ver `GET /api/redmine/sprint-points`). */
+export interface SprintPointsTicket {
+  id: number;
+  title: string;
+  status: string;
+  sp: number | null;
+  state: 'approved' | 'review' | 'other';
+}
+export interface SprintPointsReport {
+  sprint: { id: number; subject: string; start: string; end: string; url: string } | null;
+  points: { planned: number; approved: number; review: number; other: number; withoutSp: number; tickets: SprintPointsTicket[] } | null;
+  approvedStatuses: string[];
+  reviewStatuses: string[];
+}
+
+/** Tickets en Revisión del sprint actual cuyo Control QA nadie tomó (ver `GET /api/review-queue`). */
+export interface ReviewComment {
+  user: string;
+  at: string;
+  notes: string;
+}
+export interface ReviewQueueItem {
+  id: number;
+  url: string;
+  title: string;
+  tracker: string;
+  status: string;
+  assignedTo: string | null;
+  storyPoints: number | null;
+  description: string;
+  comments: ReviewComment[];
+  qa: { id: number; url: string; status: string; assignedTo: string | null; author: string | null; description: string; comments: ReviewComment[]; reviewerComments: number } | null;
+  mrs: Array<{ url: string; repo: string | null; iid: number }>;
+  folder: string | null;
+}
+export interface ReviewQueue {
+  sprint: { id: number; subject: string; url: string } | null;
+  items: ReviewQueueItem[];
+  skipped: Array<{ id: number; title: string; reason: 'mine' | 'qa-other' | 'taken'; detail: string }>;
+  sprintTickets: number;
+  inReview: number;
+  reviewerRole: string;
+  rolesKnown: boolean;
+}
+export interface StartedReview {
+  dir: string;
+  created: boolean;
+  kind: string;
+  prompt: string;
+}
+
+/** Hilo del ticket en el foro de MRs de Discord (ver `GET /api/tickets/:dir/discord`). */
+export interface DiscordPreview {
+  webhookReady: boolean;
+  webhookVar: string;
+  ticket: string | null;
+  draft: { name: string; content: string; tags: string[]; missingTags: string[] } | null;
+  record: { threadId: string; messageId: string; guildId: string | null; createdAt: string; updatedAt: string; link: string | null } | null;
+  problems: string[];
+  action: 'create' | 'update';
+  hasMrs: boolean;
+  forgotten: boolean;
 }
 
 export interface WeeklyReport {

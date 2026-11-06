@@ -99,6 +99,14 @@ export const configSchema = z.object({
       baseUrl: z.string().default(''),
       /** Estados que cuentan como "entregado": los SP de un ticket suman en la semana en que llegó por primera vez a alguno. */
       doneStatuses: z.array(z.string()).default(['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado']),
+      /** Estados en los que un ticket ya está integrado o aprobado: en el sprint (aviso del Inicio y Kanban) sus SP cuentan como entregados de verdad. No cambia el promedio semanal (`doneStatuses`). */
+      approvedStatuses: z.array(z.string()).default(['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado']),
+      /** Estados «en revisión»: sus SP se muestran aparte de los entregados. */
+      reviewStatuses: z.array(z.string()).default(['Revisión']),
+      /** Rol de Redmine que se toma como «revisor» para saber si alguien ya tomó el Control QA de un ticket en revisión. */
+      reviewerRole: z.string().default('Desarrollador'),
+      /** Usuario «bolsa» al que se asignan los Control QA que nadie tomó: junto con los asignados a mí, son los que entran en «Tickets para revisión». */
+      backlogUser: z.string().default('Backlog e-sueldos'),
     })
     .default({}),
   /** GitLab (solo lectura): estado de los MRs y sus pipelines. El token sale de GITLAB_TOKEN o de `token` (opcional, solo en este config.json local). */
@@ -176,6 +184,19 @@ export const configSchema = z.object({
     .default({}),
   /** Resumen semanal: plantilla (por ejemplo, un resumen anterior) en la que se basa el pedido a Claude. Vacío = el ejemplo que trae el panel. */
   weekly: z.object({ template: z.string().max(8000).default('') }).default({}),
+  /**
+   * Foro de MRs de Discord (ver docs/DISCORD.md). El webhook es un SECRETO: va en las variables de Claude con el nombre `webhookVar`,
+   * nunca acá. `tags` = etiquetas del foro por nombre de carpeta del repo (ids de Discord); `otherTag` se usa para un repo sin etiqueta propia.
+   */
+  discord: z
+    .object({
+      webhookVar: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/).default('DISCORD_WEBHOOK_MR'),
+      tags: z.record(z.string(), z.string().regex(/^\d{5,25}$/)).default({}),
+      otherTag: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
+      /** Id numérico de tu usuario de Discord: el hilo te menciona (así quedás en la lista de miembros del hilo). Vacío = sin mención. */
+      userId: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
+    })
+    .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
   checks: z
     .object({
@@ -232,7 +253,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
-  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'] },
+  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador', backlogUser: 'Backlog e-sueldos' },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
   claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },
@@ -242,6 +263,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
   weekly: { template: '' },
+  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

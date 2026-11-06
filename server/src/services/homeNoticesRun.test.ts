@@ -52,7 +52,8 @@ describe('getNotices (una revisión por día)', () => {
     expect(ids).not.toContain('due-30392');
     const levels = report.notices.map((n) => n.level);
     expect(levels.indexOf('info')).toBeGreaterThan(levels.lastIndexOf('important'));
-    expect(report.notices.find((n) => n.id === 'sprint-33677')!.detail).toContain('8 de 8 SP entregados');
+    expect(report.notices.find((n) => n.id === 'sprint-33677')!.detail).toContain('0 de 8 SP entregados');
+    expect(report.notices.find((n) => n.id === 'sprint-33677')!.detail).toContain('8 SP en revisión');
     expect(calls.length).toBeGreaterThan(5);
   });
 

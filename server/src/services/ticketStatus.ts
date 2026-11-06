@@ -244,7 +244,9 @@ export const buildShipChecklist = ({ meta, docs, repos, manual, i18n, viewed }: 
     items.push(wrongBranch.length ? { id: 'branch', label: 'En la rama del ticket', level: 'warn', detail: `Fuera de ${ticketBranch}: ${list(wrongBranch)}` } : { id: 'branch', label: 'En la rama del ticket', level: ticketBranch ? 'ok' : 'idle', detail: ticketBranch ? ticketBranch : 'ticket.json no declara la rama' });
   }
 
-  const withWork = repos.filter((repo) => repo.exists && (repo.base?.ahead ?? 0) > 0).map((repo) => repo.repo);
+  // Solo cuentan los repos que están en la rama de ESTE ticket: un repo parado en la rama de otro ticket (por ejemplo documentos en la de
+  // #33527 mientras se revisa #33528) tiene commits de aquel, y su MR es de aquel. Sin `rama` declarada se cuentan todos.
+  const withWork = repos.filter((repo) => repo.exists && (repo.base?.ahead ?? 0) > 0 && (!ticketBranch || repo.branch === ticketBranch)).map((repo) => repo.repo);
   const withMr = new Set((meta?.mrs ?? []).map((mr) => mr.repo).filter(Boolean));
   const withoutMr = withWork.filter((repo) => !withMr.has(repo));
   items.push(

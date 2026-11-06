@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { fetchSprintPoints } from '../services/homeNotices.js';
 import { RedmineError, fetchBoard, redmineBaseUrl, fetchSpHistory, fetchIssue, forgetRedmineIssue, loadCredentials } from '../services/redmine.js';
 import { requireConfig } from './helpers.js';
 
@@ -17,6 +18,18 @@ export const registerRedmineRoutes = (app: FastifyInstance): void => {
     if (!config) return reply;
     try {
       return await fetchSpHistory(config);
+    } catch (error) {
+      if (error instanceof RedmineError) return reply.code(error.status).send({ error: error.message });
+      throw error;
+    }
+  });
+
+  // Los SP de mi sprint actual: entregados de verdad, en revisión y el resto (solo lectura).
+  app.get('/api/redmine/sprint-points', async (_request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    try {
+      return await fetchSprintPoints(config);
     } catch (error) {
       if (error instanceof RedmineError) return reply.code(error.status).send({ error: error.message });
       throw error;

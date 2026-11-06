@@ -1,8 +1,9 @@
-import { Check, ClipboardCopy, X } from 'lucide-react';
+import { Check, ClipboardCopy, ExternalLink, MessageSquare, X } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
-import type { ClosingReport, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
+import type { ClosingReport, DiscordPreview, MrReport, ServicesReport, ShipReport, TicketDataReport, TicketGitReport } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -230,14 +231,70 @@ const Closing = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
   );
 };
 
+/**
+ * Hilo del ticket en el foro de MRs de Discord. Nada se publica solo: el botón muestra antes exactamente qué sale (título, mensaje y
+ * etiquetas) y publica cuando lo apretás; si el panel ya creó el hilo, actualiza su mensaje inicial con los MRs nuevos.
+ */
+const Discord = ({ dir, state, onChanged }: { dir: string; state: { data: DiscordPreview | null; loading: boolean; error: string | null }; onChanged: () => void }) => {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const publish = async () => {
+    setBusy(true);
+    try {
+      const result = await api.post<{ action: 'created' | 'updated'; link: string | null }>(`${base(dir)}/discord`, { confirm: true });
+      toast('success', result.action === 'created' ? 'Hilo creado en Discord.' : 'Hilo actualizado con los MRs.');
+      onChanged();
+    } catch (error) {
+      toast('error', (error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const data = state.data;
+  return (
+    <Card title="Discord · foro de MRs" action={data ? <Badge tone={data.record ? 'success' : 'neutral'}>{data.record ? 'hilo creado' : 'sin hilo'}</Badge> : undefined}>
+      {state.loading && !data ? <Skeleton className="h-24" /> : state.error || !data ? <p className="text-danger">{state.error}</p> : (
+        <div className="space-y-4" data-testid="discord-card">
+          {data.forgotten && <p className="rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning" data-testid="discord-forgotten">El hilo ya no existe en Discord (lo borraron): volvió a quedar sin crear. Podés publicarlo de nuevo.</p>}
+          {data.draft && (
+            <div className="space-y-2">
+              <p className="font-medium">{data.draft.name}</p>
+              <pre className="whitespace-pre-wrap break-words rounded-lg bg-surface-2 p-3 font-mono text-sm" data-testid="discord-message">{data.draft.content}</pre>
+              <p className="text-sm text-muted">Etiquetas: {data.draft.tags.length ? `${data.draft.tags.length} (una por repo involucrado)` : 'ninguna'}</p>
+            </div>
+          )}
+          {data.problems.length > 0 && <ul className="space-y-1 text-sm text-warning">{data.problems.map((problem) => <li key={problem}>• {problem}</li>)}</ul>}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" disabled={busy || data.problems.length > 0} icon={<MessageSquare className="size-4" />} onClick={publish} title="Publica en el canal del equipo lo que ves arriba">
+              {data.action === 'update' ? 'Actualizar el hilo en Discord' : 'Publicar en Discord'}
+            </Button>
+            {data.record?.link && <a href={data.record.link} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">Abrir el hilo<ExternalLink className="size-4" aria-hidden /></a>}
+            <Hint>Nunca se publica solo. Las etiquetas «Estado: …» y borrar la publicación al llegar a Producción siguen siendo a mano.</Hint>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+};
+
 /** Pestaña Estado: lo que hay que mirar antes de pasar un ticket a MR. Todo es solo lectura. */
-export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
-  <div className="space-y-6">
-    <Ship dir={dir} refreshKey={refreshKey} />
-    <Git dir={dir} refreshKey={refreshKey} />
-    <Gitlab dir={dir} refreshKey={refreshKey} />
-    <Services dir={dir} refreshKey={refreshKey} />
-    <TestData dir={dir} refreshKey={refreshKey} />
-    <Closing dir={dir} refreshKey={refreshKey} />
-  </div>
-);
+export const TicketStatus = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => {
+  // La tarjeta de Discord sube a ocupar el lugar de «lo siguiente» apenas el ticket tiene MRs registrados (justo después del semáforo
+  // de «listo para abrir los MRs»); mientras no los tenga queda abajo, antes del cierre.
+  const discord = useAsync(() => api.get<DiscordPreview>(`${base(dir)}/discord`));
+  useReloadOn(refreshKey, discord.reload);
+  const card = <Discord dir={dir} state={discord} onChanged={discord.reload} />;
+  const withMrs = discord.data?.hasMrs === true;
+  return (
+    <div className="space-y-6">
+      <Ship dir={dir} refreshKey={refreshKey} />
+      {withMrs && card}
+      <Git dir={dir} refreshKey={refreshKey} />
+      <Gitlab dir={dir} refreshKey={refreshKey} />
+      <Services dir={dir} refreshKey={refreshKey} />
+      <TestData dir={dir} refreshKey={refreshKey} />
+      {!withMrs && card}
+      <Closing dir={dir} refreshKey={refreshKey} />
+    </div>
+  );
+};

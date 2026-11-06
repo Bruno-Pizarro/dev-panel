@@ -7,6 +7,7 @@ import { fetchTicketMrs, type MrInfo } from './gitlab.js';
 import { applyStoryPoints, httpProblem, loadCredentials, mapIssue, RedmineError, type Credentials, type JsonFetcher, type RedmineIssue } from './redmine.js';
 import { getTicket, ignoredDirs, listTickets } from './tickets.js';
 import { kindOf, getTicketState } from './ticketState.js';
+import { statusIn, summarizeSprintPoints, type PointsStatuses, type SprintPointsSummary } from './sprintPoints.js';
 
 /**
  * Avisos "en serio" del Inicio. Se calculan UNA vez por día (la primera vez que se abre el Inicio ese día, o con "Volver a revisar")
@@ -176,16 +177,20 @@ export const sprintsOfToday = (sprints: Array<{ id: number; subject: string }>, 
 
 export const currentSprint = (sprints: Array<{ id: number; subject: string }>, today: string): Sprint | null => sprintsOfToday(sprints, today)[0] ?? null;
 
-/** Cuánto queda del sprint y cuántos SP de mis tickets del sprint ya están entregados (mismo criterio que el historial: `doneStatuses`). */
-export const sprintNotice = (sprint: Sprint, tickets: RedmineIssue[], doneStatuses: string[], today: string, link: string): Notice => {
+/**
+ * Cuánto queda del sprint y cuántos SP de mis tickets del sprint están entregados de verdad (estados `approved`: Testeado, Testing
+ * Consultoría, Terminado, Entregado) y cuántos siguen en revisión. Lo pendiente sigue el criterio de `doneStatuses`: un ticket en
+ * revisión ya no está «pendiente» de mi lado.
+ */
+export const sprintNotice = (sprint: Sprint, tickets: RedmineIssue[], doneStatuses: string[], today: string, link: string, statuses: PointsStatuses = { review: ['Revisión'], approved: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'] }): Notice => {
   const left = Math.max(0, dayNumber(sprint.end) - dayNumber(today)) + 1;
-  const planned = tickets.reduce((sum, ticket) => sum + (ticket.storyPoints ?? 0), 0);
-  const delivered = tickets.filter((ticket) => doneStatuses.includes(ticket.status)).reduce((sum, ticket) => sum + (ticket.storyPoints ?? 0), 0);
-  const pending = tickets.filter((ticket) => !doneStatuses.includes(ticket.status) && ticket.statusClosed !== true);
+  const points = summarizeSprintPoints(tickets, statuses);
+  const pending = tickets.filter((ticket) => !statusIn(ticket.status, doneStatuses) && ticket.statusClosed !== true);
   const withoutSp = tickets.filter((ticket) => ticket.storyPoints === null).length;
   const days = left === 1 ? 'Hoy es el último día del sprint' : `Quedan ${left} días del sprint`;
-  const progress = planned > 0 ? `${delivered} de ${planned} SP entregados` : 'sin SP planificados';
-  const parts = [progress, pending.length ? `pendientes: ${pending.map((ticket) => `#${ticket.id}`).join(', ')}` : 'todo entregado', ...(withoutSp ? [`${plural(withoutSp, 'ticket sin SP', 'tickets sin SP')}`] : [])];
+  const progress = points.planned > 0 ? `${points.approved} de ${points.planned} SP entregados` : 'sin SP planificados';
+  const inReview = points.review > 0 ? [`${points.review} SP en revisión`] : [];
+  const parts = [progress, ...inReview, pending.length ? `pendientes: ${pending.map((ticket) => `#${ticket.id}`).join(', ')}` : points.review > 0 ? 'nada más pendiente' : 'todo entregado', ...(withoutSp ? [`${plural(withoutSp, 'ticket sin SP', 'tickets sin SP')}`] : [])];
   return { id: `sprint-${sprint.id}`, kind: 'sprint', level: left <= 1 && pending.length ? 'important' : 'info', title: days, detail: `${sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')} · ${parts.join(' · ')}`, link };
 };
 
@@ -329,18 +334,71 @@ export const computeNotices = async (config: DevPanelConfig, saved: Saved | null
   return { report: { date: today, generatedAt: now.toISOString(), notices, errors }, mrNotes, reviewSince };
 };
 
+type Get = (path: string) => Promise<unknown>;
+
+const makeGet = (credentials: Credentials, fetcher: JsonFetcher): Get => async (path) => {
+  let response;
+  try {
+    response = await fetcher(`${credentials.baseUrl}${path}`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(20_000) });
+  } catch {
+    throw new RedmineError('No se pudo conectar con Redmine', 502);
+  }
+  if (!response.ok) throw await httpProblem(response);
+  return response.json();
+};
+
+export interface CurrentSprint {
+  sprint: Sprint;
+  /** Mis tickets del sprint, con sus SP. */
+  tickets: RedmineIssue[];
+  /** Todos los tickets relacionados al sprint (de cualquiera). */
+  related: number[];
+}
+
+/** El sprint de hoy: entre los de esta fecha, el que tiene tickets míos relacionados (si ninguno, el primero). `null` si no hay. */
+export const findCurrentSprint = async (get: Get, credentials: Credentials, fetcher: JsonFetcher, today: string): Promise<CurrentSprint | null> => {
+  const sprints = (await get('/issues.json?tracker_id=22&status_id=*&limit=50&sort=id:desc')) as { issues?: Array<{ id: number; subject?: string }> };
+  let chosen: CurrentSprint | null = null;
+  for (const sprint of sprintsOfToday((sprints.issues ?? []).map((item) => ({ id: item.id, subject: item.subject ?? '' })), today).slice(0, 4)) {
+    const detail = (await get(`/issues/${sprint.id}.json?include=relations`)) as { issue?: { relations?: Array<{ issue_id: number; issue_to_id: number }> } };
+    const ids = [...new Set((detail.issue?.relations ?? []).flatMap((relation) => [relation.issue_id, relation.issue_to_id]).filter((id) => id !== sprint.id))];
+    const tickets: RedmineIssue[] = [];
+    if (ids.length) {
+      const related = (await get(`/issues.json?issue_id=${ids.join(',')}&assigned_to_id=me&status_id=*&limit=100`)) as { issues?: Parameters<typeof mapIssue>[0][] };
+      tickets.push(...(related.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl)).filter((ticket) => ticket.tracker !== 'Control QA'));
+      await applyStoryPoints(tickets, credentials, fetcher);
+    }
+    chosen ??= { sprint, tickets, related: ids };
+    if (tickets.length) {
+      chosen = { sprint, tickets, related: ids };
+      break;
+    }
+  }
+  return chosen;
+};
+
+export interface SprintPointsReport {
+  sprint: { id: number; subject: string; start: string; end: string; url: string } | null;
+  points: SprintPointsSummary | null;
+  /** Estados que cuentan como entregado de verdad y como en revisión (para explicarlo en pantalla). */
+  approvedStatuses: string[];
+  reviewStatuses: string[];
+}
+
+/** Los SP de mis tickets del sprint actual, separados en entregados de verdad, en revisión y el resto. Solo lectura. */
+export const fetchSprintPoints = async (config: DevPanelConfig, fetcher: JsonFetcher = fetch as unknown as JsonFetcher, now = new Date()): Promise<SprintPointsReport> => {
+  const credentials = loadCredentials(config);
+  if (!credentials) throw new RedmineError('Redmine no está configurado: falta la API key (skill redmine-drive o REDMINE_API_KEY)', 503);
+  const statuses = { review: config.redmine.reviewStatuses, approved: config.redmine.approvedStatuses };
+  const found = await findCurrentSprint(makeGet(credentials, fetcher), credentials, fetcher, dayOf(now));
+  const base = { approvedStatuses: statuses.approved, reviewStatuses: statuses.review };
+  if (!found) return { sprint: null, points: null, ...base };
+  return { sprint: { ...found.sprint, url: `${credentials.baseUrl}/issues/${found.sprint.id}` }, points: summarizeSprintPoints(found.tickets, statuses), ...base };
+};
+
 const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, fetcher: JsonFetcher, now: Date, today: string, since: string, doneStatuses: string[], out: Notice[], notes: NoticeError[]): Promise<void> => {
   let noSprint = false;
-  const get = async (path: string): Promise<unknown> => {
-    let response;
-    try {
-      response = await fetcher(`${credentials.baseUrl}${path}`, { headers: { 'X-Redmine-API-Key': credentials.key }, signal: AbortSignal.timeout(20_000) });
-    } catch {
-      throw new RedmineError('No se pudo conectar con Redmine', 502);
-    }
-    if (!response.ok) throw await httpProblem(response);
-    return response.json();
-  };
+  const get = makeGet(credentials, fetcher);
   const me = (await get('/users/current.json')) as { user?: { id: number; firstname?: string; lastname?: string } };
   const myName = [me.user?.firstname, me.user?.lastname].filter(Boolean).join(' ');
   const listed = (await get('/issues.json?assigned_to_id=me&status_id=open&limit=100&sort=updated_on:desc')) as { issues?: Parameters<typeof mapIssue>[0][] };
@@ -362,27 +420,10 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
   // El sprint actual hace falta para los vencimientos (solo los de este sprint) y para el aviso del sprint.
   let sprintIds: Set<number> | null = null;
   if (config.home.sprint || config.home.due) {
-    const sprints = (await get('/issues.json?tracker_id=22&status_id=*&limit=50&sort=id:desc')) as { issues?: Array<{ id: number; subject?: string }> };
-    // Entre los sprints de hoy se elige el que tiene tickets míos relacionados (si ninguno, el primero).
-    let chosen: { sprint: Sprint; tickets: RedmineIssue[]; related: number[] } | null = null;
-    for (const sprint of sprintsOfToday((sprints.issues ?? []).map((item) => ({ id: item.id, subject: item.subject ?? '' })), today).slice(0, 4)) {
-      const detail = (await get(`/issues/${sprint.id}.json?include=relations`)) as { issue?: { relations?: Array<{ issue_id: number; issue_to_id: number }> } };
-      const ids = [...new Set((detail.issue?.relations ?? []).flatMap((relation) => [relation.issue_id, relation.issue_to_id]).filter((id) => id !== sprint.id))];
-      const tickets: RedmineIssue[] = [];
-      if (ids.length) {
-        const related = (await get(`/issues.json?issue_id=${ids.join(',')}&assigned_to_id=me&status_id=*&limit=100`)) as { issues?: Parameters<typeof mapIssue>[0][] };
-        tickets.push(...(related.issues ?? []).map((raw) => mapIssue(raw, credentials.baseUrl)).filter((ticket) => ticket.tracker !== 'Control QA'));
-        await applyStoryPoints(tickets, credentials, fetcher);
-      }
-      chosen ??= { sprint, tickets, related: ids };
-      if (tickets.length) {
-        chosen = { sprint, tickets, related: ids };
-        break;
-      }
-    }
+    const chosen = await findCurrentSprint(get, credentials, fetcher, today);
     if (chosen) {
       sprintIds = new Set(chosen.related);
-      if (config.home.sprint) out.push(sprintNotice(chosen.sprint, chosen.tickets, doneStatuses, today, `${credentials.baseUrl}/issues/${chosen.sprint.id}`));
+      if (config.home.sprint) out.push(sprintNotice(chosen.sprint, chosen.tickets, doneStatuses, today, `${credentials.baseUrl}/issues/${chosen.sprint.id}`, { review: config.redmine.reviewStatuses, approved: config.redmine.approvedStatuses }));
     } else if (config.home.due) {
       noSprint = true;
     }
