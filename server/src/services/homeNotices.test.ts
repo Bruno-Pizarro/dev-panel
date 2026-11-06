@@ -117,12 +117,14 @@ describe('7. sprint', () => {
     const both = [{ id: 7, subject: 'ICONO - Requerimientos semana del 02/11/2026 al 06/11/2026' }, { id: 5, subject: 'Sprint Semana 02/11/26 al 06/11/26' }];
     expect(sprintsOfToday(both, '2026-11-04').map((s) => s.id)).toEqual([5, 7]);
   });
-  it('días que quedan y SP entregados (Revisión cuenta como entregado) contra los planificados', () => {
+  it('días que quedan y SP entregados de verdad, aparte de los que están en revisión, contra los planificados', () => {
     const sprint = { id: 2, subject: 'Sprint Semana 02/11/26 al 06/11/26', start: '2026-11-02', end: '2026-11-06' };
     const tickets = [issue({ id: 10, subject: '[5 SP] A', status: { name: 'Revisión', is_closed: false } }), issue({ id: 11, subject: '[8 SP] B', status: { name: 'Desarrollo', is_closed: false } }), issue({ id: 12, subject: 'Sin SP', status: { name: 'Análisis', is_closed: false } })];
     const notice = sprintNotice(sprint, tickets, ['Revisión', 'Testeado'], '2026-11-04', 'https://r/issues/2');
     expect(notice).toMatchObject({ kind: 'sprint', level: 'info', title: 'Quedan 3 días del sprint', link: 'https://r/issues/2' });
-    expect(notice.detail).toContain('5 de 13 SP entregados');
+    // Revisión ya no cuenta como entregado: 0 de 13 entregados y 5 SP en revisión
+    expect(notice.detail).toContain('0 de 13 SP entregados');
+    expect(notice.detail).toContain('5 SP en revisión');
     expect(notice.detail).toContain('pendientes: #11, #12');
     expect(notice.detail).toContain('1 ticket sin SP');
   });
@@ -132,7 +134,22 @@ describe('7. sprint', () => {
     expect(pending).toMatchObject({ level: 'important', title: 'Hoy es el último día del sprint' });
     const done = sprintNotice(sprint, [issue({ id: 10, subject: '[5 SP] A', status: { name: 'Revisión', is_closed: false } })], ['Revisión'], '2026-11-06', 'l');
     expect(done.level).toBe('info');
-    expect(done.detail).toContain('todo entregado');
+    // Todo en revisión: nada pendiente, pero tampoco «todo entregado»
+    expect(done.detail).toContain('0 de 5 SP entregados');
+    expect(done.detail).toContain('5 SP en revisión');
+    expect(done.detail).toContain('nada más pendiente');
+    expect(done.detail).not.toContain('todo entregado');
+    const delivered = sprintNotice(sprint, [issue({ id: 10, subject: '[5 SP] A', status: { name: 'Terminado', is_closed: false } }), issue({ id: 13, subject: '[3 SP] C', status: { name: 'Testing Consultoria', is_closed: false } })], ['Revisión', 'Terminado', 'Testing Consultoría'], '2026-11-06', 'l');
+    expect(delivered.detail).toContain('8 de 8 SP entregados');
+    expect(delivered.detail).not.toContain('en revisión');
+    expect(delivered.detail).toContain('todo entregado');
+  });
+  it('los estados que cuentan como entregado o en revisión se leen de la configuración', () => {
+    const sprint = { id: 2, subject: 'Sprint Semana 02/11/26 al 06/11/26', start: '2026-11-02', end: '2026-11-06' };
+    const tickets = [issue({ id: 10, subject: '[5 SP] A', status: { name: 'Testing Aprobado Consultoría', is_closed: false } })];
+    const custom = sprintNotice(sprint, tickets, ['Testing Aprobado Consultoría'], '2026-11-04', 'l', { review: ['Testing Aprobado Consultoría'], approved: ['Entregado'] });
+    expect(custom.detail).toContain('0 de 5 SP entregados');
+    expect(custom.detail).toContain('5 SP en revisión');
   });
 });
 

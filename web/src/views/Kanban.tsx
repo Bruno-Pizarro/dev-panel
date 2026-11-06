@@ -2,6 +2,7 @@ import { ClipboardCheck, Columns3, ExternalLink, Layers, RefreshCw, Search, Time
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SpHistoryCard } from '../components/SpHistoryCard';
+import { SprintPointsCard } from '../components/SprintPointsCard';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -138,6 +139,7 @@ export const Kanban = () => {
         </div>
       )}
 
+      <SprintPointsCard />
       <SpHistoryCard />
 
       {board.loading && !data ? <div className="flex gap-4"><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /><Skeleton className="h-96 w-80" /></div> : board.error ? (

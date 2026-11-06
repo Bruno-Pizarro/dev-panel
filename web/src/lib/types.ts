@@ -376,6 +376,21 @@ export interface SpHistory {
   generatedAt: string;
 }
 
+/** Los SP de mis tickets del sprint actual, separados (ver `GET /api/redmine/sprint-points`). */
+export interface SprintPointsTicket {
+  id: number;
+  title: string;
+  status: string;
+  sp: number | null;
+  state: 'approved' | 'review' | 'other';
+}
+export interface SprintPointsReport {
+  sprint: { id: number; subject: string; start: string; end: string; url: string } | null;
+  points: { planned: number; approved: number; review: number; other: number; withoutSp: number; tickets: SprintPointsTicket[] } | null;
+  approvedStatuses: string[];
+  reviewStatuses: string[];
+}
+
 export interface WeeklyReport {
   range: { start: string; end: string; label: string };
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;
