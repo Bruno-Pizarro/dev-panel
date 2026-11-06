@@ -496,7 +496,7 @@ export interface RepoChanges {
 }
 export interface ViewedProgress { total: number; viewed: number; pending: Array<{ repo: string; count: number }> }
 export interface TicketChangesReport { baseBranch: string; repos: RepoChanges[]; progress: ViewedProgress; /** Solo en los MRs de GitLab: por qué no se pudo leer algún MR. */ message?: string | null }
-export interface FileDiff { diff: string; truncated: boolean; reason: string | null }
+export interface FileDiff { diff: string; truncated: boolean; reason: string | null; /** Solo con «últimos cambios»: lo que cambió desde que se marcó como visto. */ since?: boolean; /** Aviso cuando se pidieron los últimos cambios pero se muestra el cambio completo. */ note?: string | null }
 
 export interface AgentRun { id: string; sessionId: string; type: string; description: string; startedAt: string; endedAt: string | null; status: 'running' | 'done' | 'lost'; agentId: string | null; project: string | null; ticket: string | null; hasRequest: boolean; hasResponse: boolean; hasSteps?: boolean }
 /** Un agente completo: lo que se le pidió y lo que contestó (con los secretos tapados). */

@@ -20,14 +20,15 @@ import { Skeleton } from './Skeleton';
 type Scope = 'committed' | 'working';
 /** De dónde salen los cambios: la copia local de los repos (`changes`) o los MRs de GitLab (`mr-changes`). */
 type Segment = 'changes' | 'mr-changes';
+type ViewMode = 'full' | 'latest';
 
 /**
  * Se monta recién al abrir el archivo: `useAsync` carga una sola vez al montar, así el diff se pide en ese momento.
  * `memo` y el resaltado calculado una sola vez por diff: marcar un archivo como visto o moverse con N / P vuelve a pintar
  * todas las secciones, y sin esto cada una volvía a resaltar todas sus líneas.
  */
-const DiffView = memo(({ dir, segment, repo, path, scope }: { dir: string; segment: Segment; repo: string; path: string; scope: Scope }) => {
-  const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/${segment}/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}`));
+const DiffView = memo(({ dir, segment, repo, path, scope, since }: { dir: string; segment: Segment; repo: string; path: string; scope: Scope; since: boolean }) => {
+  const diff = useAsync(() => api.get<FileDiff>(`/api/tickets/${encodeURIComponent(dir)}/${segment}/diff?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(path)}&scope=${scope}${since ? '&since=viewed' : ''}`));
   const slash = path.lastIndexOf('/');
   const rows = useMemo(() => {
     if (!diff.data?.diff) return [];
@@ -38,7 +39,9 @@ const DiffView = memo(({ dir, segment, repo, path, scope }: { dir: string; segme
     <div className="editor mb-3">
       <div className="editor-bar">
         <span className="min-w-0 truncate"><span>{slash >= 0 ? path.slice(0, slash + 1) : ''}</span><span className="font-semibold" style={{ color: 'var(--ed-fg)' }}>{path.slice(slash + 1)}</span></span>
+        {since && diff.data?.since && <span className="shrink-0 text-sm">Cambios desde que lo viste</span>}
       </div>
+      {diff.data?.note && <p className="editor-note" style={{ color: 'rgb(var(--warning))' }}>{diff.data.note}</p>}
       {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : rows.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
         <div className="editor-code">
           {rows.map(({ line, tokens }, index) =>
@@ -69,6 +72,8 @@ interface Review {
   current: string | null;
   /** Cada "Expandir todo" o "Contraer todo" suma uno y trae el valor al que se llevan todos los archivos. */
   bulk: { open: boolean; tick: number };
+  /** `full`: el cambio completo de cada archivo. `latest`: de los archivos que ya se vieron, solo lo que cambió desde entonces. */
+  mode: ViewMode;
 }
 const ReviewContext = createContext<Review | null>(null);
 const useReview = (): Review => {
@@ -105,6 +110,9 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
   const [busy, setBusy] = useState(false);
   const { ref, near } = useNearViewport();
   const isCurrent = review.current === markKey(repo, scope, file.path);
+  // «Últimos cambios»: lo que ya se vio muestra solo lo nuevo (y lo que no cambió, nada); lo que nunca se vio, completo.
+  const latestOnly = review.mode === 'latest';
+  const sinceMode = latestOnly && viewed === 'changed';
   // Marcar como visto (con el mouse o con V) contrae el archivo; desmarcarlo lo vuelve a abrir.
   const previous = useRef(viewed);
   useEffect(() => {
@@ -138,7 +146,7 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
           <span className="min-w-0 flex-1 break-all font-mono text-sm">{file.path}</span>
           {file.binary ? <span className="text-sm text-muted">binario</span> : file.added !== null && <span className="whitespace-nowrap font-mono text-sm"><span className="text-success">+{file.added}</span> <span className="text-danger">-{file.deleted}</span></span>}
         </button>
-        {viewed === 'changed' && <Badge tone="warning">Cambió desde que lo viste</Badge>}
+        {viewed === 'changed' && <Badge tone="warning">{sinceMode ? 'Mostrando lo nuevo' : 'Cambió desde que lo viste'}</Badge>}
         <label className={cn('flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors', viewed === 'yes' ? 'border-success/50 bg-success/10 text-success' : 'border-line text-muted hover:text-fg', busy && 'opacity-60')}>
           <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={viewed === 'yes'} disabled={busy} onChange={(event) => void toggleViewed(event.target.checked)} />
           {viewed === 'yes' && <Check className="size-4" aria-hidden />}
@@ -146,7 +154,11 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
           {isCurrent && <ShortcutKey id="changes.viewed" />}
         </label>
       </div>
-      {open && <div className="px-3 pb-3">{near ? <DiffView dir={review.dir} segment={review.segment} repo={repo} path={file.path} scope={scope} /> : <Skeleton className="h-24" />}</div>}
+      {open && (
+        <div className="px-3 pb-3">
+          {latestOnly && viewed === 'yes' ? <p className="rounded-lg border border-line px-3 py-2 text-sm text-muted">Sin cambios desde que lo viste. Para leerlo entero, pasá a «Cambios completos».</p> : near ? <DiffView key={sinceMode ? 'since' : 'full'} dir={review.dir} segment={review.segment} repo={repo} path={file.path} scope={scope} since={sinceMode} /> : <Skeleton className="h-24" />}
+        </div>
+      )}
     </li>
   );
 };
@@ -214,6 +226,12 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   const [marks, setMarks] = useState<Record<string, ViewedState>>({});
   useEffect(() => setMarks({}), [state.data]);
   const [bulk, setBulk] = useState({ open: true, tick: 0 });
+  // Cambios completos la primera vez; si ya se revisaron archivos, por defecto solo lo que cambió desde entonces. Se decide una vez, con lo
+  // que guardó el servidor al abrir (no con las marcas de esta sesión: si no, marcar el primer archivo cambiaría la vista a mitad de la revisión).
+  const [chosenMode, setChosenMode] = useState<ViewMode | null>(null);
+  const reviewedBefore = useRef<boolean | null>(null);
+  if (state.data && reviewedBefore.current === null) reviewedBefore.current = state.data.repos.some((repo) => [...repo.committed, ...repo.working].some((file) => file.viewed !== 'no'));
+  const mode: ViewMode = chosenMode ?? (reviewedBefore.current ? 'latest' : 'full');
 
   const stateOf = useCallback((repo: string, scope: Scope, file: ChangedFile): ViewedState => marks[markKey(repo, scope, file.path)] ?? file.viewed, [marks]);
   const toggle = useCallback(
@@ -231,7 +249,7 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   );
   const [current, setCurrent] = useState<string | null>(null);
   const [treeOpen, setTreeOpen] = useStoredState('devpanel.changes.tree', typeof window === 'undefined' || window.innerWidth >= 1280);
-  const review = useMemo<Review>(() => ({ dir, segment, stateOf, toggle, bulk, current }), [dir, segment, stateOf, toggle, bulk, current]);
+  const review = useMemo<Review>(() => ({ dir, segment, stateOf, toggle, bulk, current, mode }), [dir, segment, stateOf, toggle, bulk, current, mode]);
 
   // Todos los archivos en el orden en que se ven (por repo: primero lo commiteado y después lo sin commitear), para moverse con el teclado.
   const flat = useMemo(
@@ -283,6 +301,12 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
             <p className="mt-1.5 text-sm text-muted">{segment === 'mr-changes' ? 'Cambios de los MRs en GitLab. Las marcas son tuyas y se invalidan si suben otro commit que toque el archivo.' : 'Leé cada archivo y marcalo como visto: el Estado del ticket no da el visto bueno hasta que estén todos.'}</p>
           </div>
           <span className="flex items-center gap-1.5 text-sm text-muted" title="Archivo anterior / siguiente">Archivo <ShortcutKey id="changes.prev" /><ShortcutKey id="changes.next" /></span>
+          {reviewedBefore.current && (
+            <span className="flex items-center gap-2" role="group" aria-label="Qué cambios mostrar">
+              <Chip selected={mode === 'latest'} onToggle={() => setChosenMode('latest')} hint="De los archivos que ya viste, solo lo que cambió desde la última vez que los marcaste. Lo que nunca viste se muestra completo.">Últimos cambios</Chip>
+              <Chip selected={mode === 'full'} onToggle={() => setChosenMode('full')} hint="El cambio completo de cada archivo contra la base.">Cambios completos</Chip>
+            </span>
+          )}
           <Button icon={bulk.open ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />} onClick={() => setBulk({ open: !bulk.open, tick: bulk.tick + 1 })}>{bulk.open ? 'Contraer todo' : 'Expandir todo'}<ShortcutKey id="changes.expand" /></Button>
         </div>
         {report.message && <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">{report.message}</p>}

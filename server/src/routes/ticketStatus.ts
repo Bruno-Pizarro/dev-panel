@@ -5,11 +5,11 @@ import { getManualTests } from '../services/checklists.js';
 import { fetchTicketMrs } from '../services/gitlab.js';
 import { readRepoStatus } from '../services/gitRepos.js';
 import { z } from 'zod';
-import { getViewed, setViewed, viewKey } from '../services/changeReview.js';
+import { getViewed, getViewedRef, setViewed, setViewedRef, viewKey } from '../services/changeReview.js';
 import { getNote, setNote, MAX_NOTE } from '../services/ticketNotes.js';
-import { readFileDiff, readFileSignature, readTicketChanges, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
+import { readFileDiff, readFileDiffSince, readFileSignature, readTicketChanges, snapshotWorkingFile, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
-import { readMrChanges, readMrFileDiff, readMrSignature } from '../services/mrChanges.js';
+import { readMrChanges, readMrFileDiff, readMrFileDiffSince, readMrSignature } from '../services/mrChanges.js';
 import { buildClosing } from '../services/ticketClosing.js';
 import { buildShipChecklist, lastRunOf, readI18nCheck, repoWarnings, reposChangedSince, summarizeShip, withoutManagedEnv } from '../services/ticketStatus.js';
 import { getTicket, ignoredDirs, type TicketMeta } from '../services/tickets.js';
@@ -55,14 +55,16 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     return { baseBranch: loaded.config.git.baseBranch, repos, progress: viewedProgress(repos) };
   });
 
-  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; scope?: string } }>('/api/tickets/:dir/changes/diff', async (request, reply) => {
+  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; scope?: string; since?: string } }>('/api/tickets/:dir/changes/diff', async (request, reply) => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
     const { repo, path, scope } = request.query;
     if (!repo || !path || (scope !== 'committed' && scope !== 'working')) return reply.code(400).send({ error: 'Faltan repo, path o scope (committed | working)' });
     // Solo los repos que declara el ticket.
     if (!(loaded.ticket.meta?.repos ?? []).includes(repo)) return reply.code(404).send({ error: 'Ese repo no pertenece al ticket' });
-    const outcome = await readFileDiff(loaded.config, repo, path, scope as ChangeScope);
+    // `since=viewed`: solo lo que cambió desde que se marcó como visto (si no hay marca, el cambio completo).
+    const viewedSignature = request.query.since === 'viewed' ? getViewed(request.params.dir)[viewKey(repo, scope as ChangeScope, path)] : undefined;
+    const outcome = viewedSignature ? await readFileDiffSince(loaded.config, repo, path, scope as ChangeScope, viewedSignature) : await readFileDiff(loaded.config, repo, path, scope as ChangeScope);
     return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
   });
 
@@ -79,6 +81,8 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     const signature = await readFileSignature(loaded.config, repo, path, scope);
     if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
     setViewed(request.params.dir, key, signature.signature);
+    // Una copia de lo que se vio, para poder mostrar después solo lo que cambió (los archivos commiteados ya los guarda git).
+    if (scope === 'working') snapshotWorkingFile(loaded.config, repo, path, signature.signature);
     return { viewed: true, signature: signature.signature };
   });
 
@@ -89,12 +93,14 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     return loaded ? readMrChanges(loaded.config, loaded.ticket.meta, getViewed(mrMarks(request.params.dir)), request.query.fresh === '1') : reply;
   });
 
-  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string } }>('/api/tickets/:dir/mr-changes/diff', async (request, reply) => {
+  app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; since?: string } }>('/api/tickets/:dir/mr-changes/diff', async (request, reply) => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
     const { repo, path } = request.query;
     if (!repo || !path) return reply.code(400).send({ error: 'Faltan repo o path' });
-    const outcome = await readMrFileDiff(loaded.config, loaded.ticket.meta, repo, path);
+    const mrKey = viewKey(repo, 'committed', path);
+    const viewedSignature = request.query.since === 'viewed' ? getViewed(mrMarks(request.params.dir))[mrKey] : undefined;
+    const outcome = viewedSignature ? await readMrFileDiffSince(loaded.config, loaded.ticket.meta, repo, path, getViewedRef(mrMarks(request.params.dir), mrKey)) : await readMrFileDiff(loaded.config, loaded.ticket.meta, repo, path);
     return outcome.ok ? outcome.value : reply.code(outcome.status).send({ error: outcome.error });
   });
 
@@ -109,6 +115,8 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     const signature = await readMrSignature(loaded.config, loaded.ticket.meta, repo, path);
     if (!signature.ok) return reply.code(signature.status).send({ error: signature.error });
     setViewed(mrMarks(request.params.dir), key, signature.signature);
+    // El último commit del MR que se vio: de ahí en adelante se compara para mostrar «lo nuevo».
+    setViewedRef(mrMarks(request.params.dir), key, signature.headSha);
     return { viewed: true, signature: signature.signature };
   });
 

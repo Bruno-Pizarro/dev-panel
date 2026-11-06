@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
-import { viewedStateOf, viewKey, type ViewedMap, type ViewedState } from './changeReview.js';
+import { saveSnapshot, snapshotPath, viewedStateOf, viewKey, type ViewedMap, type ViewedState } from './changeReview.js';
 import { parseLog, parsePorcelain, type RepoStatus } from './gitRepos.js';
 
 export const MAX_DIFF_LINES = 2000;
@@ -43,6 +43,10 @@ export interface FileDiff {
   truncated: boolean;
   /** Por qué no se muestra completo, para avisarlo en pantalla. */
   reason: string | null;
+  /** Solo con «últimos cambios»: el diff es lo que cambió desde que se marcó como visto (no el cambio completo). */
+  since?: boolean;
+  /** Aviso cuando se pidieron los últimos cambios pero se muestra otra cosa (no se encontró la versión que se vio). */
+  note?: string | null;
 }
 
 /** `git diff --numstat --no-renames`: "<agregadas>\t<borradas>\t<ruta>", con "-" en ambas si el archivo es binario. */
@@ -289,4 +293,48 @@ export const readFileDiff = async (config: DevPanelConfig, repo: string, path: s
   // Más del buffer del ejecutor: tampoco se muestra.
   if (!output.ok) return { ok: true, value: { diff: '', truncated: true, reason: 'Diff demasiado grande (más de 1 MB)' } };
   return { ok: true, value: limitDiff(output.stdout) };
+};
+
+const ZERO_BLOB = /^0+$/;
+
+/** Copia de un archivo sin commitear tal como está ahora, para poder mostrar después «lo que cambió desde que lo viste». */
+export const snapshotWorkingFile = (config: DevPanelConfig, repo: string, path: string, signature: string): boolean =>
+  isSafeRelativePath(path) && saveSnapshot(signature, join(config.paths.projects, repo, path));
+
+const noteFullFallback = (full: FileDiff, note: string): FileDiff => ({ ...full, note });
+
+/**
+ * Lo que cambió en un archivo DESDE QUE SE MARCÓ COMO VISTO (`viewedSignature` = la huella que tenía al marcarlo).
+ * - Commiteado: la huella lleva el id del blob que se vio ("viejo>nuevo"): se compara ese blob con el actual.
+ * - Sin commitear: se compara la copia que se guardó al marcarlo con el archivo de ahora.
+ * Si no se puede reconstruir lo que se vio (la marca es anterior a esta función, el repo limpió el objeto), se muestra el cambio
+ * completo y se avisa en `note`.
+ */
+export const readFileDiffSince = async (config: DevPanelConfig, repo: string, path: string, scope: ChangeScope, viewedSignature: string, runner: Runner = run): Promise<DiffOutcome> => {
+  const full = await readFileDiff(config, repo, path, scope, runner);
+  if (!full.ok || full.value.truncated) return full;
+  const repoDir = join(config.paths.projects, repo);
+  const git = gitIn(repoDir, runner);
+  const files = scope === 'committed' ? await committedFiles(git, (await resolveBase(git, config.git.baseBranch, repoDir))!, [`:(literal)${path}`]) : await workingFiles(git, [`:(literal)${path}`]);
+  const current = files.find((entry) => entry.path === path)?.signature ?? '';
+  const unchanged: FileDiff = { diff: '', truncated: false, reason: 'Sin cambios desde que lo viste', since: true };
+  if (current === viewedSignature) return { ok: true, value: unchanged };
+
+  if (scope === 'committed') {
+    const viewedBlob = viewedSignature.split('>')[1] ?? '';
+    const currentBlob = current.split('>')[1] ?? '';
+    if (!viewedBlob || ZERO_BLOB.test(viewedBlob)) return { ok: true, value: noteFullFallback(full.value, 'Cuando lo viste el archivo no existía: se muestra el cambio completo.') };
+    if (viewedBlob === currentBlob) return { ok: true, value: unchanged };
+    if (ZERO_BLOB.test(currentBlob)) return { ok: true, value: { diff: '', truncated: false, reason: 'El archivo se eliminó desde que lo viste', since: true } };
+    if (!(await git(['cat-file', '-e', viewedBlob])).ok) return { ok: true, value: noteFullFallback(full.value, 'No se encuentra en el repo la versión que viste (se limpió): se muestra el cambio completo.') };
+    const output = await git(['diff', '--no-color', viewedBlob, currentBlob]);
+    return { ok: true, value: output.ok ? { ...limitDiff(output.stdout), since: true } : noteFullFallback(full.value, 'No se pudo comparar con lo que viste: se muestra el cambio completo.') };
+  }
+
+  const snapshot = snapshotPath(viewedSignature);
+  if (!snapshot) return { ok: true, value: noteFullFallback(full.value, 'No hay copia de lo que viste (la marca es anterior): se muestra el cambio completo.') };
+  if (current === 'deleted') return { ok: true, value: { diff: '', truncated: false, reason: 'El archivo se eliminó desde que lo viste', since: true } };
+  // `git diff --no-index` sale con código 1 cuando hay diferencias: lo que importa es la salida.
+  const output = await git(['diff', '--no-index', '--no-color', '--', snapshot, join(repoDir, path)]);
+  return { ok: true, value: output.stdout ? { ...limitDiff(output.stdout), since: true } : unchanged };
 };
