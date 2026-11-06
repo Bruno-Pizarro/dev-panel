@@ -1,16 +1,17 @@
-import { Check, ExternalLink, ListChecks } from 'lucide-react';
+import { Check, ClipboardCopy, ExternalLink, ListChecks } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
-import type { DailyChecklist } from '../lib/types';
+import type { DailyChecklist, DailyNotesRequest } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { itemUrgency, URGENCY_RGB } from '../lib/workday';
 import { Badge } from './Badge';
+import { Button } from './Button';
 import { Card } from './Card';
 import { useToast } from './Toast';
 
 /**
- * Tareas que se repiten todos los días (marcar entrada, salida, cargar horas): se tildan por día y arrancan limpias cada mañana.
+ * Tareas que se repiten todos los días (marcar entrada, salida, cargar horas y notas): se tildan por día y arrancan limpias cada mañana.
  * Con horarios configurados, entrada y salida pasan de ámbar a naranja y rojo cuanto más tarde sea; "cargar horas" es rojo
  * apenas marcaste la salida y no cargaste. El enlace de marcación aparece como botón debajo.
  */
@@ -23,6 +24,7 @@ export const DailyChecklistCard = () => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  const [copying, setCopying] = useState(false);
   const data = list.data;
   if (!data) return null;
   const done = data.items.filter((item) => item.done).length;
@@ -34,6 +36,20 @@ export const DailyChecklistCard = () => {
       list.reload();
     } catch (error) {
       toast('error', (error as Error).message);
+    }
+  };
+
+  // Pedido para Claude: una nota en cada ticket con lo que se avanzó hoy (el panel no escribe en Redmine; Claude pide el OK antes de publicar).
+  const copyNotesRequest = async () => {
+    setCopying(true);
+    try {
+      const request = await api.post<DailyNotesRequest>('/api/daily/notes', {});
+      await navigator.clipboard.writeText(request.prompt);
+      toast('success', request.tickets.length ? `Pedido copiado (${request.tickets.length} ${request.tickets.length === 1 ? 'ticket' : 'tickets'} de hoy). Pegalo en la extensión de Claude.` : 'Pedido copiado, pero hoy no hay desarrollo registrado en ningún ticket.');
+    } catch (error) {
+      toast('error', (error as Error).message || 'No se pudo copiar.');
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -59,11 +75,14 @@ export const DailyChecklistCard = () => {
           );
         })}
       </ul>
-      {workday.punchUrl && (
-        <a href={workday.punchUrl} target="_blank" rel="noreferrer noopener" className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-surface-2 px-3.5 text-sm font-medium transition-colors hover:border-accent/40 hover:text-accent">
-          <ExternalLink className="size-4" aria-hidden />Ir a marcar
-        </a>
-      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {workday.punchUrl && (
+          <a href={workday.punchUrl} target="_blank" rel="noreferrer noopener" className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-surface-2 px-3.5 text-sm font-medium transition-colors hover:border-accent/40 hover:text-accent">
+            <ExternalLink className="size-4" aria-hidden />Ir a marcar
+          </a>
+        )}
+        <Button variant="secondary" icon={<ClipboardCopy className="size-4" />} loading={copying} onClick={copyNotesRequest} title="Copia un pedido para que Claude deje en cada ticket de hoy una nota con lo que se avanzó">Copiar pedido de notas para Claude</Button>
+      </div>
     </Card>
   );
 };

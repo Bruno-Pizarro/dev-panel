@@ -454,6 +454,14 @@ export interface DiscordMessagePreview {
   problems: string[];
 }
 
+/** Pedido para que Claude deje una nota por ticket con lo avanzado hoy (`POST /api/daily/notes`). */
+export interface DailyNotesRequest {
+  date: string;
+  tickets: Array<{ ticket: string | null; title: string | null }>;
+  data: string;
+  prompt: string;
+}
+
 export interface WeeklyReport {
   range: { start: string; end: string; label: string };
   tickets: Array<{ ticket: string | null; title: string | null; redmineStatus: string | null }>;
@@ -518,7 +526,7 @@ export interface AgentDetail extends AgentRun { request: string | null; response
 export type NoticeKind = 'due' | 'mr' | 'review' | 'sprint' | 'holiday' | 'routine' | 'reminder' | 'discord';
 export interface HomeNotice { id: string; kind: NoticeKind; level: 'important' | 'info'; title: string; detail: string; link: string | null; reminderId?: string }
 export interface ReminderItem { id: string; text: string; at: string | null; createdAt: string; done: boolean; doneAt: string | null }
-export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; routines: HomeNotice[]; reminders: HomeNotice[]; discord?: HomeNotice[]; fromCache: boolean }
+export interface HomeNoticesReport { date: string; generatedAt: string; notices: HomeNotice[]; errors: Array<{ source: string; message: string }>; offDays?: string[]; routines: HomeNotice[]; reminders: HomeNotice[]; discord?: HomeNotice[]; fromCache: boolean }
 export interface WeatherNow { temperature: number; apparent: number; code: number; isDay: boolean; label: string; time: string }
 
 export interface EnvComparison { repo: string; comparable: boolean; source: 'example' | 'schema' | null; exampleFile: string | null; missing: string[]; extra: string[]; commented: string[]; usesDefault: string[] }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WORKDAY_PHRASES, workdayPhase, AI_PHRASES, ATTENTION_PHRASES, contextFromNotices, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
+import { WORKDAY_PHRASES, workdayPhase, AI_PHRASES, ATTENTION_PHRASES, contextFromNotices, nextWorkdayLabel, DAY_PHRASES, HOLIDAY_PHRASES, ODD_HOUR_PHRASES, PHRASES, pickGreeting, poolFor, slotOf, type Slot } from './greetings';
 
 const at = (hour: number, day = 3) => {
   const date = new Date(2026, 10, 4, hour, 0, 0); // miércoles
@@ -97,7 +97,8 @@ describe('frases del Inicio', () => {
     for (const range of ODD_HOUR_PHRASES) {
       expect(range.phrases.length).toBeGreaterThanOrEqual(3);
       expect(range.phrases.filter((phrase) => phrase.named).every((phrase) => phrase.text.includes('{name}'))).toBe(true);
-      const mine = range.phrases.filter((phrase) => !phrase.named).map((phrase) => phrase.text);
+      // at() es un miércoles: «{tomorrow}» se resuelve como «mañana»
+      const mine = range.phrases.filter((phrase) => !phrase.named).map((phrase) => phrase.text.replaceAll('{tomorrow}', 'mañana'));
       expect(poolFor(at(range.from), '').filter((text) => mine.includes(text)).length).toBe(mine.length * 2);
     }
     const night = ODD_HOUR_PHRASES.find((range) => range.from === 2)!.phrases[0]!.text;
@@ -162,7 +163,7 @@ describe('frases según la jornada', () => {
     for (const phase of Object.keys(WORKDAY_PHRASES) as Array<keyof typeof WORKDAY_PHRASES>) {
       expect(WORKDAY_PHRASES[phase].length).toBeGreaterThanOrEqual(4);
       const named = poolFor(at(10), 'Ana', { workday: phase });
-      const own = WORKDAY_PHRASES[phase].map((phrase) => phrase.text.replaceAll('{name}', 'Ana'));
+      const own = WORKDAY_PHRASES[phase].map((phrase) => phrase.text.replaceAll('{name}', 'Ana').replaceAll('{Tomorrow}', 'Mañana').replaceAll('{tomorrow}', 'mañana'));
       own.forEach((text) => expect(named.filter((item) => item === text).length).toBe(3));
       expect(poolFor(at(10), '', { workday: phase }).every((text) => !/[{}]/.test(text))).toBe(true);
     }
@@ -171,5 +172,38 @@ describe('frases según la jornada', () => {
 
   it('un feriado sigue mandando sobre la jornada', () => {
     expect(poolFor(at(10), 'Ana', { holiday: 'X', workday: 'longAfter' }).length).toBe(HOLIDAY_PHRASES.length);
+  });
+});
+
+describe('frases que hablan de «mañana»', () => {
+  const day = (month: number, date: number, hour = 18) => new Date(2026, month - 1, date, hour, 0, 0);
+
+  it('mañana es mañana solo si mañana se trabaja; si no, el próximo día hábil con su nombre', () => {
+    expect(nextWorkdayLabel(day(11, 4))).toBe('mañana'); // miércoles
+    expect(nextWorkdayLabel(day(11, 6))).toBe('el lunes'); // viernes
+    expect(nextWorkdayLabel(day(11, 7))).toBe('el lunes'); // sábado
+    expect(nextWorkdayLabel(day(11, 8))).toBe('mañana'); // domingo: mañana es lunes
+  });
+
+  it('salta los feriados que no se trabajan: viernes 6-11 con el lunes 9 feriado es «el martes»', () => {
+    expect(nextWorkdayLabel(day(11, 6), ['2026-11-09'])).toBe('el martes');
+    expect(nextWorkdayLabel(day(11, 8), ['2026-11-09'])).toBe('el martes');
+    // un feriado en mitad de la semana
+    expect(nextWorkdayLabel(day(12, 7), ['2026-12-08'])).toBe('el miércoles');
+    // varios seguidos
+    expect(nextWorkdayLabel(day(11, 6), ['2026-11-09', '2026-11-10'])).toBe('el miércoles');
+  });
+
+  it('«te olvidás hasta …» dice el día correcto y ninguna frase deja la marca sin reemplazar', () => {
+    const hours = { workday: 'afterExitHours' as const, offDays: ['2026-11-09'] };
+    expect(poolFor(day(11, 6), 'Ana', hours)).toContain('Antes de irte, las horas: dos minutos y te olvidás hasta el martes.');
+    expect(poolFor(day(11, 4), 'Ana', { workday: 'afterExitHours' })).toContain('Antes de irte, las horas: dos minutos y te olvidás hasta mañana.');
+    for (const date of [day(11, 4), day(11, 6), day(11, 7), day(11, 8)]) {
+      for (const context of [{}, { workday: 'lastHour' as const }, { workday: 'afterExit' as const }, { workday: 'longAfter' as const }, { holiday: 'Navidad' }]) {
+        for (const text of poolFor(date, 'Ana', { ...context, offDays: ['2026-11-09'] })) expect(text).not.toMatch(/\{[A-Za-z]+\}/);
+      }
+    }
+    // al comienzo de una frase queda con mayúscula: «El martes vas a ver…»
+    expect(poolFor(day(11, 6), 'Ana', { workday: 'afterExit', offDays: ['2026-11-09'] })).toContain('Hora de salir. El martes vas a ver los problemas con otros ojos.');
   });
 });

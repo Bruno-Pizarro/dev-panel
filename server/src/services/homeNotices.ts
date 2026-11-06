@@ -40,6 +40,8 @@ export interface NoticesReport {
   generatedAt: string;
   notices: Notice[];
   errors: NoticeError[];
+  /** Fechas (AAAA-MM-DD) de los próximos feriados que no se trabajan (inamovibles y trasladables ya con su fecha final; sin puentes), para que las frases digan «hasta el martes» en vez de «hasta mañana». */
+  offDays?: string[];
 }
 
 const MS_DAY = 86_400_000;
@@ -195,6 +197,14 @@ export const sprintNotice = (sprint: Sprint, tickets: RedmineIssue[], doneStatus
 };
 
 // ---------------------------------------------------------------- feriados
+/** Los feriados que no se trabajan dentro de los próximos `withinDays` días (hoy incluido). Los «puentes» son opcionales: no cuentan. */
+export const offDaysOf = (holidays: Holiday[], today: string, withinDays = 10): string[] => {
+  const base = Date.parse(`${today}T00:00:00Z`);
+  return [...new Set(holidays.filter((holiday) => holiday.type === 'inamovible' || holiday.type === 'trasladable').map((holiday) => holiday.date))]
+    .filter((date) => { const diff = (Date.parse(`${date}T00:00:00Z`) - base) / MS_DAY; return diff >= 0 && diff <= withinDays; })
+    .sort();
+};
+
 export const holidayNotices = (holidays: Holiday[], today: string): Notice[] => {
   const { today: now, next } = upcomingHolidays(holidays, today, 7);
   const weekday = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'numeric' });
@@ -319,11 +329,13 @@ export const computeNotices = async (config: DevPanelConfig, saved: Saved | null
     }
   }
 
+  let offDays: string[] = [];
   if (config.home.holidays) {
     try {
       const years = [...new Set([now.getFullYear(), new Date(now.getTime() + 7 * MS_DAY).getFullYear()])];
       const lists = await Promise.all(years.map((year) => (deps.fetchHolidays ?? holidaysOf)(year)));
       notices.push(...holidayNotices(lists.flat(), today));
+      offDays = offDaysOf(lists.flat(), today);
     } catch (error) {
       fail('Feriados', error);
     }
@@ -331,7 +343,7 @@ export const computeNotices = async (config: DevPanelConfig, saved: Saved | null
 
   const order: Record<NoticeLevel, number> = { important: 0, info: 1 };
   notices.sort((a, b) => order[a.level] - order[b.level]);
-  return { report: { date: today, generatedAt: now.toISOString(), notices, errors }, mrNotes, reviewSince };
+  return { report: { date: today, generatedAt: now.toISOString(), notices, errors, offDays }, mrNotes, reviewSince };
 };
 
 type Get = (path: string) => Promise<unknown>;
