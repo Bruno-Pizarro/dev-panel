@@ -15,8 +15,14 @@ const TAGS = { front: '111111', legajo: '222222', documentos: '333333', 'file-ma
 describe('hilo de Discord: piezas puras', () => {
   it('el mensaje sigue el formato del equipo: ticket y un repo: enlace por MR', () => {
     expect(threadMessage('https://r/issues/33526', [{ repo: 'front', iid: 165, url: 'https://g/front/-/merge_requests/165' }, { repo: 'legajo', iid: 65, url: 'https://g/legajo/-/merge_requests/65' }])).toBe(
-      '🎫 **Ticket**: https://r/issues/33526\n\n📝 **Merge Requests**\nfront: https://g/front/-/merge_requests/165\nlegajo: https://g/legajo/-/merge_requests/65',
+      '🎫 **Ticket**: <https://r/issues/33526>\n\n📝 **Merge Requests**\nfront: <https://g/front/-/merge_requests/165>\nlegajo: <https://g/legajo/-/merge_requests/65>',
     );
+  });
+
+  it('con tu usuario de Discord suma una línea que te menciona; sin usuario, no', () => {
+    const mrs = [{ repo: 'front', iid: 1, url: 'https://g/front/-/merge_requests/1' }];
+    expect(threadMessage('https://r/issues/1', mrs, '123456789012345678').endsWith('\n\n👤 <@123456789012345678>')).toBe(true);
+    expect(threadMessage('https://r/issues/1', mrs)).not.toContain('<@');
   });
 
   it('las etiquetas son las de los repos involucrados, sin repetir; un repo sin etiqueta usa «Otro» o queda faltando', () => {
@@ -26,7 +32,7 @@ describe('hilo de Discord: piezas puras', () => {
   });
 
   it('el borrador lleva el número de ticket en el título (cortado a 100) y las etiquetas de los repos del ticket y de sus MRs', () => {
-    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '' } };
+    const config = { discord: { webhookVar: 'X', tags: TAGS, otherTag: '', userId: '' } };
     const draft = buildDraft({ ticket: '33526', title: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'documentos', iid: 9, url: 'https://g/documentos/-/merge_requests/9' }] }, config);
     expect(draft.name).toBe('[Ticket #33526] Pestaña Pendientes de firma en el Perfil');
     expect(draft.tags).toEqual(['111111', '222222', '333333']);
@@ -53,7 +59,7 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     config.paths.extra = extra;
     config.paths.daily = join(extra, 'daily');
     config.userName = 'Bruno';
-    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '' };
+    config.discord = { webhookVar: 'DISCORD_WEBHOOK_MR', tags: TAGS, otherTag: '', userId: '111222333444555666' };
     mkdirSync(join(extra, '33526-pendientes-firma'), { recursive: true });
     writeFileSync(join(extra, '33526-pendientes-firma', 'ticket.json'), JSON.stringify({ ticket: '33526', titulo: 'Pestaña Pendientes de firma en el Perfil', url: 'https://r/issues/33526', repos: ['front', 'legajo'], mrs: [{ repo: 'front', iid: 165, url: 'https://g/front/-/merge_requests/165' }] }));
   });
@@ -88,8 +94,9 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     expect(calls).toHaveLength(1);
     expect(calls[0]!.method).toBe('POST');
     expect(calls[0]!.url).toBe(`${WEBHOOK}?wait=true`);
-    expect(calls[0]!.body).toMatchObject({ thread_name: '[Ticket #33526] Pestaña Pendientes de firma en el Perfil', applied_tags: ['111111', '222222'], username: 'Bruno · Dev Panel', allowed_mentions: { parse: [] } });
-    expect(String(calls[0]!.body['content'])).toContain('front: https://g/front/-/merge_requests/165');
+    expect(calls[0]!.body).toMatchObject({ thread_name: '[Ticket #33526] Pestaña Pendientes de firma en el Perfil', applied_tags: ['111111', '222222'], username: 'Bruno · Dev Panel', flags: 4, allowed_mentions: { parse: [], users: ['111222333444555666'] } });
+    expect(String(calls[0]!.body['content'])).toContain('front: <https://g/front/-/merge_requests/165>');
+    expect(String(calls[0]!.body['content'])).toContain('👤 <@111222333444555666>');
     expect(JSON.parse(readFileSync(join(dir, 'discord-threads.json'), 'utf8'))['33526']).toMatchObject({ threadId: 'THREAD1', messageId: 'MSG1' });
     expect(previewThread(config, '33526-pendientes-firma')).toMatchObject({ action: 'update', record: { link: 'https://discord.com/channels/GUILD1/THREAD1' } });
   });
@@ -102,7 +109,8 @@ describe('hilo de Discord: vista previa y publicación (webhook simulado)', () =
     expect(calls).toHaveLength(1);
     expect(calls[0]!.method).toBe('PATCH');
     expect(calls[0]!.url).toBe(`${WEBHOOK}/messages/MSG1?thread_id=THREAD1`);
-    expect(String(calls[0]!.body['content'])).toContain('legajo: https://g/legajo/-/merge_requests/65');
+    expect(String(calls[0]!.body['content'])).toContain('legajo: <https://g/legajo/-/merge_requests/65>');
+    expect(calls[0]!.body['allowed_mentions']).toEqual({ parse: [], users: ['111222333444555666'] });
     expect(calls[0]!.body).not.toHaveProperty('applied_tags');
   });
 

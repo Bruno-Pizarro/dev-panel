@@ -19,6 +19,7 @@ export interface DevPanelConfig {
   };
   home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number };
   weekly: { template: string };
+  discord?: { webhookVar: string; tags: Record<string, string>; otherTag: string; userId: string };
   repos: string[];
 }
 

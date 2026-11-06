@@ -17,6 +17,10 @@ Foro del servidor **eSueldos-v3-dev** donde cada ticket tiene una publicación (
 - Con la etiqueta «Estado: Producción» se **elimina** la publicación (a mano; el webhook no puede borrar).
 - Todos los mensajes y discusiones del ticket van en la publicación.
 
+## Sin tarjetas de enlace y mención
+- Los enlaces del mensaje van entre `<…>` y el hilo se crea con el flag de «sin embeds»: se ven igual de clicables pero **sin la tarjeta con el logo de GitLab/Redmine**. El permiso «Insertar enlaces» del canal no frena a un webhook (no es un miembro), por eso se pide en el propio mensaje.
+- Con tu **id de usuario de Discord** cargado en Configuración → Discord (`discord.userId`, un número: Ajustes → Avanzado → Modo desarrollador → clic derecho sobre tu nombre → Copiar ID de usuario) el mensaje suma al final `👤 @vos`, así quedás en la lista de miembros del hilo. Solo menciona a ese usuario (nunca `@everyone` ni roles); como te menciona, Discord te notifica a vos.
+
 ## Etiquetas del foro (ids)
 No son secretos (sin acceso al servidor no sirven de nada). Se cargan en `config.json` → `discord.tags`, por nombre de **carpeta del repo**.
 

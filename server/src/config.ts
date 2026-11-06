@@ -193,6 +193,8 @@ export const configSchema = z.object({
       webhookVar: z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/).default('DISCORD_WEBHOOK_MR'),
       tags: z.record(z.string(), z.string().regex(/^\d{5,25}$/)).default({}),
       otherTag: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
+      /** Id numérico de tu usuario de Discord: el hilo te menciona (así quedás en la lista de miembros del hilo). Vacío = sin mención. */
+      userId: z.string().regex(/^\d{5,25}$/).or(z.literal('')).default(''),
     })
     .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
@@ -261,7 +263,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
   home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
   weekly: { template: '' },
-  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '' },
+  discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '' },
   git: { baseBranch: 'desarrollo' },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,

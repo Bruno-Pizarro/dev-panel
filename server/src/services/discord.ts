@@ -47,11 +47,21 @@ const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0
 /** La URL de un webhook de Discord: solo discord.com, nunca otro host. */
 export const validWebhook = (value: string): boolean => /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d{5,25}\/[\w-]{20,200}$/.test(value);
 
-/** El mensaje del hilo en el formato de las directivas: ticket y un `repo: enlace` por MR. */
-export const threadMessage = (ticketUrl: string, mrs: DiscordMr[]): string => {
-  const lines = mrs.map((mr) => `${mr.repo ?? 'repo'}: ${mr.url}`);
-  return ['🎫 **Ticket**: ' + ticketUrl, '', '📝 **Merge Requests**', ...lines].join('\n');
+/**
+ * El mensaje del hilo en el formato de las directivas: ticket y un `repo: enlace` por MR. Los enlaces van entre `<…>`: Discord los
+ * muestra igual (clicables, sin los signos) pero NO arma la tarjeta con el logo de GitLab/Redmine. El permiso «Insertar enlaces» del
+ * canal no frena a un webhook (no es un miembro), por eso se pide en el propio mensaje. Con `userId` suma una línea que te menciona.
+ */
+export const threadMessage = (ticketUrl: string, mrs: DiscordMr[], userId = ''): string => {
+  const lines = mrs.map((mr) => `${mr.repo ?? 'repo'}: <${mr.url}>`);
+  return ['🎫 **Ticket**: <' + ticketUrl + '>', '', '📝 **Merge Requests**', ...lines, ...(userId ? ['', `👤 <@${userId}>`] : [])].join('\n');
 };
+
+/** SUPPRESS_EMBEDS: refuerzo de los `<…>` para que ninguna tarjeta de enlace se arme al crear el hilo. */
+const SUPPRESS_EMBEDS = 4;
+
+/** Solo se puede mencionar a quien está configurado, y sin `@everyone` ni roles. */
+const mentions = (userId: string) => ({ parse: [] as string[], ...(userId ? { users: [userId] } : {}) });
 
 /** Etiquetas de los repos involucrados (los del ticket más los de sus MRs), sin repetir; los repos sin etiqueta propia usan «Otro». */
 export const tagsFor = (repos: string[], tags: Record<string, string>, otherTag: string): { ids: string[]; missing: string[] } => {
@@ -67,7 +77,7 @@ export const tagsFor = (repos: string[], tags: Record<string, string>, otherTag:
 
 export const buildDraft = (meta: { ticket: string; title: string; url: string; repos: string[]; mrs: DiscordMr[] }, config: Pick<DevPanelConfig, 'discord'>): ThreadDraft => {
   const { ids, missing } = tagsFor([...meta.repos, ...meta.mrs.map((mr) => mr.repo).filter((repo): repo is string => !!repo)], config.discord.tags, config.discord.otherTag);
-  return { name: clip(`[Ticket #${meta.ticket}] ${meta.title}`, MAX_NAME), content: threadMessage(meta.url, meta.mrs), tags: ids, missingTags: missing };
+  return { name: clip(`[Ticket #${meta.ticket}] ${meta.title}`, MAX_NAME), content: threadMessage(meta.url, meta.mrs, config.discord.userId), tags: ids, missingTags: missing };
 };
 
 const recordsFile = () => join(paths.data, 'discord-threads.json');
@@ -155,7 +165,7 @@ export const publishThread = async (config: DevPanelConfig, dir: string, options
   const existing = records[ticket];
 
   if (existing) {
-    const response = await post(`${webhook}/messages/${existing.messageId}?thread_id=${existing.threadId}`, { method: 'PATCH', body: JSON.stringify({ content: draft.content, allowed_mentions: { parse: [] } }) });
+    const response = await post(`${webhook}/messages/${existing.messageId}?thread_id=${existing.threadId}`, { method: 'PATCH', body: JSON.stringify({ content: draft.content, allowed_mentions: mentions(config.discord.userId) }) });
     if (response.status === 404) {
       delete records[ticket];
       writeRecords(records);
@@ -167,7 +177,7 @@ export const publishThread = async (config: DevPanelConfig, dir: string, options
     return { action: 'updated', threadId: existing.threadId, link: existing.guildId ? `https://discord.com/channels/${existing.guildId}/${existing.threadId}` : null };
   }
 
-  const response = await post(`${webhook}?wait=true`, { method: 'POST', body: JSON.stringify({ thread_name: draft.name, content: draft.content, applied_tags: draft.tags, username, allowed_mentions: { parse: [] } }) });
+  const response = await post(`${webhook}?wait=true`, { method: 'POST', body: JSON.stringify({ thread_name: draft.name, content: draft.content, applied_tags: draft.tags, username, flags: SUPPRESS_EMBEDS, allowed_mentions: mentions(config.discord.userId) }) });
   if (!response.ok) throw new DiscordError(`Discord no aceptó el hilo (${response.status})`, 502);
   const message = (await response.json()) as { id?: string; channel_id?: string; guild_id?: string };
   if (!message.id || !message.channel_id) throw new DiscordError('Discord no devolvió el id del hilo', 502);

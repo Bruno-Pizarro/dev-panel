@@ -1,4 +1,4 @@
-import { Bot, Clock, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bot, Clock, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -132,6 +132,12 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
         <div className="mt-5">
           <Field label="Enlace de marcación" help="Aparece como botón “Ir a marcar” debajo del checklist. Solo http o https." placeholder="https://…/control-horario/marcaciones/pin" value={config.workday.punchUrl} onChange={(punchUrl) => setConfig({ ...config, workday: { ...config.workday, punchUrl } })} />
         </div>
+      </Card>
+    ) },
+    { id: 'discord', label: 'Discord', icon: MessageSquare, content: (
+      <Card title="Discord · foro de MRs">
+        <p className="mb-4 text-muted">Al publicar el hilo de un ticket (pestaña Estado), el mensaje te menciona para que quedes en la lista de miembros del hilo. Las etiquetas del foro y el webhook se configuran aparte (ver docs/DISCORD.md).</p>
+        <Field label="Tu id de usuario de Discord" help="Es un número, no tu apodo. En Discord: Ajustes → Avanzado → Modo desarrollador; después clic derecho sobre tu nombre → Copiar ID de usuario. Vacío = el hilo no te menciona." placeholder="123456789012345678" inputMode="numeric" value={config.discord?.userId ?? ''} onChange={(userId) => setConfig({ ...config, discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', ...config.discord, userId: userId.replace(/\D/g, '') } })} />
       </Card>
     ) },
     { id: 'levantado', label: 'Orden de levantado', icon: Rocket, content: (
