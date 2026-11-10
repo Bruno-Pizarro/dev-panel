@@ -448,13 +448,15 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
 };
 
 /**
- * Los avisos del día: lo guardado si ya se revisó hoy (salvo `refresh`) o una revisión nueva, que se guarda. Los avisos de rutina
+ * Los avisos del día: lo guardado si se revisó hace menos de `home.refreshMinutes` (salvo `refresh`) o una revisión nueva, que se guarda. Los avisos de rutina
  * no se guardan: dependen de la hora y de lo que se tildó, y no consultan nada afuera.
  */
 export const getNotices = async (config: DevPanelConfig, options: { refresh?: boolean; hoursLoaded?: boolean } = {}, now = new Date(), deps: NoticeDeps = {}): Promise<NoticesReport & { routines: Notice[]; fromCache: boolean }> => {
   const saved = readSaved();
   const routines = config.home.routines ? routineNotices(now, config, options.hoursLoaded === true) : [];
-  if (saved && saved.report.date === dayOf(now) && !options.refresh) return { ...saved.report, routines, fromCache: true };
+  // Lo guardado sirve mientras sea de hoy y tenga menos de `home.refreshMinutes` (por defecto una hora): pasado ese tiempo se vuelve a revisar solo.
+  const fresh = saved !== null && now.getTime() - Date.parse(saved.report.generatedAt) < config.home.refreshMinutes * 60_000;
+  if (saved && saved.report.date === dayOf(now) && fresh && !options.refresh) return { ...saved.report, routines, fromCache: true };
   const result = await computeNotices(config, saved, now, deps);
   writeSaved({ report: result.report, reviewSince: result.reviewSince, mrNotes: result.mrNotes });
   return { ...result.report, routines, fromCache: false };

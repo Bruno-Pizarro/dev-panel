@@ -53,10 +53,10 @@ const stepSummary = (input: Record<string, unknown>): string => {
 };
 
 /** Las herramientas que usó el agente, en orden (solo lo que pidió, no lo que devolvieron: pueden ser enormes). */
-export const agentSteps = (jsonl: string): AgentStep[] => {
+export const agentSteps = (jsonl: string, max = MAX_STEPS): AgentStep[] => {
   const steps: AgentStep[] = [];
   for (const line of jsonl.split('\n')) {
-    if (!line.trim() || steps.length >= MAX_STEPS) continue;
+    if (!line.trim() || steps.length >= max) continue;
     let entry: Record<string, unknown>;
     try {
       entry = asRecord(JSON.parse(line));
@@ -68,7 +68,7 @@ export const agentSteps = (jsonl: string): AgentStep[] => {
     if (!Array.isArray(content)) continue;
     for (const raw of content) {
       const block = asRecord(raw);
-      if (block['type'] !== 'tool_use' || typeof block['name'] !== 'string' || block['name'] === 'SubagentHandback' || steps.length >= MAX_STEPS) continue;
+      if (block['type'] !== 'tool_use' || typeof block['name'] !== 'string' || block['name'] === 'SubagentHandback' || steps.length >= max) continue;
       steps.push({ tool: block['name'].slice(0, 60), summary: stepSummary(asRecord(block['input'])) });
     }
   }

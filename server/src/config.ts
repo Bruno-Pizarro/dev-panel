@@ -180,6 +180,8 @@ export const configSchema = z.object({
       dueDays: z.number().int().min(0).max(30).default(3),
       /** Un MR abierto sin movimiento por esta cantidad de días se avisa. */
       mrStaleDays: z.number().int().min(1).max(60).default(3),
+      /** Cada cuántos minutos se vuelven a revisar los avisos del Inicio (Redmine, GitLab…) mientras el panel está abierto. */
+      refreshMinutes: z.number().int().min(15).max(1440).default(60),
     })
     .default({}),
   /** Resumen semanal: plantilla (por ejemplo, un resumen anterior) en la que se basa el pedido a Claude. Vacío = el ejemplo que trae el panel. */
@@ -272,7 +274,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
-  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3 },
+  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3, refreshMinutes: 60 },
   weekly: { template: '' },
   discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} },
   git: { baseBranch: 'desarrollo' },

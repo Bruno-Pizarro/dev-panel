@@ -17,7 +17,7 @@ export interface DevPanelConfig {
     groups: Record<string, { withStage2: string[] }>;
     presets: Array<{ name: string; services: string[] }>;
   };
-  home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number };
+  home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; mrStaleDays: number; refreshMinutes: number };
   weekly: { template: string };
   discord?: { webhookVar: string; tags: Record<string, string>; otherTag: string; userId: string };
   repos: string[];

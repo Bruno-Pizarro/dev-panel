@@ -1,4 +1,4 @@
-import { Bot, Clock, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, Clock, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -13,6 +13,7 @@ import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
 import { RemoteAccess } from '../components/RemoteAccess';
 import { AgentSettings } from './AgentSettings';
+import { NudgeSettings } from './NudgeSettings';
 import { ShortcutSettings } from './ShortcutSettings';
 
 interface ConfigEditorProps {
@@ -176,6 +177,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <Field label="Avisar vencimientos desde (días antes)" type="number" min={0} max={30} help="Un ticket que vence en esta cantidad de días o menos se avisa." value={config.home.dueDays} onChange={(value) => setConfig({ ...config, home: { ...config.home, dueDays: Math.min(30, Math.max(0, Math.round(Number(value) || 0))) } })} />
           <Field label="MR sin movimiento desde (días)" type="number" min={1} max={60} help="Un MR abierto sin actividad por esta cantidad de días se avisa." value={config.home.mrStaleDays} onChange={(value) => setConfig({ ...config, home: { ...config.home, mrStaleDays: Math.min(60, Math.max(1, Math.round(Number(value) || 1))) } })} />
+          <Field label="Revisar los avisos cada (minutos)" type="number" min={15} max={1440} help="Mientras el panel está abierto, los avisos del Inicio (Redmine, GitLab…) se vuelven a revisar pasado este tiempo. Por defecto, una hora." value={config.home.refreshMinutes} onChange={(value) => setConfig({ ...config, home: { ...config.home, refreshMinutes: Math.min(1440, Math.max(15, Math.round(Number(value) || 60))) } })} />
         </div>
       </Card>
     ) },
@@ -201,6 +203,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
     { id: 'atajos', label: 'Atajos de teclado', icon: Keyboard, noSave: true, content: <ShortcutSettings /> },
     { id: 'remoto', label: 'Acceso remoto', icon: MonitorSmartphone, noSave: true, content: <RemoteAccess /> },
     { id: 'agentes', label: 'Agentes de Claude', icon: Bot, noSave: true, content: <AgentSettings /> },
+    { id: 'avisos', label: 'Avisos', icon: Bell, noSave: true, content: <NudgeSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">
         <TagEditor label="Repos que maneja el panel" help="Para el editor de .env, el estado de ramas y el Daily." values={config.repos} onChange={(repos) => setConfig({ ...config, repos })} />
