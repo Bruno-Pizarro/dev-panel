@@ -141,6 +141,9 @@
     /* El brillo de los marcadores de carga es un barrido suave, no un movimiento brusco: se conserva. */
     .animate-shimmer { animation: shimmer 2.4s linear infinite !important; }
     .animate-pulse-dot { animation: none !important; }
+    /* La tarjeta de logros sube suave aun con «reducir movimiento»: es corta, de poco recorrido y el usuario la pidió. */
+    .reward-rise { animation-duration: 560ms !important; }
+    .reward-leave { animation-duration: 260ms !important; }
   }
 }
 
@@ -177,3 +180,29 @@
 .org-kids > .org-item:first-child::after { top: calc(1.375rem + 0.1875rem); }
 .org-kids > .org-item:last-child::after { bottom: calc(100% - 1.375rem - 0.1875rem); }
 .org-kids > .org-item:only-child::after { display: none; }
+
+/* Animaciones de la mascota del pie, una por ánimo. Con «reducir movimiento» quedan quietas. */
+@keyframes mascot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes mascot-sleep { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(0.94); opacity: 0.65; } }
+@keyframes mascot-run { 0%, 100% { transform: translateX(-1px) rotate(-4deg); } 50% { transform: translateX(2px) rotate(4deg); } }
+@keyframes mascot-party { 0% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-6px) rotate(-14deg); } 50% { transform: translateY(0) rotate(0); } 75% { transform: translateY(-6px) rotate(14deg); } 100% { transform: translateY(0) rotate(0); } }
+@keyframes mascot-worry { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
+@keyframes mascot-droop { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-6deg) translateY(1px); } }
+.mascot-idle { animation: mascot-bob 3.2s ease-in-out infinite; }
+.mascot-sleep { animation: mascot-sleep 4s ease-in-out infinite; }
+.mascot-work { animation: mascot-run 0.45s ease-in-out infinite; }
+.mascot-happy { animation: mascot-bob 1.4s ease-in-out infinite; }
+.mascot-party { animation: mascot-party 0.9s ease-in-out infinite; }
+.mascot-worried { animation: mascot-worry 0.7s ease-in-out infinite; }
+.mascot-tired { animation: mascot-droop 3.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mascot-idle, .mascot-sleep, .mascot-work, .mascot-happy, .mascot-party, .mascot-worried, .mascot-tired { animation: none; } }
+
+/* Mascotas con sprites: la tira avanza de cuadro en cuadro (`--sprite-end` es el ancho total de la tira, en negativo). */
+@keyframes sprite-play { to { background-position-x: var(--sprite-end); } }
+@media (prefers-reduced-motion: reduce) { .sprite-face { animation: none !important; } }
+
+/* Tarjetas de logros y festejos: suben suave desde abajo (con un pequeño rebote al final) y se desvanecen al irse. */
+@keyframes reward-rise { 0% { opacity: 0; transform: translateY(34px) scale(0.96); } 60% { opacity: 1; transform: translateY(-4px) scale(1.005); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes reward-leave { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(14px); } }
+.reward-rise { animation: reward-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.reward-leave { animation: reward-leave 260ms ease-in both; }

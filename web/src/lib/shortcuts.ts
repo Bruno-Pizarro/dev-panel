@@ -24,7 +24,7 @@ export const GOTO_PREFIX = 'go:';
 /** Letra por defecto de cada destino del menú (después de `g`). */
 const GOTO_DEFAULTS: Record<string, string> = {
   '/': 'i', '/servicios': 's', '/levantado': 'l', '/datos': 't', '/sesiones': 'e', '/entorno': 'r',
-  '/kanban': 'k', '/pruebas': 'p', '/planificacion': 'd', '/daily': 'y', '/agentes': 'a', '/claude': 'c', '/configuracion': 'o',
+  '/kanban': 'k', '/pruebas': 'p', '/planificacion': 'd', '/daily': 'y', '/agentes': 'a', '/logros': 'h', '/claude': 'c', '/configuracion': 'o',
 };
 
 const MAIN_DEFS: ShortcutDef[] = [

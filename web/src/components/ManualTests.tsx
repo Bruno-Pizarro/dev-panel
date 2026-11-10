@@ -10,6 +10,8 @@ import { Button } from './Button';
 import { Card } from './Card';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
+import { CelebrateWhen } from './CelebrateWhen';
+import { FillBar } from './FillBar';
 import { useToast } from './Toast';
 
 /** Checklist de pruebas manuales: los casos vienen de `pruebasManuales` en ticket.json y se pueden sumar propios; lo tildado vive en el panel. */
@@ -49,10 +51,12 @@ export const ManualTests = ({ dir, onChanged, refreshKey = 0 }: { dir: string; o
 
   return (
     <div className="space-y-5">
+      <CelebrateWhen done={data.total > 0 && data.done === data.total} reason="manual-done" level="medium" />
       <Card
         title="Pruebas manuales"
         action={
           <span className="inline-flex items-center gap-3">
+            <FillBar className="hidden w-32 sm:block" value={data.done} max={Math.max(1, data.total)} compact />
             <Badge tone={data.total > 0 && data.done === data.total ? 'success' : 'warning'}>{data.done}/{data.total} probados</Badge>
             {data.done > 0 && <Button className="h-9" variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => run(() => api.post<ManualTestsData>(`${base}/reset`, {}))}>Reiniciar</Button>}
           </span>

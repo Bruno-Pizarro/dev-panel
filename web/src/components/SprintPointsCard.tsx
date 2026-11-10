@@ -1,4 +1,5 @@
 import { ExternalLink, Flag } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { SprintPointsReport } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -15,6 +16,12 @@ const STATE_LABEL = { approved: 'Entregado', review: 'En revisión', other: 'En 
  */
 export const SprintPointsCard = () => {
   const report = useAsync(() => api.get<SprintPointsReport>('/api/redmine/sprint-points'));
+  // Las barras crecen al aparecer.
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setGrown(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
   if (report.loading) return <Skeleton className="mb-5 h-32" />;
   if (report.error || !report.data) return <p className="mb-5 text-sm text-muted">SP del sprint: {report.error}</p>;
   const { sprint, points } = report.data;
@@ -38,9 +45,11 @@ export const SprintPointsCard = () => {
             <span><strong className="text-xl font-semibold" style={{ color: 'rgb(244 114 182)' }}>{points.review}</strong> <span className="text-sm text-muted">en revisión</span></span>
             <span><strong className="text-xl font-semibold">{points.other}</strong> <span className="text-sm text-muted">en curso</span></span>
             <span className="text-sm text-muted">de {points.planned} SP · {sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')}</span>
+            {points.planned > 0 && points.approved < points.planned && <span className="text-sm text-muted" data-testid="sprint-missing">· faltan {points.planned - points.approved} para cerrar{points.approved / points.planned >= 0.75 ? ' (¡falta poquito!)' : ''}</span>}
+            {points.planned > 0 && points.approved >= points.planned && <span className="text-sm font-medium text-success">· ¡sprint completo!</span>}
           </div>
           <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${points.approved} entregados, ${points.review} en revisión y ${points.other} en curso de ${points.planned} SP`}>
-            {segments.map((segment) => <div key={segment.key} className={segment.className} style={{ width: `${(segment.value / total) * 100}%` }} />)}
+            {segments.map((segment) => <div key={segment.key} className={`${segment.className} transition-[width] duration-700 ease-out`} style={{ width: `${grown ? (segment.value / total) * 100 : 0}%` }} />)}
           </div>
         </div>
       }
@@ -60,7 +69,7 @@ export const SprintPointsCard = () => {
         <div><div className="text-xl font-semibold text-muted">{points.planned}</div><div className="text-sm text-muted">SP planificados</div></div>
       </div>
       <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${points.approved} entregados, ${points.review} en revisión y ${points.other} en curso de ${points.planned} SP`}>
-        {segments.map((segment) => <div key={segment.key} className={segment.className} style={{ width: `${(segment.value / total) * 100}%` }} />)}
+        {segments.map((segment) => <div key={segment.key} className={`${segment.className} transition-[width] duration-700 ease-out`} style={{ width: `${grown ? (segment.value / total) * 100 : 0}%` }} />)}
       </div>
       {points.withoutSp > 0 && <p className="mt-3 text-sm text-warning">{points.withoutSp} ticket{points.withoutSp === 1 ? '' : 's'} del sprint sin “[N SP]” en el título: no suma{points.withoutSp === 1 ? '' : 'n'}.</p>}
       <ul className="mt-3 space-y-1 text-sm">

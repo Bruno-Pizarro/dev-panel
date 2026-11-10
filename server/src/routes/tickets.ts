@@ -1,7 +1,7 @@
 import { createReadStream, readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { IMAGE_TYPES, TicketDeleteError, getTicket, ignoredDirs, listTickets, servicesForTicket, resolveTicketFile, trashTicket } from '../services/tickets.js';
+import { IMAGE_TYPES, MAX_CAPTURE_BYTES, TicketDeleteError, saveCapture, trashCapture, getTicket, ignoredDirs, listTickets, servicesForTicket, resolveTicketFile, trashTicket } from '../services/tickets.js';
 import { getTestState, testStatusOf } from '../services/checklists.js';
 import { getTicketState, kindOf, setTicketState } from '../services/ticketState.js';
 import { requireConfig } from './helpers.js';
@@ -69,5 +69,33 @@ export const registerTicketRoutes = (app: FastifyInstance): void => {
       .header('Cache-Control', 'private, max-age=60')
       .header('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
       .send(createReadStream(file.absolute));
+  });
+
+  /** Suma una captura (pegada o adjuntada) a la carpeta `capturas/` del ticket. Llega en base64 dentro de un JSON. */
+  app.post<{ Params: { dir: string } }>('/api/tickets/:dir/captures', { bodyLimit: Math.ceil(MAX_CAPTURE_BYTES * 1.4) + 4096 }, async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const body = z.object({ name: z.string().max(200), data: z.string().min(1) }).strict().safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Pedido inválido' });
+    try {
+      return saveCapture(config.paths.extra, request.params.dir, body.data.name, Buffer.from(body.data.data, 'base64'), ignoredDirs(config));
+    } catch (error) {
+      if (error instanceof TicketDeleteError) return reply.code(error.status).send({ error: error.message });
+      throw error;
+    }
+  });
+
+  /** Quita una captura: la mueve a `.papelera/capturas/`. Pide `confirm: true`. */
+  app.delete<{ Params: { dir: string } }>('/api/tickets/:dir/captures', async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const body = z.object({ path: z.string().min(1).max(300), confirm: z.literal(true) }).strict().safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Pedido inválido' });
+    try {
+      return trashCapture(config.paths.extra, request.params.dir, body.data.path, ignoredDirs(config));
+    } catch (error) {
+      if (error instanceof TicketDeleteError) return reply.code(error.status).send({ error: error.message });
+      throw error;
+    }
   });
 };

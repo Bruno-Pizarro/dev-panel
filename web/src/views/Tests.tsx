@@ -5,6 +5,7 @@ import { Badge, toneOf } from '../components/Badge';
 import { Card } from '../components/Card';
 import { DocViewer } from '../components/DocViewer';
 import { EmptyState } from '../components/EmptyState';
+import { CaptureAdder } from '../components/CaptureAdder';
 import { Gallery } from '../components/Gallery';
 import { ManualTests } from '../components/ManualTests';
 import { PageHeader } from '../components/PageHeader';
@@ -92,7 +93,12 @@ const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; on
       {tab === 'resumen' && <Summary detail={data} onListChanged={onListChanged} refreshKey={refreshKey} />}
       {tab === 'manuales' && <ManualTests dir={dir} refreshKey={refreshKey} />}
       {tab === 'informes' && <DocViewer key={dir} dir={dir} files={data.files.docs} initial={data.meta?.pruebas?.at(-1)?.archivo ?? reports[0]} refreshKey={refreshKey} />}
-      {tab === 'capturas' && <Gallery dir={dir} images={data.files.images} />}
+      {tab === 'capturas' && (
+        <>
+          <CaptureAdder dir={dir} onAdded={() => (detail.reload(), onListChanged())} />
+          <Gallery dir={dir} images={data.files.images} onChanged={() => (detail.reload(), onListChanged())} />
+        </>
+      )}
     </TicketFrame>
   );
 };

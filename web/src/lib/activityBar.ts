@@ -41,5 +41,5 @@ export const workdayText = (now: Date, workday: { entry: string; exit: string })
   const current = now.getHours() * 60 + now.getMinutes();
   if (current < entry) return { text: `Entrás a las ${workday.entry}`, state: 'before' };
   if (current >= exit) return { text: `Jornada terminada (${workday.exit})`, state: 'after' };
-  return { text: `${span(current - entry)} de jornada · faltan ${span(exit - current)}`, state: 'during' };
+  return { text: `${span(current - entry)} · faltan ${span(exit - current)}`, state: 'during' };
 };

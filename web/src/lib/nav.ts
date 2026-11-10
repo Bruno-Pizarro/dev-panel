@@ -1,4 +1,4 @@
-import { Bot, Boxes, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Bot, Boxes, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon, Trophy } from 'lucide-react';
 
 export interface NavItem {
   path: string;
@@ -34,6 +34,7 @@ export const navGroups: NavGroup[] = [
       { path: '/planificacion', label: 'Desarrollo', description: 'Análisis, plan y diagramas de cada desarrollo', icon: Layers, phase: null },
       { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: null },
       { path: '/agentes', label: 'Agentes', description: 'Subagentes de Claude, por sesión', icon: ListTree, phase: null },
+      { path: '/logros', label: 'Logros', description: 'Tus logros con humor, récords y números', icon: Trophy, phase: null },
     ],
   },
   { label: 'Sistema', items: [
@@ -42,3 +43,13 @@ export const navGroups: NavGroup[] = [
 
 export const allNavItems = navGroups.flatMap((group) => group.items);
 export const brandIcon = ShieldCheck;
+
+/** Destinos que no se pueden quitar del menú lateral (sin ellos no se llega a la configuración ni a Claude). */
+export const LOCKED_NAV_PATHS: readonly string[] = ['/', '/claude', '/configuracion'];
+export const HIDDEN_NAV_KEY = 'dev-panel.nav.hidden';
+
+/** Menú con lo que el usuario quitó ya aplicado: los destinos bloqueados nunca se ocultan y un grupo sin items desaparece. */
+export const visibleNavGroups = (hidden: readonly string[]): NavGroup[] =>
+  navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => LOCKED_NAV_PATHS.includes(item.path) || !hidden.includes(item.path)) }))
+    .filter((group) => group.items.length > 0);

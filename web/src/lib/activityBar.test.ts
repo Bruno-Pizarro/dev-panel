@@ -7,8 +7,8 @@ const day = { entry: '09:00', exit: '18:00' };
 describe('jornada en la barra', () => {
   it('antes de entrar, en curso y terminada', () => {
     expect(workdayText(at(8, 30), day)).toEqual({ text: 'Entrás a las 09:00', state: 'before' });
-    expect(workdayText(at(15, 5), day)).toEqual({ text: '6 h 05 min de jornada · faltan 2 h 55 min', state: 'during' });
-    expect(workdayText(at(9, 20), day)).toEqual({ text: '20 min de jornada · faltan 8 h 40 min', state: 'during' });
+    expect(workdayText(at(15, 5), day)).toEqual({ text: '6 h 05 min · faltan 2 h 55 min', state: 'during' });
+    expect(workdayText(at(9, 20), day)).toEqual({ text: '20 min · faltan 8 h 40 min', state: 'during' });
     expect(workdayText(at(18, 0), day)).toEqual({ text: 'Jornada terminada (18:00)', state: 'after' });
   });
   it('sin horarios configurados, nada', () => {

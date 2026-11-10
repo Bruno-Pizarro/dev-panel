@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import type { DevPanelConfig } from '../config.js';
@@ -232,4 +232,48 @@ export const servicesForTicket = (config: DevPanelConfig, meta: TicketMeta | nul
     skipped: [...new Set(wanted.filter((item) => !known.has(item.service) && !alwaysUp.has(item.service)).map((item) => item.label))],
     source,
   };
+};
+
+export const CAPTURES_DIR = 'capturas';
+export const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
+
+/** Tipo real de la imagen según sus primeros bytes (no se confía en el nombre ni en lo que diga el navegador). SVG no se acepta: puede llevar scripts. */
+export const sniffImage = (bytes: Buffer): '.png' | '.jpg' | '.gif' | '.webp' | null => {
+  if (bytes.length > 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return '.png';
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return '.jpg';
+  if (bytes.length > 6 && ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString('latin1'))) return '.gif';
+  if (bytes.length > 12 && bytes.subarray(0, 4).toString('latin1') === 'RIFF' && bytes.subarray(8, 12).toString('latin1') === 'WEBP') return '.webp';
+  return null;
+};
+
+/**
+ * Agrega una captura a la carpeta `capturas/` del ticket. El nombre se limpia (solo letras, números, `.`, `_`, `-`), la extensión sale del contenido
+ * real y nunca pisa un archivo existente (agrega `-2`, `-3`…). Devuelve la ruta relativa a la carpeta del ticket.
+ */
+export const saveCapture = (extraRoot: string, dir: string, rawName: string, bytes: Buffer, ignore: string[] = [], now = new Date()): { path: string } => {
+  if (!ticketDirs(extraRoot, ignore).includes(dir)) throw new TicketDeleteError('Ticket no encontrado', 404);
+  if (bytes.length === 0) throw new TicketDeleteError('La imagen está vacía');
+  if (bytes.length > MAX_CAPTURE_BYTES) throw new TicketDeleteError('La imagen pesa más de 8 MB', 413);
+  const ext = sniffImage(bytes);
+  if (!ext) throw new TicketDeleteError('Solo se aceptan imágenes PNG, JPG, GIF o WebP');
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+  const base = basename(rawName.replace(/\\/g, '/'), extname(rawName)).replace(/[^\w.-]+/g, '-').replace(/^[.-]+|[.-]+$/g, '').slice(0, 60) || `captura-${stamp}`;
+  const folder = resolve(extraRoot, dir, CAPTURES_DIR);
+  mkdirSync(folder, { recursive: true });
+  if (!realpathSync(folder).startsWith(realpathSync(resolve(extraRoot, dir)) + sep)) throw new TicketDeleteError('La carpeta de capturas es un enlace: no se escribe');
+  let name = `${base}${ext}`;
+  for (let n = 2; existsSync(join(folder, name)); n += 1) name = `${base}-${n}${ext}`;
+  writeFileSync(join(folder, name), bytes, { flag: 'wx' });
+  return { path: `${CAPTURES_DIR}/${name}` };
+};
+
+/** «Elimina» una captura moviéndola a `.papelera/capturas/` (recuperable a mano). Solo imágenes dentro de la carpeta del ticket. */
+export const trashCapture = (extraRoot: string, dir: string, path: string, ignore: string[] = [], now = new Date()): { movedTo: string } => {
+  const file = resolveTicketFile(extraRoot, dir, path, 'image', ignore);
+  if (!file.ok) throw new TicketDeleteError(file.error, file.status);
+  const trash = join(extraRoot, TRASH_DIR, 'capturas');
+  mkdirSync(trash, { recursive: true });
+  const target = join(trash, `${dir}__${now.toISOString().replace(/[:.]/g, '-')}__${basename(path)}`);
+  renameSync(file.absolute, target);
+  return { movedTo: relative(extraRoot, target) };
 };

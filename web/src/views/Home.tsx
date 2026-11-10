@@ -1,6 +1,7 @@
-import { CircleAlert, CircleCheck, FolderTree, Moon, Rocket, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
+import { CircleAlert, CircleCheck, FolderTree, Moon, NotebookText, Rocket, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { CheckList } from '../components/CheckList';
 import { DailyChecklistCard } from '../components/DailyChecklistCard';
@@ -14,6 +15,7 @@ import type { Check, DailyChecklist, DevPanelConfig, SetupDetect } from '../lib/
 import { useAsync } from '../lib/useAsync';
 import { uniqueById } from '../lib/uniqueById';
 import { contextFromNotices, pickGreeting, slotOf, workdayPhase, type GreetingContext, type Slot } from '../lib/greetings';
+import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
 import { useHomeNotices, type HomeNoticesState } from '../lib/useHomeNotices';
 
 const SLOT_ICONS: Record<Slot, LucideIcon> = { madrugada: Moon, amanecer: Sunrise, manana: Sunrise, mediodia: Sun, tarde: Sunset, noche: Moon };
@@ -67,7 +69,10 @@ const Greeting = ({ name, notices, workday }: { name: string; notices: HomeNotic
         <Icon className="size-6 shrink-0 text-accent" aria-hidden />
         <span>{text ?? <Skeleton className="h-6 w-80 max-w-full" />}</span>
       </p>
-      <WeatherBadge />
+      <div className="flex flex-wrap items-center gap-3">
+        <Button icon={<NotebookText className="size-4" />} onClick={() => window.dispatchEvent(new Event(DAY_WRAP_EVENT))} title="Commits, agentes, tokens, checklist y logros de hoy">Ver mi día</Button>
+        <WeatherBadge />
+      </div>
     </div>
   );
 };

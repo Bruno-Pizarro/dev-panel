@@ -89,7 +89,8 @@ export interface TreeRow {
   collapsed: boolean;
 }
 
-const byStart = (a: OrchAgent, b: OrchAgent): number => (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.agentId.localeCompare(b.agentId);
+/** Del más nuevo al más viejo (los últimos agentes quedan arriba); a igual hora, por id para que el orden sea estable. */
+const byStart = (a: OrchAgent, b: OrchAgent): number => (b.startedAt ?? '').localeCompare(a.startedAt ?? '') || a.agentId.localeCompare(b.agentId);
 
 /** Las filas del árbol en orden (cada agente seguido de los que lanzó), salteando lo de adentro de las ramas cerradas. */
 export const buildRows = (agents: OrchAgent[], collapsed: ReadonlySet<string>): TreeRow[] => {
@@ -120,7 +121,7 @@ export interface OrgNode {
 
 /**
  * El organigrama de la sesión: el coordinador (la conversación principal) es la raíz de arriba y de él cuelgan los agentes que lanzó; de cada agente,
- * los que lanzó él. Los hijos van por orden de arranque. Un agente cuyo padre no se conoce cuelga del coordinador; un ciclo (no debería haber) se corta.
+ * los que lanzó él. Los hijos van del más nuevo al más viejo. Un agente cuyo padre no se conoce cuelga del coordinador; un ciclo (no debería haber) se corta.
  */
 export const buildOrg = (agents: OrchAgent[]): OrgNode[] => {
   const byId = new Map(agents.map((agent) => [agent.agentId, agent]));

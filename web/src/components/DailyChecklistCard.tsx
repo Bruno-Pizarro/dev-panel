@@ -4,9 +4,11 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import type { DailyChecklist, DailyNotesRequest } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useCelebrateWhen } from '../lib/rewards/bus';
 import { itemUrgency, URGENCY_RGB } from '../lib/workday';
 import { Badge } from './Badge';
 import { Button } from './Button';
+import { FillBar } from './FillBar';
 import { Card } from './Card';
 import { useToast } from './Toast';
 
@@ -26,6 +28,8 @@ export const DailyChecklistCard = () => {
   }, []);
   const [copying, setCopying] = useState(false);
   const data = list.data;
+  // Completar el día entero se festeja (no al abrir la pantalla con todo ya hecho).
+  useCelebrateWhen(!!data && data.items.length > 0 && data.items.every((item) => item.done), 'checklist-complete', 'medium');
   if (!data) return null;
   const done = data.items.filter((item) => item.done).length;
   const workday = data.workday ?? { entry: '', exit: '', punchUrl: '' };
@@ -54,7 +58,7 @@ export const DailyChecklistCard = () => {
   };
 
   return (
-    <Card className="mb-6" title={<span className="inline-flex items-center gap-3"><ListChecks className="size-5 text-accent" aria-hidden />Todos los días</span>} action={<Badge tone={done === data.items.length ? 'success' : 'warning'}>{done}/{data.items.length}</Badge>}>
+    <Card className="mb-6" title={<span className="inline-flex items-center gap-3"><ListChecks className="size-5 text-accent" aria-hidden />Todos los días</span>} action={<span className="flex items-center gap-3"><FillBar className="hidden w-40 sm:block" value={done} max={data.items.length} compact /><Badge tone={done === data.items.length ? 'success' : 'warning'}>{done}/{data.items.length}</Badge></span>}>
       <ul className="flex flex-wrap gap-3">
         {data.items.map((item) => {
           const { urgency, note } = itemUrgency(item.id, item.done, data.items, workday, now);

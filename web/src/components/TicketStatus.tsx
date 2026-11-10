@@ -11,6 +11,8 @@ import { Card } from './Card';
 import { useToast } from './Toast';
 import { Skeleton } from './Skeleton';
 import { StatusDot } from './StatusDot';
+import { CelebrateWhen } from './CelebrateWhen';
+import { FillBar } from './FillBar';
 
 const base = (dir: string) => `/api/tickets/${encodeURIComponent(dir)}`;
 
@@ -36,6 +38,8 @@ const Ship = ({ dir, refreshKey }: { dir: string; refreshKey: number }) => (
   >
     {(data) => (
       <div className="space-y-5">
+        <CelebrateWhen done={data.summary.ready} reason="ticket-ready" level="big" />
+        {data.items.length > 0 && <FillBar label="Chequeos en orden" value={data.summary.ok} max={data.items.length} />}
         {data.lastRun && (
           <div className="rounded-xl border border-line bg-surface-2 p-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
