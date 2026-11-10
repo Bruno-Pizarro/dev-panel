@@ -13,6 +13,7 @@ import { GOTO_PREFIX, useShortcutMap } from '../lib/useShortcuts';
 import { ShortcutHelp } from './ShortcutHelp';
 import { AgentToast } from './AgentToast';
 import { NudgeHost } from './NudgeHost';
+import { ActivityBar } from './ActivityBar';
 
 export const Layout = ({ userName }: { userName: string }) => {
   const health = useHealth();
@@ -50,6 +51,7 @@ export const Layout = ({ userName }: { userName: string }) => {
             <Outlet />
           </div>
         </main>
+        <ActivityBar />
       </div>
     </div>
   );

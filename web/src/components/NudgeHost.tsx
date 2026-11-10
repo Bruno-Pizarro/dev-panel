@@ -127,7 +127,7 @@ export const NudgeHost = ({ userName }: { userName: string }) => {
   return (
     <section
       className="fixed right-4 z-40 w-72 max-w-[calc(100vw-2rem)] animate-fade-in overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
-      style={{ bottom: `${16 + lift}px` }}
+      style={{ bottom: `calc(${16 + lift}px + var(--footer-h, 0px))` }}
       aria-label="Aviso"
       role="status"
       data-testid="nudge-toast"
