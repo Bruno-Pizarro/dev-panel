@@ -33,6 +33,7 @@ export type TicketMeta = z.infer<typeof ticketMetaSchema>;
 
 const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
 const TEXT_EXT = new Set(['.md', '.mmd']);
+const HTML_EXT = new Set(['.html', '.htm']);
 const MAX_DEPTH = 4;
 const MAX_FILES = 600;
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
@@ -162,21 +163,21 @@ export const getTicket = (extraRoot: string, dir: string, ignore: string[] = [])
 export type ResolvedFile = { ok: true; absolute: string; ext: string } | { ok: false; status: 400 | 404; error: string };
 
 /**
- * Resuelve un archivo de una carpeta de ticket. Solo md, mmd, imágenes y ticket.json; la ruta real
+ * Resuelve un archivo de una carpeta de ticket. Solo md, mmd, html (referencias visuales), imágenes y ticket.json; la ruta real
  * (tras resolver symlinks) debe seguir dentro de la carpeta del ticket.
  */
-export const resolveTicketFile = (extraRoot: string, dir: string, path: string, kind: 'text' | 'image', ignore: string[] = []): ResolvedFile => {
+export const resolveTicketFile = (extraRoot: string, dir: string, path: string, kind: 'text' | 'image' | 'html', ignore: string[] = []): ResolvedFile => {
   if (!ticketDirs(extraRoot, ignore).includes(dir)) return { ok: false, status: 404, error: 'Ticket no encontrado' };
   if (!path || path.includes('\0') || path.startsWith('/') || path.split(/[\\/]/).includes('..')) return { ok: false, status: 400, error: 'Ruta inválida' };
   const ext = extname(path).toLowerCase();
-  const allowed = kind === 'image' ? IMAGE_EXT.has(ext) : TEXT_EXT.has(ext) || basename(path) === 'ticket.json';
+  const allowed = kind === 'image' ? IMAGE_EXT.has(ext) : kind === 'html' ? HTML_EXT.has(ext) : TEXT_EXT.has(ext) || basename(path) === 'ticket.json';
   if (!allowed) return { ok: false, status: 400, error: 'Tipo de archivo no permitido' };
   const root = resolve(extraRoot, dir);
   const candidate = resolve(root, path);
   if (!existsSync(candidate) || !statSync(candidate).isFile()) return { ok: false, status: 404, error: 'Archivo no encontrado' };
   const real = realpathSync(candidate);
   if (!real.startsWith(realpathSync(root) + sep)) return { ok: false, status: 400, error: 'Ruta fuera de la carpeta del ticket' };
-  if (kind === 'text' && statSync(real).size > MAX_TEXT_BYTES) return { ok: false, status: 400, error: 'Archivo demasiado grande' };
+  if (kind !== 'image' && statSync(real).size > MAX_TEXT_BYTES) return { ok: false, status: 400, error: 'Archivo demasiado grande' };
   return { ok: true, absolute: real, ext };
 };
 
@@ -235,6 +236,9 @@ export const servicesForTicket = (config: DevPanelConfig, meta: TicketMeta | nul
 };
 
 export const CAPTURES_DIR = 'capturas';
+/** Cabeceras con las que se sirve una referencia visual en HTML: documento aislado (origen opaco), sin red, sin formularios y sin acceso al panel. */
+export const REFERENCE_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data:; base-uri 'none'; form-action 'none'; sandbox allow-scripts";
+
 export const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
 
 /** Tipo real de la imagen según sus primeros bytes (no se confía en el nombre ni en lo que diga el navegador). SVG no se acepta: puede llevar scripts. */

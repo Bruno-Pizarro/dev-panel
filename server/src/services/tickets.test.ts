@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { defaultConfig } from '../config.js';
-import { TicketDeleteError, getTicket, ignoredDirs, servicesForTicket, listTickets, parseDirName, resolveTicketFile, saveCapture, sniffImage, trashCapture, trashTicket } from './tickets.js';
+import { TicketDeleteError, getTicket, ignoredDirs, servicesForTicket, listTickets, parseDirName, REFERENCE_CSP, resolveTicketFile, saveCapture, sniffImage, trashCapture, trashTicket } from './tickets.js';
 
 let extra: string;
 const write = (path: string, content: string | Buffer = 'x') => {
@@ -228,5 +228,23 @@ describe('trashCapture', () => {
     expect(() => trashCapture(extra, '32519-pruebas', '../afuera/secreto.md')).toThrow(TicketDeleteError);
     expect(() => trashCapture(extra, '32519-pruebas', 'informe.md')).toThrow(TicketDeleteError);
     expect(() => trashCapture(extra, '32519-pruebas', 'capturas/no-esta.png')).toThrow(TicketDeleteError);
+  });
+});
+
+describe('referencia visual en HTML', () => {
+  it('solo sirve .html/.htm dentro del ticket, no otros tipos ni rutas fuera', () => {
+    write('33526-pendientes-firma/plan/demo.html', '<h1>demo</h1>');
+    expect(resolveTicketFile(extra, '33526-pendientes-firma', 'plan/demo.html', 'html').ok).toBe(true);
+    expect(resolveTicketFile(extra, '33526-pendientes-firma', '00_BRIEF.md', 'html').ok).toBe(false);
+    expect(resolveTicketFile(extra, '33526-pendientes-firma', '../afuera/secreto.html', 'html').ok).toBe(false);
+    // Una imagen no se pide por la ruta de html ni un html por la de imágenes.
+    expect(resolveTicketFile(extra, '33526-pendientes-firma', 'plan/demo.html', 'image').ok).toBe(false);
+  });
+  it('la CSP aísla el documento: sin red, sin formularios y con sandbox sin allow-same-origin', () => {
+    expect(REFERENCE_CSP).toContain("default-src 'none'");
+    expect(REFERENCE_CSP).toContain('sandbox allow-scripts');
+    expect(REFERENCE_CSP).not.toContain('allow-same-origin');
+    expect(REFERENCE_CSP).not.toMatch(/connect-src|https?:/);
+    expect(REFERENCE_CSP).toContain("form-action 'none'");
   });
 });

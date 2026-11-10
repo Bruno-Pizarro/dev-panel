@@ -55,5 +55,9 @@ export const planDoc = (detail: TicketDetail): string | null =>
 
 export const diagramFile = (detail: TicketDetail): string | null => detail.meta?.plan?.diagrama ?? detail.files.diagrams[0] ?? null;
 
+/** Las referencias visuales pueden ser un HTML de demo (se muestra aislado en un iframe) o una imagen. */
+export const isHtmlReference = (path: string): boolean => /\.html?$/i.test(path);
+export const referenceUrl = (dir: string, path: string): string => `/api/tickets/${encodeURIComponent(dir)}/reference?path=${encodeURIComponent(path)}`;
+
 export const referenceImage = (detail: TicketDetail): string | null =>
   detail.meta?.plan?.referenciaVisual ?? detail.files.images.find((file) => /referencia|mockup|prototipo|propuesta/i.test(file)) ?? null;

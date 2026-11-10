@@ -1,7 +1,7 @@
 import { createReadStream, readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { IMAGE_TYPES, MAX_CAPTURE_BYTES, TicketDeleteError, saveCapture, trashCapture, getTicket, ignoredDirs, listTickets, servicesForTicket, resolveTicketFile, trashTicket } from '../services/tickets.js';
+import { IMAGE_TYPES, MAX_CAPTURE_BYTES, REFERENCE_CSP, TicketDeleteError, saveCapture, trashCapture, getTicket, ignoredDirs, listTickets, servicesForTicket, resolveTicketFile, trashTicket } from '../services/tickets.js';
 import { getTestState, testStatusOf } from '../services/checklists.js';
 import { getTicketState, kindOf, setTicketState } from '../services/ticketState.js';
 import { requireConfig } from './helpers.js';
@@ -97,5 +97,23 @@ export const registerTicketRoutes = (app: FastifyInstance): void => {
       if (error instanceof TicketDeleteError) return reply.code(error.status).send({ error: error.message });
       throw error;
     }
+  });
+
+  /**
+   * Referencia visual en HTML (un demo de cómo debería verse algo). Se sirve **aislada**: `sandbox` sin `allow-same-origin` (origen opaco: no
+   * puede leer la API del panel ni sus datos), sin red, sin formularios y sin enlaces a otros recursos; lo que necesite va incrustado (data:).
+   */
+  app.get<{ Params: { dir: string }; Querystring: { path?: string } }>('/api/tickets/:dir/reference', async (request, reply) => {
+    const config = requireConfig(reply);
+    if (!config) return reply;
+    const file = resolveTicketFile(config.paths.extra, request.params.dir, request.query.path ?? '', 'html', ignoredDirs(config));
+    if (!file.ok) return reply.code(file.status).send({ error: file.error });
+    return reply
+      .header('Content-Type', 'text/html; charset=utf-8')
+      .header('Cache-Control', 'no-store')
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('Referrer-Policy', 'no-referrer')
+      .header('Content-Security-Policy', REFERENCE_CSP)
+      .send(readFileSync(file.absolute, 'utf8'));
   });
 };
