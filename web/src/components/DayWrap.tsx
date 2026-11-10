@@ -30,13 +30,16 @@ export const DayWrap = () => {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [facts, setFacts] = useState<RewardFacts | null>(null);
+  const [failed, setFailed] = useState(false);
   const [line, setLine] = useState('');
   const { prefs, state: game } = useGame();
 
   useEffect(() => {
     const show = () => {
       setOpen(true);
-      api.get<RewardFacts>('/api/rewards/facts').then(setFacts, () => setFacts(null));
+      setFacts(null);
+      setFailed(false);
+      api.get<RewardFacts>('/api/rewards/facts').then(setFacts, () => setFailed(true));
     };
     window.addEventListener(DAY_WRAP_EVENT, show);
     return () => window.removeEventListener(DAY_WRAP_EVENT, show);
@@ -65,7 +68,7 @@ export const DayWrap = () => {
         </>
       }
     >
-      {!facts ? <p className="text-muted">Juntando tu día…</p> : (
+      {!facts ? <p className="text-muted">{failed ? 'No pude juntar tu día: el servidor del panel no respondió. Si lo actualizaste hace poco, reinicialo.' : 'Juntando tu día…'}</p> : (
         <div className="space-y-4" data-testid="day-wrap">
           <div className="flex items-center gap-3 rounded-xl bg-accent/10 px-4 py-3">
             <span className="text-4xl" aria-hidden>{prefs.mascot ? faceOf(mascot, 'happy') : '🎉'}</span>
