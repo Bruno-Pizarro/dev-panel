@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
 import { defaultConfig } from '../config.js';
-import { TicketDeleteError, getTicket, ignoredDirs, servicesForTicket, listTickets, parseDirName, resolveTicketFile, trashTicket } from './tickets.js';
+import { TicketDeleteError, getTicket, ignoredDirs, servicesForTicket, listTickets, parseDirName, resolveTicketFile, saveCapture, sniffImage, trashCapture, trashTicket } from './tickets.js';
 
 let extra: string;
 const write = (path: string, content: string | Buffer = 'x') => {
@@ -188,5 +188,45 @@ describe('workday en la configuración', () => {
     expect(configSchema.safeParse({ ...base, workday: { entry: '25:00', exit: '', punchUrl: '' } }).success).toBe(false);
     expect(configSchema.safeParse({ ...base, workday: { entry: '', exit: '', punchUrl: 'javascript:alert(1)' } }).success).toBe(false);
     expect(configSchema.safeParse({ ...base, workday: { entry: '', exit: '', punchUrl: '' } }).success).toBe(true);
+  });
+});
+
+describe('saveCapture', () => {
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(20)]);
+  it('guarda en capturas/, deduce la extensión del contenido y no pisa', () => {
+    const first = saveCapture(extra, '32519-pruebas', 'mi captura.jpg', png);
+    expect(first.path).toBe('capturas/mi-captura.png');
+    expect(saveCapture(extra, '32519-pruebas', 'mi captura.jpg', png).path).toBe('capturas/mi-captura-2.png');
+    expect(getTicket(extra, '32519-pruebas')?.files.images).toContain('capturas/mi-captura.png');
+  });
+  it('rechaza lo que no es imagen, SVG, vacíos y rutas con ..', () => {
+    expect(() => saveCapture(extra, '32519-pruebas', 'x.png', Buffer.from('<svg onload=alert(1)>'))).toThrow(TicketDeleteError);
+    expect(() => saveCapture(extra, '32519-pruebas', 'x.png', Buffer.alloc(0))).toThrow(TicketDeleteError);
+    expect(() => saveCapture(extra, 'no-existe', 'x.png', png)).toThrow(TicketDeleteError);
+    const evil = saveCapture(extra, '32519-pruebas', '../../evil.png', png);
+    expect(evil.path.startsWith('capturas/')).toBe(true);
+    expect(evil.path).not.toContain('..');
+  });
+  it('sniffImage reconoce los formatos', () => {
+    expect(sniffImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]))).toBe('.jpg');
+    expect(sniffImage(Buffer.from('GIF89a....'))).toBe('.gif');
+    expect(sniffImage(Buffer.from('RIFF\0\0\0\0WEBPVP8 '))).toBe('.webp');
+    expect(sniffImage(Buffer.from('hola mundo'))).toBeNull();
+  });
+});
+
+describe('trashCapture', () => {
+  it('mueve la imagen a .papelera/capturas y deja de listarse', () => {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(20)]);
+    const { path } = saveCapture(extra, '32519-pruebas', 'borrar.png', png);
+    const moved = trashCapture(extra, '32519-pruebas', path);
+    expect(moved.movedTo.startsWith('.papelera/capturas/')).toBe(true);
+    expect(existsSync(join(extra, moved.movedTo))).toBe(true);
+    expect(getTicket(extra, '32519-pruebas')?.files.images).not.toContain(path);
+  });
+  it('rechaza rutas que no son imágenes del ticket', () => {
+    expect(() => trashCapture(extra, '32519-pruebas', '../afuera/secreto.md')).toThrow(TicketDeleteError);
+    expect(() => trashCapture(extra, '32519-pruebas', 'informe.md')).toThrow(TicketDeleteError);
+    expect(() => trashCapture(extra, '32519-pruebas', 'capturas/no-esta.png')).toThrow(TicketDeleteError);
   });
 });

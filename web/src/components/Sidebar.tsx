@@ -1,7 +1,8 @@
 import { BellOff, Bell, Terminal } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { navGroups } from '../lib/nav';
+import { HIDDEN_NAV_KEY, visibleNavGroups } from '../lib/nav';
+import { useStoredState } from '../lib/hooks';
 import { cn } from '../lib/cn';
 import { GOTO_PREFIX_ID } from '../lib/shortcuts';
 import { GOTO_PREFIX, useKeyFor, useShortcutSettings } from '../lib/useShortcuts';
@@ -66,7 +67,9 @@ const DoNotDisturb = ({ collapsed }: { collapsed: boolean }) => {
   );
 };
 
-export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName: string }) => (
+export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName: string }) => {
+  const [hidden] = useStoredState<string[]>(HIDDEN_NAV_KEY, []);
+  return (
   <aside className={cn('flex h-full shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200', collapsed ? 'w-[4.5rem]' : 'w-64')}>
     <div className={cn('flex h-16 items-center gap-3 border-b border-line', collapsed ? 'justify-center px-0' : 'px-5')}>
       <div className="flex size-9 items-center justify-center rounded-lg bg-accent-strong/20 text-accent">
@@ -79,11 +82,11 @@ export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName:
         </div>
       )}
     </div>
-    <nav className={cn('flex-1 space-y-6 overflow-y-auto py-5', collapsed ? 'px-2' : 'px-3')} aria-label="Principal">
-      {navGroups.map((group) => (
+    <nav className={cn('flex-1 space-y-3 overflow-y-auto py-3', collapsed ? 'px-2' : 'px-3')} aria-label="Principal">
+      {visibleNavGroups(hidden).map((group) => (
         <div key={group.label}>
-          {collapsed ? <div className="mx-3 mb-2 border-t border-line" aria-hidden /> : <div className="mb-2 px-3 text-sm font-medium uppercase tracking-wider text-muted/70">{group.label}</div>}
-          <ul className="space-y-1">
+          {collapsed ? <div className="mx-3 mb-1 border-t border-line" aria-hidden /> : <div className="mb-0.5 px-3 text-sm font-medium uppercase leading-5 tracking-wider text-muted/70">{group.label}</div>}
+          <ul className="space-y-0.5">
             {group.items.map((item) => (
               <li key={item.path}>
                 <NavLink
@@ -93,7 +96,7 @@ export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName:
                   aria-label={item.label}
                   className={({ isActive }) =>
                     cn(
-                      'flex h-10 items-center rounded-lg text-sm font-medium transition-colors',
+                      'flex h-9 items-center rounded-lg text-sm font-medium transition-colors',
                       collapsed ? 'justify-center' : 'gap-3 px-3',
                       isActive ? 'bg-accent/15 text-accent' : 'text-muted hover:bg-surface-2 hover:text-fg',
                     )
@@ -112,4 +115,5 @@ export const Sidebar = ({ collapsed, userName }: { collapsed: boolean; userName:
     </nav>
     <DoNotDisturb collapsed={collapsed} />
   </aside>
-);
+  );
+};

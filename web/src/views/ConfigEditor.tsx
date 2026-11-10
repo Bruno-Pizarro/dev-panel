@@ -1,4 +1,4 @@
-import { Bell, Bot, Clock, PartyPopper, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, PanelLeft, Clock, PartyPopper, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -15,6 +15,7 @@ import { RemoteAccess } from '../components/RemoteAccess';
 import { AgentSettings } from './AgentSettings';
 import { NudgeSettings } from './NudgeSettings';
 import { FunSettings } from './FunSettings';
+import { NavSettings } from './NavSettings';
 import { ShortcutSettings } from './ShortcutSettings';
 
 interface ConfigEditorProps {
@@ -204,6 +205,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
     { id: 'atajos', label: 'Atajos de teclado', icon: Keyboard, noSave: true, content: <ShortcutSettings /> },
     { id: 'remoto', label: 'Acceso remoto', icon: MonitorSmartphone, noSave: true, content: <RemoteAccess /> },
     { id: 'agentes', label: 'Agentes de Claude', icon: Bot, noSave: true, content: <AgentSettings /> },
+    { id: 'menu', label: 'Menú lateral', icon: PanelLeft, noSave: true, content: <NavSettings /> },
     { id: 'avisos', label: 'Avisos', icon: Bell, noSave: true, content: <NudgeSettings /> },
     { id: 'diversion', label: 'Diversión', icon: PartyPopper, noSave: true, content: <FunSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
