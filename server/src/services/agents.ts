@@ -9,7 +9,7 @@ import { cleanBlock } from './redact.js';
  * Los hooks de Claude Code (PreToolUse del Agent, SubagentStart y SubagentStop) mandan su entrada tal cual y acá se reduce a lo
  * mínimo que se muestra: tipo, descripción corta, tiempos, nombre de la carpeta y ticket. Además, si el interruptor está activo
  * (`saveContent`), se guardan lo que se le pidió al agente y lo que contestó, con los secretos obvios tapados (`redact.ts`) y
- * recortados. Esos textos no viajan en la lista ni por SSE: se piden de a uno. Historial de 3 días en `data/agents-history.json`.
+ * recortados. Esos textos no viajan en la lista ni por SSE: se piden de a uno. Historial de 15 días en `data/agents-history.json`.
  */
 export interface AgentRun {
   id: string;
@@ -38,9 +38,9 @@ export interface AgentRun {
 export type AgentSummary = Omit<AgentRun, 'request' | 'response' | 'steps'> & { hasRequest: boolean; hasResponse: boolean; hasSteps: boolean };
 
 /** Cuánto dura el historial, cuánto puede figurar "trabajando" sin avisar que terminó y cuántos agentes se guardan como máximo. */
-export const HISTORY_MS = 3 * 24 * 60 * 60_000;
+export const HISTORY_MS = 15 * 24 * 60 * 60_000;
 export const RUNNING_MAX_MS = 3 * 60 * 60_000;
-export const MAX_RUNS = 200;
+export const MAX_RUNS = 400;
 
 const MAX_TYPE = 40;
 const MAX_DESCRIPTION = 140;
@@ -87,7 +87,7 @@ export const createAgentStore = (options: StoreOptions | (() => number) = {}) =>
   let counter = 0;
   const changed = (): void => onChange?.([...runs.values()]);
 
-  /** Pasados 3 días sale del historial; el que sigue "trabajando" pasadas 3 horas sin avisar se marca perdido; y se guardan como mucho 200. */
+  /** Pasados 15 días sale del historial; el que sigue "trabajando" pasadas 3 horas sin avisar se marca perdido; y se guardan como mucho 400. */
   const prune = (): void => {
     const current = now();
     for (const [id, run] of runs) {
@@ -249,5 +249,5 @@ export const setAgentSettings = (patch: Partial<AgentSettings>): AgentSettings =
   return next;
 };
 
-/** La lista única del servidor, con su historial de 3 días en disco. */
+/** La lista única del servidor, con su historial de 15 días en disco. */
 export const agents = createAgentStore({ initial: loadHistory(), onChange: (runs) => writeJson(historyFile(), runs), saveContent: () => getAgentSettings().saveContent });

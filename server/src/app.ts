@@ -18,6 +18,7 @@ import { registerRedmineRoutes } from './routes/redmine.js';
 import { registerReviewQueueRoutes } from './routes/reviewQueue.js';
 import { registerDiscordRoutes } from './routes/discord.js';
 import { registerNudgeRoutes } from './routes/nudges.js';
+import { registerOrchestrationRoutes } from './routes/orchestration.js';
 import { registerDiscordBotRoutes } from './routes/discordBot.js';
 import { registerClaudeRoutes } from './routes/claude.js';
 import { registerWorkRoutes } from './routes/work.js';
@@ -54,6 +55,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerAgentRoutes(app);
   registerHomeRoutes(app);
   registerNudgeRoutes(app);
+  registerOrchestrationRoutes(app);
   registerReminderRoutes(app);
   registerClaudeEnvRoutes(app);
 
