@@ -71,7 +71,7 @@ export const TicketFrame = ({ dir, listPath, header, onRefresh, children }: Tick
     <>
       {focus ? (
         <Portal>
-          <div className="fixed inset-0 z-40 overflow-y-auto bg-bg px-8 py-6 animate-fade-in">
+          <div className="fixed inset-x-0 bottom-[var(--footer-h,0px)] top-16 z-[25] overflow-y-auto bg-bg px-8 py-6 animate-fade-in">
             <div className="mx-auto max-w-[1600px]">{content}</div>
           </div>
         </Portal>
