@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useStoredState } from '../lib/hooks';
 import { cn } from '../lib/cn';
 import { ClaudeUsageBar } from './ClaudeUsageBar';
+import { Clock } from './Clock';
 import { CommandPalette } from './CommandPalette';
 import { Sidebar } from './Sidebar';
 import { ThemePicker } from './ThemePicker';
@@ -47,6 +48,7 @@ export const Layout = ({ userName }: { userName: string }) => {
           <div className="flex shrink-0 items-center gap-5">
             <ClaudeUsageBar />
             <ThemePicker />
+            <Clock />
           <StatusDot labelClassName="hidden whitespace-nowrap xl:inline" status={health === 'ok' ? 'ok' : health === 'down' ? 'error' : 'busy'} label={health === 'ok' ? 'Servidor conectado' : health === 'down' ? 'Servidor sin respuesta' : 'Conectando…'} />
           </div>
         </header>
