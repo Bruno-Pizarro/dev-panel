@@ -1,4 +1,4 @@
-import { Bell, Bot, Clock, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, Clock, PartyPopper, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -14,6 +14,7 @@ import type { DevPanelConfig, SetupDetect } from '../lib/types';
 import { RemoteAccess } from '../components/RemoteAccess';
 import { AgentSettings } from './AgentSettings';
 import { NudgeSettings } from './NudgeSettings';
+import { FunSettings } from './FunSettings';
 import { ShortcutSettings } from './ShortcutSettings';
 
 interface ConfigEditorProps {
@@ -204,6 +205,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
     { id: 'remoto', label: 'Acceso remoto', icon: MonitorSmartphone, noSave: true, content: <RemoteAccess /> },
     { id: 'agentes', label: 'Agentes de Claude', icon: Bot, noSave: true, content: <AgentSettings /> },
     { id: 'avisos', label: 'Avisos', icon: Bell, noSave: true, content: <NudgeSettings /> },
+    { id: 'diversion', label: 'Diversión', icon: PartyPopper, noSave: true, content: <FunSettings /> },
     { id: 'repos', label: 'Repos', icon: GitFork, content: (
       <Card title="Repos">
         <TagEditor label="Repos que maneja el panel" help="Para el editor de .env, el estado de ramas y el Daily." values={config.repos} onChange={(repos) => setConfig({ ...config, repos })} />

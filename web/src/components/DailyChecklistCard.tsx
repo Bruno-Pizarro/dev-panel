@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import type { DailyChecklist, DailyNotesRequest } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useCelebrateWhen } from '../lib/rewards/bus';
 import { itemUrgency, URGENCY_RGB } from '../lib/workday';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -26,6 +27,8 @@ export const DailyChecklistCard = () => {
   }, []);
   const [copying, setCopying] = useState(false);
   const data = list.data;
+  // Completar el día entero se festeja (no al abrir la pantalla con todo ya hecho).
+  useCelebrateWhen(!!data && data.items.length > 0 && data.items.every((item) => item.done), 'checklist-complete', 'medium');
   if (!data) return null;
   const done = data.items.filter((item) => item.done).length;
   const workday = data.workday ?? { entry: '', exit: '', punchUrl: '' };

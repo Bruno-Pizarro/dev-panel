@@ -99,6 +99,15 @@ export const step = ({ state: input, facts, now, prefs, rng }: StepInput): { sta
   return { state: { ...state, unlocked, records: records.records, today, counters }, events };
 };
 
+/** ¿Corresponde un elogio sorpresa ahora? Con las mismas reglas de siempre (separación mínima, tope por día y un poco de azar). */
+export const rollPraise = (state: GameState, now: Date, rng: () => number, last?: string): { state: GameState; text: string | null } => {
+  const today = state.today.day === dayOf(now) ? state.today : { ...state.today, day: dayOf(now), praised: 0 };
+  if (today.praised >= PRAISE_MAX_PER_DAY || now.getTime() - today.lastPraiseAt < PRAISE_GAP_MS || rng() >= PRAISE_CHANCE) return { state, text: null };
+  return { state: { ...state, today: { ...today, praised: today.praised + 1, lastPraiseAt: now.getTime() } }, text: pickPraise(rng, last) };
+};
+
+const dayOf = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 /** Un festejo pedido directo por la interfaz (completaste algo): suma al contador y no depende de los hechos. */
 export const celebrated = (state: GameState): GameState => ({ ...state, counters: { ...state.counters, celebrations: state.counters.celebrations + 1 } });
 

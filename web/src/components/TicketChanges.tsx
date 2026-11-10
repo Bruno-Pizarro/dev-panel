@@ -14,6 +14,7 @@ import { Button } from './Button';
 import { Chip } from './Chip';
 import { ShortcutKey } from './Key';
 import { useShortcutMap } from '../lib/useShortcuts';
+import { CelebrateWhen } from './CelebrateWhen';
 import { useToast } from './Toast';
 import { EmptyState } from './EmptyState';
 import { Skeleton } from './Skeleton';
@@ -426,6 +427,7 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   const seen = all.filter((value) => value === 'yes').length;
   return (
     <ReviewContext.Provider value={review}>
+      <CelebrateWhen done={all.length > 0 && seen === all.length} reason="all-viewed" level="medium" />
       <div className="flex items-start gap-4">
       <ChangesTree repos={report.repos} current={current} keyOf={markKey} stateOf={stateOf} onPick={pick} open={treeOpen} onToggle={() => setTreeOpen(!treeOpen)} />
       <div className="min-w-0 flex-1 space-y-6">

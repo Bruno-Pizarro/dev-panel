@@ -7,6 +7,8 @@ import { DEFAULT_BAR_PREFS, withDefaults, workdayText, type ActivityBarData, typ
 import { useDnd } from '../lib/dnd';
 import { useStoredState } from '../lib/hooks';
 import { formatTokens } from '../lib/orchestration';
+import { DEFAULT_GAME_PREFS, gamePrefs, type Prefs } from '../lib/rewards/types';
+import { Mascot } from './Mascot';
 
 /** Cada cuánto se piden los datos (el servidor además los guarda 30 s). */
 const POLL_MS = 60_000;
@@ -28,6 +30,8 @@ export const ActivityBar = () => {
   const [data, setData] = useState<ActivityBarData | null>(null);
   const [now, setNow] = useState(() => new Date());
   const dnd = useDnd();
+  const [storedGame] = useStoredState<Partial<Prefs>>('dev-panel.game.prefs', DEFAULT_GAME_PREFS);
+  const game = gamePrefs(storedGame);
 
   useEffect(() => {
     if (!prefs.enabled) return;
@@ -55,8 +59,12 @@ export const ActivityBar = () => {
   const { segments } = prefs;
   const workday = workdayText(now, data.workday);
   const context = data.context;
+  // La mascota lee el ánimo del día: servicios caídos, cambios en una rama protegida, agentes trabajando y la jornada.
+  const servicesDown = data.services !== null && data.services.running > 0 && data.services.running < data.services.total;
+  const mascotInput = { trouble: servicesDown, agentsRunning: data.agents.running, workday: workday?.state ?? null, weekend: now.getDay() === 0 || now.getDay() === 6, commitsToday: data.commitsToday };
   return (
-    <footer className="flex h-8 shrink-0 items-center gap-3 overflow-hidden border-t border-line bg-surface/60 px-6 text-sm text-muted" aria-label="Actividad" data-testid="activity-bar">
+    <footer className="flex h-8 shrink-0 items-center gap-3 overflow-x-clip overflow-y-visible border-t border-line bg-surface/60 px-6 text-sm text-muted" aria-label="Actividad" data-testid="activity-bar">
+      {game.enabled && game.mascot && <Mascot mascotId={game.mascotId} name={game.mascotName} input={mascotInput} />}
       {segments.context && (
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {context ? (
