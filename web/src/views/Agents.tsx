@@ -1,6 +1,8 @@
-import { Bot, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CircleHelp, Copy, FolderGit2, GitBranch, RefreshCw, Search } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, FolderGit2, GitBranch, RefreshCw, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { AgentOrgChart } from '../components/AgentOrgChart';
+import { ModelTag, StatusIcon, STATUS_LABEL } from '../components/AgentBits';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Chip } from '../components/Chip';
@@ -25,19 +27,6 @@ const dayLabel = (iso: string) => {
   const date = new Date(iso);
   return date.toDateString() === new Date().toDateString() ? 'hoy' : date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
 };
-const STATUS_LABEL: Record<AgentStatus, string> = { running: 'Trabajando', done: 'Terminó', lost: 'Interrumpido' };
-const MODEL_TONE: Record<string, string> = { opus: 'bg-accent/15 text-accent', sonnet: 'bg-info/15 text-info', haiku: 'bg-success/15 text-success', fable: 'bg-warning/15 text-warning' };
-
-const StatusIcon = ({ status }: { status: AgentStatus }) =>
-  status === 'running' ? <span className="flex size-6 items-center justify-center rounded-full bg-accent/15" title={STATUS_LABEL.running}><span className="size-2.5 animate-pulse-dot rounded-full bg-accent" /></span>
-  : status === 'done' ? <span className="flex size-6 items-center justify-center rounded-full bg-success/15 text-success" title={STATUS_LABEL.done}><Check className="size-4" aria-hidden /></span>
-  : <span className="flex size-6 items-center justify-center rounded-full bg-surface-3 text-muted" title="Se cortó sin terminar (la sesión se cerró o Claude lo interrumpió)"><CircleHelp className="size-4" aria-hidden /></span>;
-
-const ModelTag = ({ model }: { model: string | null }) => {
-  const family = modelFamily(model);
-  return family ? <span className={cn('rounded-md px-2 py-0.5 text-sm font-medium', MODEL_TONE[family] ?? 'bg-surface-3 text-muted')} title={model ?? undefined}>{family}</span> : null;
-};
-
 const BAR_TONE: Record<AgentStatus, string> = { running: 'bg-accent animate-pulse', done: 'bg-success/70', lost: 'bg-muted/50' };
 
 // ------------------------------------------------------------------ detalle de un agente
@@ -86,7 +75,7 @@ const Stat = ({ label, value, hint }: { label: string; value: string; hint?: str
   </div>
 );
 
-const AgentDetail = ({ session, agent, now, parent }: { session: OrchSession; agent: OrchAgent; now: number; parent: OrchAgent | null }) => {
+const AgentDetail = ({ session, agent, now, parent, onClose }: { session: OrchSession; agent: OrchAgent; now: number; parent: OrchAgent | null; onClose: () => void }) => {
   const toast = useToast();
   const duration = agentDuration(agent, now);
   const tools = Object.entries(agent.toolStats).sort((a, b) => b[1] - a[1]);
@@ -106,6 +95,7 @@ const AgentDetail = ({ session, agent, now, parent }: { session: OrchSession; ag
           </div>
         </div>
         <Button variant="ghost" className="h-8 px-2" icon={<Copy className="size-4" />} onClick={() => void navigator.clipboard.writeText(agent.agentId).then(() => toast('success', 'Id del agente copiado.'))} title="Copiar el id del agente">{agent.agentId.slice(0, 8)}</Button>
+        <button type="button" onClick={onClose} aria-label="Cerrar el detalle del agente" title="Cerrar el detalle (O)" data-testid="agent-detail-close" className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"><X className="size-5" aria-hidden /></button>
       </header>
       <div className="space-y-5 px-5 py-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -209,8 +199,10 @@ const AgentTree = ({ session, agents, now, selected, onSelect }: { session: Orch
 };
 
 // ------------------------------------------------------------------ sesión
-const SessionDetail = ({ session, now, ticketLink, selected, onSelect }: { session: OrchSession; now: number; ticketLink: (ticket: string) => string | null; selected: string | null; onSelect: (id: string | null) => void }) => {
-  const summary = useMemo(() => summarize(session, now), [session, now]);
+type View = 'organigrama' | 'lista';
+
+const SessionDetail = ({ session, now, windowDays, ticketLink, selected, onSelect, view, onView }: { session: OrchSession; now: number; windowDays: number; ticketLink: (ticket: string) => string | null; selected: string | null; onSelect: (id: string | null) => void; view: View; onView: (view: View) => void }) => {
+  const summary = useMemo(() => summarize(session, now, windowDays), [session, now, windowDays]);
   const link = session.ticket ? ticketLink(session.ticket) : null;
   const agent = selected ? session.agents.find((item) => item.agentId === selected) ?? null : null;
   const parent = agent?.parentAgentId ? session.agents.find((item) => item.agentId === agent.parentAgentId) ?? null : null;
@@ -237,19 +229,27 @@ const SessionDetail = ({ session, now, ticketLink, selected, onSelect }: { sessi
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Stat label="Agentes" value={`${summary.agents}${summary.running ? ` · ${summary.running} trabajando` : ''}`} />
           <Stat label="Tokens de agentes" value={formatTokens(summary.tokens)} hint="Entrada + salida + caché creada, sumando todos los agentes" />
-          <Stat label="Tokens de la conversación" value={formatTokens(summary.mainTokens)} hint="Lo que gastó la conversación principal, sin sus agentes" />
+          <Stat label="Tokens de la conversación" value={formatTokens(summary.mainTokens)} hint={`Lo que gastó la conversación principal (sin sus agentes) en los últimos ${windowDays} días`} />
           <Stat label="Duración" value={summary.durationMs !== null ? formatSpan(summary.durationMs) : '—'} />
           <Stat label="Modelos" value={summary.models.join(', ') || '—'} />
         </div>
       </section>
-      {session.agents.length === 0 ? <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-muted">Esta sesión no delegó en ningún agente.</p> : <AgentTree session={session} agents={session.agents} now={now} selected={selected} onSelect={onSelect} />}
-      <div ref={detailRef}>{agent && <AgentDetail session={session} agent={agent} now={now} parent={parent} />}</div>
+      {session.agents.length === 0 ? <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-muted">Esta sesión no delegó en ningún agente.</p> : (
+        <>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Cómo ver los agentes">
+            <Chip selected={view === 'organigrama'} onToggle={() => onView('organigrama')} hint="Quién lanzó a quién: el coordinador y, debajo, los agentes que lanzó y los que lanzó cada uno">Organigrama</Chip>
+            <Chip selected={view === 'lista'} onToggle={() => onView('lista')} hint="Una fila por agente, con duración, tokens y una línea de tiempo que muestra qué corrió en paralelo">Lista y línea de tiempo</Chip>
+          </div>
+          {view === 'organigrama' ? <AgentOrgChart session={session} agents={session.agents} now={now} selected={selected} onSelect={onSelect} /> : <AgentTree session={session} agents={session.agents} now={now} selected={selected} onSelect={onSelect} />}
+        </>
+      )}
+      <div ref={detailRef}>{agent && <AgentDetail session={session} agent={agent} now={now} parent={parent} onClose={() => onSelect(null)} />}</div>
     </div>
   );
 };
 
-const SessionItem = ({ session, now, active, onPick }: { session: OrchSession; now: number; active: boolean; onPick: () => void }) => {
-  const summary = summarize(session, now);
+const SessionItem = ({ session, now, windowDays, active, onPick }: { session: OrchSession; now: number; windowDays: number; active: boolean; onPick: () => void }) => {
+  const summary = summarize(session, now, windowDays);
   return (
     <li>
       <button type="button" onClick={onPick} aria-current={active ? 'true' : undefined} data-testid="agent-session" className={cn('block w-full rounded-xl border p-3.5 text-left transition-colors', active ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface hover:bg-surface-2')}>
@@ -323,8 +323,10 @@ export const Agents = () => {
 
   const filters: Filters = { q: params.get('q') ?? '', status: (['running', 'done', 'lost'] as const).find((value) => value === params.get('estado')) ?? 'all', model: params.get('modelo') ?? 'all', type: params.get('tipo') ?? 'all', ticket: params.get('ticket') ?? 'all' };
   const sessions = report?.sessions ?? [];
+  const windowDays = report?.windowDays ?? 15;
   const visible = useMemo(() => filterSessions(sessions, filters), [sessions, filters.q, filters.status, filters.model, filters.type, filters.ticket]); // eslint-disable-line react-hooks/exhaustive-deps
   const current = visible.find((session) => session.id === params.get('sesion')) ?? visible[0] ?? null;
+  const view: View = params.get('vista') === 'lista' ? 'lista' : 'organigrama';
   const selected = current && current.agents.some((agent) => agent.agentId === params.get('agente')) ? params.get('agente') : null;
 
   const allAgents = sessions.flatMap((session) => session.agents);
@@ -355,7 +357,7 @@ export const Agents = () => {
     <>
       <PageHeader
         title="Agentes"
-        description="La orquestación de Claude Code de los últimos 15 días: cada sesión con su árbol de agentes y lo que corrió en paralelo. Sale de las transcripciones, así que incluye lo anterior a los hooks."
+        description={`La orquestación de Claude Code de los últimos ${windowDays} días: cada sesión con su organigrama de agentes y lo que corrió en paralelo. Sale de las transcripciones, así que incluye lo anterior a los hooks.`}
         actions={<Button icon={<RefreshCw className={cn('size-4', busy && 'animate-spin')} />} onClick={() => { load(true, false); toast('info', 'Releyendo las transcripciones…'); }}>Actualizar</Button>}
       />
       <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -379,15 +381,15 @@ export const Agents = () => {
       ) : failed !== null && report === null ? (
         <p className="text-danger">{failed}</p>
       ) : visible.length === 0 ? (
-        <EmptyState icon={<Bot className="size-6" />} title={anyFilter ? 'Nada coincide con los filtros' : 'Sin sesiones de Claude Code en los últimos 15 días'}>
+        <EmptyState icon={<Bot className="size-6" />} title={anyFilter ? 'Nada coincide con los filtros' : `Sin sesiones de Claude Code en los últimos ${windowDays} días`}>
           {anyFilter ? 'Probá quitando algún filtro.' : 'El panel lee las transcripciones de Claude Code en la carpeta de cada cuenta (Claude → Cuentas). Si no aparece nada, revisá que esa carpeta tenga sesiones.'}
         </EmptyState>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[22rem_minmax(0,1fr)]">
           <ul className="max-h-[calc(100vh-14rem)] space-y-2 self-start overflow-y-auto pr-1" aria-label="Sesiones">
-            {visible.map((session) => <SessionItem key={session.id} session={session} now={now} active={session.id === current?.id} onPick={() => set({ sesion: session.id, agente: null })} />)}
+            {visible.map((session) => <SessionItem key={session.id} session={session} now={now} windowDays={windowDays} active={session.id === current?.id} onPick={() => set({ sesion: session.id, agente: null })} />)}
           </ul>
-          {current && <SessionDetail key={current.id} session={current} now={now} ticketLink={ticketLink} selected={selected} onSelect={(id) => set({ agente: id === selected ? null : id })} />}
+          {current && <SessionDetail key={current.id} session={current} now={now} windowDays={windowDays} ticketLink={ticketLink} selected={selected} onSelect={(id) => set({ agente: id === null || id === selected ? null : id })} view={view} onView={(next) => set({ vista: next === 'organigrama' ? null : next })} />}
         </div>
       )}
     </>

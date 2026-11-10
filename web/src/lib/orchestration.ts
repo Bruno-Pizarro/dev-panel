@@ -41,6 +41,8 @@ export interface OrchSession {
 }
 export interface OrchestrationReport {
   generatedAt: string;
+  /** Cuántos días hacia atrás se muestran (los agentes más viejos no se entregan). */
+  windowDays: number;
   sessions: OrchSession[];
 }
 export interface AgentContent {
@@ -110,6 +112,61 @@ export const buildRows = (agents: OrchAgent[], collapsed: ReadonlySet<string>): 
   return rows;
 };
 
+// ------------------------------------------------------------------ organigrama
+export interface OrgNode {
+  agent: OrchAgent;
+  children: OrgNode[];
+}
+
+/**
+ * El organigrama de la sesión: el coordinador (la conversación principal) es la raíz de arriba y de él cuelgan los agentes que lanzó; de cada agente,
+ * los que lanzó él. Los hijos van por orden de arranque. Un agente cuyo padre no se conoce cuelga del coordinador; un ciclo (no debería haber) se corta.
+ */
+export const buildOrg = (agents: OrchAgent[]): OrgNode[] => {
+  const byId = new Map(agents.map((agent) => [agent.agentId, agent]));
+  const kids = new Map<string | null, OrchAgent[]>();
+  for (const agent of agents) {
+    const parent = agent.parentAgentId && agent.parentAgentId !== agent.agentId && byId.has(agent.parentAgentId) ? agent.parentAgentId : null;
+    kids.set(parent, [...(kids.get(parent) ?? []), agent]);
+  }
+  const seen = new Set<string>();
+  const build = (parent: string | null): OrgNode[] =>
+    [...(kids.get(parent) ?? [])].sort(byStart).flatMap((agent) => {
+      if (seen.has(agent.agentId)) return [];
+      seen.add(agent.agentId);
+      return [{ agent, children: build(agent.agentId) }];
+    });
+  return build(null);
+};
+
+export interface OrgStats {
+  /** Lanzados directamente por el coordinador. */
+  byCoordinator: number;
+  /** Lanzados por otros agentes. */
+  byAgents: number;
+  /** Cuántos niveles de agentes hay (1 = ninguno lanzó a otro). */
+  levels: number;
+  /** Agentes que lanzaron a otros. */
+  spawners: number;
+}
+
+export const orgStats = (nodes: OrgNode[]): OrgStats => {
+  let byAgents = 0;
+  let spawners = 0;
+  let levels = 0;
+  const walk = (list: OrgNode[], level: number): void => {
+    if (list.length === 0) return;
+    levels = Math.max(levels, level);
+    for (const node of list) {
+      if (level > 1) byAgents += 1;
+      if (node.children.length > 0) spawners += 1;
+      walk(node.children, level + 1);
+    }
+  };
+  walk(nodes, 1);
+  return { byCoordinator: nodes.length, byAgents, levels: nodes.length ? levels : 0, spawners };
+};
+
 /** Los agentes que tienen hijos (para «Colapsar todo»). */
 export const parentsOf = (agents: OrchAgent[]): string[] => [...new Set(agents.map((agent) => agent.parentAgentId).filter((id): id is string => id !== null && agents.some((agent) => agent.agentId === id)))];
 
@@ -150,15 +207,22 @@ export interface SessionSummary {
   tools: number;
 }
 
-export const summarize = (session: OrchSession, now: number): SessionSummary => {
+/** Tokens de la conversación de los últimos `windowDays` días (suma de los días; sin la caché leída). */
+export const tokensSince = (byDay: Record<string, number>, now: number, windowDays: number): number => {
+  const since = localDay(now - windowDays * 86_400_000);
+  return Object.entries(byDay).reduce((sum, [day, value]) => (day >= since ? sum + value : sum), 0);
+};
+
+/** La duración es la de los agentes que se muestran (del primero que arrancó al último que terminó); sin agentes, la de la sesión. */
+export const summarize = (session: OrchSession, now: number, windowDays = 15): SessionSummary => {
   const span = spanOf(session.agents, now);
-  const first = session.firstAt ? Date.parse(session.firstAt) : span?.start ?? null;
-  const last = session.lastAt ? Date.parse(session.lastAt) : span?.end ?? null;
+  const first = span ? span.start : session.firstAt ? Date.parse(session.firstAt) : null;
+  const last = span ? span.end : session.lastAt ? Date.parse(session.lastAt) : null;
   return {
     agents: session.agents.length,
     running: session.agents.filter((agent) => agent.status === 'running').length,
     tokens: session.agents.reduce((sum, agent) => sum + tokensOf(agent.tokens), 0),
-    mainTokens: tokensOf(session.main.tokens),
+    mainTokens: tokensSince(session.main.byDay, now, windowDays),
     durationMs: first !== null && last !== null ? Math.max(0, last - first) : null,
     models: [...new Set(session.agents.map((agent) => modelFamily(agent.model)).filter((model): model is string => model !== null))].sort(),
     tools: session.agents.reduce((sum, agent) => sum + agent.toolCount, 0),

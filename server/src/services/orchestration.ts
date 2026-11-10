@@ -485,15 +485,21 @@ export const createOrchestration = (options: { file: string; now?: () => number 
     return rest;
   };
 
-  /** Las sesiones guardadas (más recientes primero), sin lo interno. */
-  const sessions = (): OrchSession[] =>
-    Object.values(state.sessions)
+  /**
+   * Las sesiones guardadas (más recientes primero), sin lo interno. Una sesión larga puede abarcar semanas: de ella solo se entregan los agentes de
+   * los últimos 15 días (o los que siguen trabajando), no los más viejos.
+   */
+  const sessions = (): OrchSession[] => {
+    const cutoff = now() - RETENTION_MS;
+    return Object.values(state.sessions)
       .map((session) => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { file: _file, launches: _launches, tracker: _tracker, offset: _offset, size: _size, agents, ...rest } = session;
-        return { ...rest, agents: Object.values(agents).sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.agentId.localeCompare(b.agentId)).slice(0, MAX_AGENTS_PER_SESSION).map(publicAgent) };
+        const recent = Object.values(agents).filter((agent) => agent.status === 'running' || Date.parse(agent.endedAt ?? agent.lastTs ?? agent.startedAt ?? '') >= cutoff);
+        return { ...rest, agents: recent.sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.agentId.localeCompare(b.agentId)).slice(-MAX_AGENTS_PER_SESSION).map(publicAgent) };
       })
       .sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? ''));
+  };
 
   /**
    * Pedido, respuesta y pasos de un agente, leídos de su transcripción AHORA (no se guardan). Solo se abre un archivo si, ya resuelto,

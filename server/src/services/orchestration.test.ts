@@ -140,6 +140,19 @@ describe('escáner de orquestación', () => {
     expect(orch.sessions()).toEqual([]);
   });
 
+  it('de una sesión larga solo entrega los agentes de los últimos 15 días (y los que siguen trabajando)', async () => {
+    const { sessionId, main, subs } = files();
+    writeFileSync(main, line({ type: 'user', timestamp: iso(60 * 24 * 40), message: { role: 'user', content: 'hola' } }) + assistant(iso(5), 'm1', [], usage(1, 1)));
+    const veryOld = iso(60 * 24 * 20);
+    writeFileSync(join(subs, 'agent-viejo.meta.json'), JSON.stringify({ agentType: 'Explore', description: 'Hace 20 días', toolUseId: 'toolu_V', finished: true }));
+    writeFileSync(join(subs, 'agent-viejo.jsonl'), assistant(veryOld, 'v1', [toolUse('t', 'Read')], usage(1, 1)));
+    writeFileSync(join(subs, 'agent-nuevo.meta.json'), JSON.stringify({ agentType: 'Explore', description: 'Hace 3 días', toolUseId: 'toolu_N', finished: true }));
+    writeFileSync(join(subs, 'agent-nuevo.jsonl'), assistant(iso(60 * 24 * 3), 'n1', [toolUse('t', 'Read')], usage(1, 1)));
+    const orch = orchestration();
+    await orch.scan(dirs());
+    expect(orch.sessions().find((item) => item.id === sessionId)!.agents.map((agent) => agent.agentId)).toEqual(['nuevo']);
+  });
+
   it('no expone rutas ni lo interno', async () => {
     buildSession();
     const orch = orchestration();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { barOf, buildRows, filterSessions, formatSpan, formatTokens, localDay, modelFamily, NO_FILTERS, parentsOf, spanOf, summarize, tokensOf, tokensOnDay, type OrchAgent, type OrchSession } from './orchestration';
+import { barOf, buildOrg, buildRows, orgStats, tokensSince, filterSessions, formatSpan, formatTokens, localDay, modelFamily, NO_FILTERS, parentsOf, spanOf, summarize, tokensOf, tokensOnDay, type OrchAgent, type OrchSession } from './orchestration';
 
 const NOW = Date.parse('2026-11-10T15:00:00Z');
 const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000).toISOString();
@@ -63,8 +63,14 @@ describe('resumen y filtros', () => {
 
   it('resume la sesión', () => {
     const summary = summarize(session(list), NOW);
-    expect(summary).toMatchObject({ agents: 3, running: 1, tokens: 180, mainTokens: 200, tools: 9, models: ['haiku', 'opus', 'sonnet'] });
-    expect(summary.durationMs).toBe(110 * 60_000);
+    expect(summary).toMatchObject({ agents: 3, running: 1, tokens: 180, tools: 9, models: ['haiku', 'opus', 'sonnet'] });
+    // del primer agente que arrancó (hace 60 min) hasta ahora (hay uno trabajando)
+    expect(summary.durationMs).toBe(60 * 60_000);
+  });
+  it('los tokens de la conversación son solo los de los últimos días, no los de toda la sesión', () => {
+    const byDay = { [localDay(NOW)]: 40, [localDay(NOW - 3 * 86_400_000)]: 30, [localDay(NOW - 40 * 86_400_000)]: 1000 };
+    expect(tokensSince(byDay, NOW, 15)).toBe(70);
+    expect(summarize(session([], { main: { tokens: zero, byDay, toolCount: 0 } }), NOW, 15).mainTokens).toBe(70);
   });
   it('filtra por estado, modelo y tipo, dejando solo los agentes que coinciden', () => {
     expect(filterSessions(all, { ...NO_FILTERS, status: 'running' })[0]!.agents.map((a) => a.agentId)).toEqual(['a']);
@@ -86,5 +92,30 @@ describe('resumen y filtros', () => {
     const s = session([agent({ agentId: 'a', byDay: { [day]: 50, '2020-01-01': 7 } })], { main: { tokens: zero, byDay: { [day]: 25 }, toolCount: 0 } });
     expect(tokensOnDay([s], day)).toBe(75);
     expect(tokensOnDay([s], '2020-01-02')).toBe(0);
+  });
+});
+
+describe('organigrama', () => {
+  const list = [
+    agent({ agentId: 'b', startedAt: at(50), parentAgentId: 'a' }),
+    agent({ agentId: 'a', startedAt: at(60) }),
+    agent({ agentId: 'c', startedAt: at(40) }),
+    agent({ agentId: 'd', startedAt: at(30), parentAgentId: 'b' }),
+    agent({ agentId: 'huerfano', startedAt: at(20), parentAgentId: 'no-esta' }),
+  ];
+  const show = (nodes: ReturnType<typeof buildOrg>): string[] => nodes.map((node) => (node.children.length ? `${node.agent.agentId}(${show(node.children).join(',')})` : node.agent.agentId));
+
+  it('el coordinador lanzó a los de arriba; cada agente tiene debajo a los que lanzó, por orden de arranque', () => {
+    expect(show(buildOrg(list))).toEqual(['a(b(d))', 'c', 'huerfano']);
+  });
+  it('un agente que se señala a sí mismo o forma un ciclo no rompe nada ni se repite', () => {
+    const looped = [agent({ agentId: 'x', parentAgentId: 'x' }), agent({ agentId: 'p', parentAgentId: 'q', startedAt: at(10) }), agent({ agentId: 'q', parentAgentId: 'p', startedAt: at(9) })];
+    const nodes = buildOrg(looped);
+    const flat = (list2: ReturnType<typeof buildOrg>): string[] => list2.flatMap((n) => [n.agent.agentId, ...flat(n.children)]);
+    expect(flat(nodes).sort()).toEqual(['x']);
+  });
+  it('cuenta cuántos lanzó el coordinador, cuántos otros agentes, quiénes lanzaron y los niveles', () => {
+    expect(orgStats(buildOrg(list))).toEqual({ byCoordinator: 3, byAgents: 2, levels: 3, spawners: 2 });
+    expect(orgStats([])).toEqual({ byCoordinator: 0, byAgents: 0, levels: 0, spawners: 0 });
   });
 });

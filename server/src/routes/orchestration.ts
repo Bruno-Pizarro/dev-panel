@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { agents } from '../services/agents.js';
-import { mergeHookRuns } from '../services/orchestration.js';
+import { mergeHookRuns, RETENTION_MS } from '../services/orchestration.js';
 import { claudeDirs, orchestration, scanIfStale } from '../services/orchestrationStore.js';
 
 /**
@@ -10,7 +10,7 @@ import { claudeDirs, orchestration, scanIfStale } from '../services/orchestratio
 export const registerOrchestrationRoutes = (app: FastifyInstance): void => {
   app.get<{ Querystring: { refresh?: string } }>('/api/orchestration', async (request) => {
     await scanIfStale(request.query.refresh === '1');
-    return { generatedAt: new Date().toISOString(), sessions: mergeHookRuns(orchestration.sessions(), agents.list()) };
+    return { generatedAt: new Date().toISOString(), windowDays: Math.round(RETENTION_MS / 86_400_000), sessions: mergeHookRuns(orchestration.sessions(), agents.list()) };
   });
 
   /** Pedido, respuesta y pasos de un agente, leídos de su transcripción al abrirlo (con los secretos tapados). */
