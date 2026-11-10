@@ -6,6 +6,7 @@ export const SpriteFace = ({ sprite, mood, height = 28 }: { sprite: SpriteSet; m
   const scale = height / sprite.frameH;
   const width = Math.round(sprite.frameW * scale);
   const total = Math.round(sprite.frameW * scale * strip.frames);
+  const duration = `${(strip.frames / (strip.fps * speed)).toFixed(3)}s`;
   return (
     <span
       className="sprite-face inline-block shrink-0"
@@ -19,7 +20,8 @@ export const SpriteFace = ({ sprite, mood, height = 28 }: { sprite: SpriteSet; m
         backgroundSize: `${total}px ${height}px`,
         imageRendering: sprite.pixelated ? 'pixelated' : 'auto',
         ['--sprite-end' as string]: `-${total}px`,
-        animation: frozen || strip.frames < 2 ? 'none' : `sprite-play ${(strip.frames / (strip.fps * speed)).toFixed(3)}s steps(${strip.frames}) infinite`,
+        ['--sprite-dur' as string]: duration,
+        animation: frozen || strip.frames < 2 ? 'none' : `sprite-play ${duration} steps(${strip.frames}) infinite`,
       }}
     />
   );

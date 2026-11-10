@@ -142,6 +142,15 @@
     .animate-shimmer { animation: shimmer 2.4s linear infinite !important; }
     .animate-pulse-dot { animation: none !important; }
     /* La tarjeta de logros sube suave aun con «reducir movimiento»: es corta, de poco recorrido y el usuario la pidió. */
+    /* La mascota es decorativa, chica y la elige el usuario: se mueve aunque el sistema pida reducir movimiento (si no, nunca se la ve animada). */
+    .sprite-face { animation-duration: var(--sprite-dur, 0.6s) !important; animation-iteration-count: infinite !important; }
+    .mascot-idle { animation-duration: 3.2s !important; animation-iteration-count: infinite !important; }
+    .mascot-sleep { animation-duration: 4s !important; animation-iteration-count: infinite !important; }
+    .mascot-work { animation-duration: 0.45s !important; animation-iteration-count: infinite !important; }
+    .mascot-happy { animation-duration: 1.4s !important; animation-iteration-count: infinite !important; }
+    .mascot-party { animation-duration: 0.9s !important; animation-iteration-count: infinite !important; }
+    .mascot-worried { animation-duration: 0.7s !important; animation-iteration-count: infinite !important; }
+    .mascot-tired { animation-duration: 3.6s !important; animation-iteration-count: infinite !important; }
     .reward-rise { animation-duration: 560ms !important; }
     .reward-leave { animation-duration: 260ms !important; }
   }
@@ -195,11 +204,9 @@
 .mascot-party { animation: mascot-party 0.9s ease-in-out infinite; }
 .mascot-worried { animation: mascot-worry 0.7s ease-in-out infinite; }
 .mascot-tired { animation: mascot-droop 3.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .mascot-idle, .mascot-sleep, .mascot-work, .mascot-happy, .mascot-party, .mascot-worried, .mascot-tired { animation: none; } }
 
 /* Mascotas con sprites: la tira avanza de cuadro en cuadro (`--sprite-end` es el ancho total de la tira, en negativo). */
 @keyframes sprite-play { to { background-position-x: var(--sprite-end); } }
-@media (prefers-reduced-motion: reduce) { .sprite-face { animation: none !important; } }
 
 /* Tarjetas de logros y festejos: suben suave desde abajo (con un pequeño rebote al final) y se desvanecen al irse. */
 @keyframes reward-rise { 0% { opacity: 0; transform: translateY(34px) scale(0.96); } 60% { opacity: 1; transform: translateY(-4px) scale(1.005); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
