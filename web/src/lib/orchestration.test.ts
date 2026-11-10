@@ -28,13 +28,13 @@ describe('árbol de agentes', () => {
   ];
   it('cada agente seguido de los que lanzó, con su nivel; el que perdió a su padre cuelga de la raíz', () => {
     const rows = buildRows(agents, new Set());
-    expect(rows.map((row) => `${'-'.repeat(row.level)}${row.agent.agentId}`)).toEqual(['a', '-b', '--d', 'c', 'huerfano']);
-    expect(rows[0]).toMatchObject({ children: 1, collapsed: false });
+    expect(rows.map((row) => `${'-'.repeat(row.level)}${row.agent.agentId}`)).toEqual(['huerfano', 'c', 'a', '-b', '--d']);
+    expect(rows[2]).toMatchObject({ children: 1, collapsed: false });
   });
   it('una rama cerrada oculta lo de adentro y lo marca', () => {
     const rows = buildRows(agents, new Set(['a']));
-    expect(rows.map((row) => row.agent.agentId)).toEqual(['a', 'c', 'huerfano']);
-    expect(rows[0]).toMatchObject({ collapsed: true });
+    expect(rows.map((row) => row.agent.agentId)).toEqual(['huerfano', 'c', 'a']);
+    expect(rows[2]).toMatchObject({ collapsed: true });
     expect(parentsOf(agents).sort()).toEqual(['a', 'b']);
   });
 });
@@ -105,8 +105,8 @@ describe('organigrama', () => {
   ];
   const show = (nodes: ReturnType<typeof buildOrg>): string[] => nodes.map((node) => (node.children.length ? `${node.agent.agentId}(${show(node.children).join(',')})` : node.agent.agentId));
 
-  it('el coordinador lanzó a los de arriba; cada agente tiene debajo a los que lanzó, por orden de arranque', () => {
-    expect(show(buildOrg(list))).toEqual(['a(b(d))', 'c', 'huerfano']);
+  it('el coordinador lanzó a los de arriba; cada agente tiene debajo a los que lanzó, del más nuevo al más viejo', () => {
+    expect(show(buildOrg(list))).toEqual(['huerfano', 'c', 'a(b(d))']);
   });
   it('un agente que se señala a sí mismo o forma un ciclo no rompe nada ni se repite', () => {
     const looped = [agent({ agentId: 'x', parentAgentId: 'x' }), agent({ agentId: 'p', parentAgentId: 'q', startedAt: at(10) }), agent({ agentId: 'q', parentAgentId: 'p', startedAt: at(9) })];
