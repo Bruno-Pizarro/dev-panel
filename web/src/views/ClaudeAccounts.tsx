@@ -16,6 +16,7 @@ import { ClaudeEnv } from '../components/ClaudeEnv';
 import { Tabs } from '../components/Tabs';
 import { UsageBar } from '../components/UsageBar';
 import { api } from '../lib/api';
+import { useTabParam } from '../lib/urlState';
 import { pillStyle, tint } from '../lib/colors';
 import { usePolling } from '../lib/hooks';
 import type { ClaudeAccount, ClaudeLogin } from '../lib/types';
@@ -151,7 +152,7 @@ export const ClaudeAccounts = () => {
   const [loginFor, setLoginFor] = useState<ClaudeAccount | null>(null);
   const [removing, setRemoving] = useState<ClaudeAccount | null>(null);
   const [reloadingId, setReloadingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'cuentas' | 'skills' | 'variables'>('cuentas');
+  const [tab, setTab] = useTabParam(['cuentas', 'skills', 'variables'] as const, 'cuentas');
 
   const reloadUsage = async (account: ClaudeAccount) => {
     setReloadingId(account.id);

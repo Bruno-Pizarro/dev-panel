@@ -26,9 +26,11 @@ import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useTabParam } from '../lib/urlState';
 import { useShortcut } from '../lib/useShortcuts';
 
-type Tab = 'notas' | 'cambios' | 'estado' | 'resumen' | 'manuales' | 'informes' | 'capturas';
+const TABS = ['notas', 'cambios', 'estado', 'resumen', 'manuales', 'informes', 'capturas'] as const;
+type Tab = (typeof TABS)[number];
 
 const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; onListChanged: () => void; refreshKey: number }) => {
   const meta = detail.meta;
@@ -73,7 +75,8 @@ const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; 
 };
 
 const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; onListChanged: () => void; refreshKey: number; onRefresh: () => void }) => {
-  const [tab, setTab] = useState<Tab>('resumen');
+  // La pestaña va en la URL (?tab=): al recargar vuelve a la misma.
+  const [tab, setTab] = useTabParam<Tab>(TABS, 'resumen', ['doc']);
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   useReloadOn(refreshKey, detail.reload);
   if (detail.loading && !detail.data) return <Skeleton className="h-96" />;

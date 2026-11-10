@@ -6,6 +6,7 @@ import { Button } from './Button';
 import { Modal } from './Modal';
 import { Portal } from './Portal';
 import { ShortcutKey } from './Key';
+import { useFullParam } from '../lib/urlState';
 import { useShortcut } from '../lib/useShortcuts';
 import { RefreshButton } from './RefreshButton';
 import { useToast } from './Toast';
@@ -27,19 +28,20 @@ interface TicketFrameProps {
 export const TicketFrame = ({ dir, listPath, header, onRefresh, children }: TicketFrameProps) => {
   const toast = useToast();
   const navigate = useNavigate();
-  const [focus, setFocus] = useState(false);
+  // La pantalla completa va en la URL (?full=1): al recargar sigue igual.
+  const [focus, setFocus, toggleFocus] = useFullParam();
   const [deleting, setDeleting] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   // F: entra y sale de la pantalla completa.
-  useShortcut('frame.full', () => setFocus((value) => !value));
+  useShortcut('frame.full', toggleFocus);
 
   useEffect(() => {
     if (!focus) return;
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && !deleting && !document.querySelector('[aria-label="Diagrama a pantalla completa"], [aria-label="Visor de capturas"]') && setFocus(false);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [focus, deleting]);
+  }, [focus, deleting, setFocus]);
 
   const remove = async () => {
     setBusy(true);

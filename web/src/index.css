@@ -106,6 +106,10 @@
 .editor-row.del { background: var(--ed-del); } .editor-row.del .editor-num { background: var(--ed-del-gutter); color: var(--ed-fg); } .editor-row.del .editor-sign { color: rgb(var(--danger)); }
 .editor-hunk { display: block; padding: 0 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--ed-hunk); color: rgb(var(--accent)); border-block: 1px solid var(--ed-line); }
 .editor-note { padding: 0.75rem 1rem; color: var(--ed-dim); }
+/* Buscador de la pestaña Cambios: coincidencias y el resultado actual. */
+.search-hit { background: rgb(var(--warning) / 0.4); color: inherit; border-radius: 2px; }
+.search-hit-active { background: rgb(var(--accent) / 0.6); }
+.editor-row.search-active { outline: 2px solid rgb(var(--accent) / 0.85); outline-offset: -2px; }
 /* Colores de sintaxis: derivados del tema, así acompañan al que se elija. */
 .tok-kw { color: rgb(var(--accent)); font-weight: 600; }
 .tok-str { color: rgb(var(--success)); }

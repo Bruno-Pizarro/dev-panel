@@ -1,7 +1,8 @@
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useStoredState } from '../lib/hooks';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { withParam } from '../lib/urlState';
 import { cn } from '../lib/cn';
 import { timeAgo } from '../lib/tickets';
 import { CONCLUSIONS, conclusionInfo } from '../lib/conclusion';
@@ -16,7 +17,11 @@ const originOf = (ticket: TicketSummary): 'propio' | 'revision' => (ticket.kind 
 
 /** Lista lateral de carpetas de la base de conocimiento, con búsqueda por número, título o rama. */
 export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tickets: TicketSummary[]; basePath: string; withTestFilters?: boolean }) => {
-  const [query, setQuery] = useState('');
+  // La búsqueda va en la URL (?q=): sobrevive a recargar y a elegir otro ticket de la lista.
+  const [params, setParams] = useSearchParams();
+  const query = params.get('q') ?? '';
+  const setQuery = (value: string) => setParams((previous) => withParam(previous, 'q', value ? value : null), { replace: true });
+  const ticketTo = (dir: string) => ({ pathname: `${basePath}/${encodeURIComponent(dir)}`, search: query ? `?${new URLSearchParams({ q: query }).toString()}` : '' });
   // Por defecto no se muestran los aprobados: lo que importa es lo que falta resolver.
   const [shown, setShown] = useStoredState<Conclusion[]>('devpanel.tests.shown', ['requiere-cambios', 'sin-conclusion']);
   const [pendingOnly, setPendingOnly] = useStoredState<boolean>('devpanel.tests.pending', false);
@@ -41,7 +46,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
   const currentIndex = visible.findIndex((ticket) => pathname === `${basePath}/${encodeURIComponent(ticket.dir)}`);
   const goTicket = (target: number) => {
     const next = visible[Math.min(visible.length - 1, Math.max(0, target))];
-    if (next && visible.indexOf(next) !== currentIndex) navigate(`${basePath}/${encodeURIComponent(next.dir)}`);
+    if (next && visible.indexOf(next) !== currentIndex) navigate(ticketTo(next.dir));
   };
   useShortcutMap({ 'ticket.prev': () => goTicket(currentIndex < 0 ? 0 : currentIndex - 1), 'ticket.next': () => goTicket(currentIndex + 1) });
   useEffect(() => {
@@ -87,7 +92,7 @@ export const TicketList = ({ tickets, basePath, withTestFilters = false }: { tic
       <ul ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {visible.map((ticket) => (
           <li key={ticket.dir}>
-            <NavLink to={`${basePath}/${encodeURIComponent(ticket.dir)}`} className={({ isActive }) => cn('block rounded-xl border p-3.5 transition-colors', isActive ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface hover:border-accent/30')}>
+            <NavLink to={ticketTo(ticket.dir)} className={({ isActive }) => cn('block rounded-xl border p-3.5 transition-colors', isActive ? 'border-accent/60 bg-accent/10' : 'border-line bg-surface hover:border-accent/30')}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-sm text-accent">{ticket.ticket ? `#${ticket.ticket}` : 'sin ticket'}</span>
                 <span className="text-sm text-muted">{timeAgo(ticket.lastUpdated)}</span>

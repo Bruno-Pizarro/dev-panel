@@ -10,6 +10,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
+import { useTabParam } from '../lib/urlState';
 import { cn } from '../lib/cn';
 import { useJob } from '../lib/hooks';
 import type { Snapshot, TestDataRow, TicketSummary } from '../lib/types';
@@ -328,7 +329,8 @@ const TestDataTab = () => {
 };
 
 export const Data = () => {
-  const [tab, setTab] = useState<Tab>('password');
+  // La pestaña va en la URL (?tab=): al recargar vuelve a la misma.
+  const [tab, setTab] = useTabParam<Tab>(['snapshots', 'password', 'remote', 'testdata'], 'password');
   return (
     <>
       <PageHeader title="Datos" description="Scripts usuales y datos del entorno local." />
