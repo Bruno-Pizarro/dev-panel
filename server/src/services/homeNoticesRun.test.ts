@@ -8,7 +8,7 @@ import type { MrInfo } from './gitlab.js';
 // El orquestador guarda en disco: se carga después de apuntar los datos a una carpeta temporal (nunca a la real).
 const mr = (over: Partial<MrInfo> = {}): MrInfo => ({ repo: 'front', iid: 171, order: 1, title: 'Pantalla Firmas por legajo', url: 'https://g/mr/171', state: 'opened', draft: false, sourceBranch: null, targetBranch: null, mergeStatus: null, hasConflicts: false, discussionsResolved: null, notes: 0, pipeline: null, updatedAt: '2026-11-04T09:00:00Z', level: 'ok', summary: 'Listo para mergear', error: null, ...over });
 
-describe('getNotices (una revisión por día)', () => {
+describe('getNotices (se revisa de nuevo pasada la hora)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'dp-home-'));
   let home: typeof import('./homeNotices.js');
   let config: DevPanelConfig;
@@ -57,12 +57,28 @@ describe('getNotices (una revisión por día)', () => {
     expect(calls.length).toBeGreaterThan(5);
   });
 
-  it('el mismo día no vuelve a consultar: lee lo guardado (y las rutinas se calculan al momento)', async () => {
+  it('dentro de la hora no vuelve a consultar: lee lo guardado (y las rutinas se calculan al momento)', async () => {
     calls = [];
-    const report = await home.getNotices(config, { hoursLoaded: false }, new Date(2026, 10, 4, 19, 0), deps());
+    const report = await home.getNotices(config, { hoursLoaded: false }, new Date(2026, 10, 4, 12, 30), deps());
     expect(report.fromCache).toBe(true);
     expect(calls).toEqual([]);
+    expect(report.routines.map((n) => n.id)).toEqual([]);
+  });
+
+  it('pasada la hora (home.refreshMinutes) el mismo día vuelve a revisar solo', async () => {
+    calls = [];
+    const report = await home.getNotices(config, { hoursLoaded: false }, new Date(2026, 10, 4, 19, 0), deps());
+    expect(report.fromCache).toBe(false);
+    expect(calls.length).toBeGreaterThan(5);
     expect(report.routines.map((n) => n.id)).toEqual(['routine-hours-2026-11-04']);
+  });
+
+  it('con otro intervalo configurado (2 h) sigue usando lo guardado a la hora y 50 minutos', async () => {
+    calls = [];
+    const slow = { ...config, home: { ...config.home, refreshMinutes: 120 } };
+    const report = await home.getNotices(slow, { hoursLoaded: true }, new Date(2026, 10, 4, 13, 50), deps());
+    expect(report.fromCache).toBe(true);
+    expect(calls).toEqual([]);
   });
 
   it('"Volver a revisar" consulta de nuevo en el mismo día', async () => {

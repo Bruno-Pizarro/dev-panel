@@ -72,7 +72,7 @@ export const AgentToast = () => {
 
   if (hidden) {
     return (
-      <button type="button" onClick={() => setHidden(false)} className="fixed bottom-4 right-4 z-40 flex h-10 animate-fade-in items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium shadow-pop transition-colors hover:border-accent/50" aria-label={`Mostrar los agentes (${visible.length})`}>
+      <button type="button" onClick={() => setHidden(false)} data-agent-ui className="fixed bottom-4 right-4 z-40 flex h-10 animate-fade-in items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium shadow-pop transition-colors hover:border-accent/50" aria-label={`Mostrar los agentes (${visible.length})`}>
         <Bot className={cn('size-4', running > 0 ? 'text-accent' : 'text-success')} aria-hidden />
         {running > 0 ? `${running} agente${running === 1 ? '' : 's'} trabajando` : 'Agentes terminaron'}
         {running > 0 && <span className="size-2 animate-pulse-dot rounded-full bg-accent" aria-hidden />}
@@ -84,7 +84,7 @@ export const AgentToast = () => {
   const elapsed = (done ? Date.parse(current.endedAt ?? current.startedAt) : now) - Date.parse(current.startedAt);
   const move = (delta: number) => setIndex((position + delta + visible.length) % visible.length);
   return (
-    <section className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] animate-fade-in rounded-2xl border border-line bg-surface shadow-pop" aria-label="Agentes de Claude" data-testid="agent-toast">
+    <section data-agent-ui className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] animate-fade-in rounded-2xl border border-line bg-surface shadow-pop" aria-label="Agentes de Claude" data-testid="agent-toast">
       <header className="flex items-center gap-2 border-b border-line px-4 py-2.5">
         <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg', done ? 'bg-success/15 text-success' : 'bg-accent/15 text-accent')}>
           {done ? <Check className="size-4" aria-hidden /> : <Bot className="size-4" aria-hidden />}

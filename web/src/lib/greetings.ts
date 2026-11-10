@@ -319,14 +319,31 @@ export const ATTENTION_PHRASES: Record<'important' | 'dueSoon' | 'reviews' | 'sp
   ],
 };
 
-/** Las frases posibles para esa hora, día y situación, con o sin nombre. */
-export const poolFor = (date: Date, name: string, context: GreetingContext = {}): string[] => {
-  const hasName = name.trim().length > 0;
-  const tomorrow = nextWorkdayLabel(date, context.offDays);
-  const fill = (phrase: Phrase, extra: Record<string, string> = {}) =>
+/** Rellena las marcas de una frase (`{name}`, `{tomorrow}`, `{holiday}`…). */
+const fillerFor = (date: Date, name: string, offDays?: string[]) => {
+  const tomorrow = nextWorkdayLabel(date, offDays);
+  return (phrase: Phrase, extra: Record<string, string> = {}): string =>
     Object.entries({ ...extra, tomorrow, Tomorrow: `${tomorrow.charAt(0).toUpperCase()}${tomorrow.slice(1)}` })
       .reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), phrase.text)
       .replace(/\{name\}/g, name.trim());
+};
+
+/**
+ * Las frases graciosas (no las de saludo) para los avisos espontáneos: las de programar con Claude y, en horarios raros, las de
+ * cada rango. Con o sin nombre, ya rellenadas.
+ */
+export const funnyPool = (date: Date, name: string, offDays: string[] = []): string[] => {
+  const hasName = name.trim().length > 0;
+  const fill = fillerFor(date, name, offDays);
+  const hour = date.getHours();
+  const odd = ODD_HOUR_PHRASES.filter((range) => hour >= range.from && hour < range.to).flatMap((range) => range.phrases);
+  return [...AI_PHRASES, ...odd].filter((phrase) => !phrase.named || hasName).map((phrase) => fill(phrase));
+};
+
+/** Las frases posibles para esa hora, día y situación, con o sin nombre. */
+export const poolFor = (date: Date, name: string, context: GreetingContext = {}): string[] => {
+  const hasName = name.trim().length > 0;
+  const fill = fillerFor(date, name, context.offDays);
   const usable = (phrases: Phrase[]) => phrases.filter((phrase) => !phrase.named || hasName);
 
   // Un feriado manda: hoy el saludo es de feriado.
