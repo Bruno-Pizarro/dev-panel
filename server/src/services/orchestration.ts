@@ -119,7 +119,12 @@ interface StoredState {
 const zero = (): OrchTokens => ({ input: 0, output: 0, cacheCreate: 0, cacheRead: 0 });
 const newTracker = (): Tracker => ({ tokens: zero(), byDay: {}, pending: null });
 const weight = (usage: OrchTokens): number => usage.input + usage.output + usage.cacheCreate;
-const dayOf = (timestamp: string): string => timestamp.slice(0, 10);
+/** El día (de esta máquina, no UTC) de una marca de tiempo: «tokens de hoy» cuenta el día de quien trabaja. */
+const dayOf = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp.slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 /** Suma el mensaje pendiente al total. Un mensaje del asistente llega en varias líneas (una por bloque) con el mismo `id`: se cuenta una vez. */
 const commit = (tracker: Tracker): void => {

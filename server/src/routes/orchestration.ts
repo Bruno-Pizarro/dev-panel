@@ -1,24 +1,7 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { paths } from '../config.js';
 import { agents } from '../services/agents.js';
-import { loadAccounts } from '../services/claudeAccounts.js';
-import { createOrchestration, mergeHookRuns, type ClaudeDir } from '../services/orchestration.js';
-
-const orchestration = createOrchestration({ file: join(paths.data, 'orchestration.json') });
-
-/** Carpetas de configuración de Claude: la de siempre y las de las cuentas agregadas en el panel. */
-const claudeDirs = (): ClaudeDir[] => {
-  const base = process.env['CLAUDE_CONFIG_DIR'] ?? join(homedir(), '.claude');
-  const accounts = loadAccounts().accounts;
-  const list: ClaudeDir[] = [{ dir: base, label: accounts.find((account) => account.configDir === base)?.label ?? 'Claude' }];
-  for (const account of accounts) if (!list.some((item) => item.dir === account.configDir)) list.push({ dir: account.configDir, label: account.label });
-  return list;
-};
-
-/** Se vuelve a leer como mucho cada tanto (una pasada sin cambios cuesta casi nada, pero no hace falta pedirla por cada pantalla). */
-const SCAN_EVERY_MS = 15_000;
+import { mergeHookRuns } from '../services/orchestration.js';
+import { claudeDirs, orchestration, scanIfStale } from '../services/orchestrationStore.js';
 
 /**
  * Orquestación de Claude Code: sesiones y árbol de agentes con sus métricas, leídos de las transcripciones (ver `services/orchestration.ts`)
@@ -26,7 +9,7 @@ const SCAN_EVERY_MS = 15_000;
  */
 export const registerOrchestrationRoutes = (app: FastifyInstance): void => {
   app.get<{ Querystring: { refresh?: string } }>('/api/orchestration', async (request) => {
-    if (request.query.refresh === '1' || Date.now() - orchestration.lastScanAt() > SCAN_EVERY_MS) await orchestration.scan(claudeDirs());
+    await scanIfStale(request.query.refresh === '1');
     return { generatedAt: new Date().toISOString(), sessions: mergeHookRuns(orchestration.sessions(), agents.list()) };
   });
 
