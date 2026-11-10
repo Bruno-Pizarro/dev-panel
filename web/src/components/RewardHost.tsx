@@ -6,6 +6,7 @@ import { useStoredState } from '../lib/hooks';
 import { ACHIEVEMENT_BY_ID } from '../lib/rewards/achievements';
 import { CELEBRATE_EVENT, CELEBRATION_TEXT, type CelebrateDetail } from '../lib/rewards/bus';
 import { confetti, playSound, soundFor } from '../lib/rewards/effects';
+import { DAY_WRAP_EVENT, shouldWrap, wrapFlag } from '../lib/rewards/dayWrap';
 import { celebrated, rollPraise, step } from '../lib/rewards/engine';
 import { RECORDS } from '../lib/rewards/records';
 import { DEFAULT_GAME_PREFS, EMPTY_GAME, gamePrefs, type CelebrationLevel, type GameState, type Prefs, type RewardEvent, type RewardFacts } from '../lib/rewards/types';
@@ -82,8 +83,14 @@ export const RewardHost = () => {
         (facts) => {
           const { game: state, prefs: p } = latest.current;
           const result = step({ state, facts, now: new Date(), prefs: p, rng: Math.random });
-          setGame(result.state);
-          latest.current.game = result.state;
+          let next = result.state;
+          // Pasada la hora de salida, el cierre del día se muestra solo (una vez por día).
+          if (shouldWrap(facts, next, p, new Date(), latest.current.dnd)) {
+            next = { ...next, flags: { ...next.flags, [wrapFlag(facts.day)]: true } };
+            window.dispatchEvent(new Event(DAY_WRAP_EVENT));
+          }
+          setGame(next);
+          latest.current.game = next;
           show(highest(result.events), toCards(result.events));
         },
         () => undefined,

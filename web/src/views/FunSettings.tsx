@@ -7,6 +7,7 @@ import { REWARD_DEMO_EVENT } from '../components/RewardHost';
 import { cn } from '../lib/cn';
 import { useStoredState } from '../lib/hooks';
 import { celebrate } from '../lib/rewards/bus';
+import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
 import { MASCOTS, mascotById } from '../lib/rewards/mascots';
 import { DEFAULT_GAME_PREFS, EMPTY_GAME, gamePrefs, type GameState, type Prefs } from '../lib/rewards/types';
 
@@ -35,7 +36,7 @@ export const FunSettings = () => {
 
   return (
     <div className="space-y-6">
-      <Card title="Diversión" action={<span className="flex flex-wrap gap-2"><Button icon={<PartyPopper className="size-4" />} onClick={() => celebrate('demo', 'big')}>Probar un festejo</Button><Button onClick={() => window.dispatchEvent(new Event(REWARD_DEMO_EVENT))}>Probar un logro</Button></span>}>
+      <Card title="Diversión" action={<span className="flex flex-wrap gap-2"><Button icon={<PartyPopper className="size-4" />} onClick={() => celebrate('demo', 'big')}>Probar un festejo</Button><Button onClick={() => window.dispatchEvent(new Event(REWARD_DEMO_EVENT))}>Probar un logro</Button><Button onClick={() => window.dispatchEvent(new Event(DAY_WRAP_EVENT))}>Ver mi día ahora</Button></span>}>
         <p className="mb-4 text-muted">El panel te festeja cuando completás algo, te da logros con humor, anota tus récords y de vez en cuando te tira un elogio. Todo es local: lo que desbloqueaste vive en este navegador y nada sale de la máquina. No molestan con «No molestar» y no cuentan para el tope de avisos.</p>
         <div className="mb-5 flex flex-wrap gap-2">
           <Chip selected={prefs.enabled} onToggle={() => set({ enabled: !prefs.enabled })} hint="Apaga todo lo divertido junto">Diversión activada</Chip>

@@ -8,6 +8,7 @@ import { useDnd } from '../lib/dnd';
 import { useStoredState } from '../lib/hooks';
 import { formatTokens } from '../lib/orchestration';
 import { DEFAULT_GAME_PREFS, gamePrefs, type Prefs } from '../lib/rewards/types';
+import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
 import { Mascot } from './Mascot';
 
 /** Cada cuánto se piden los datos (el servidor además los guarda 30 s). */
@@ -88,7 +89,11 @@ export const ActivityBar = () => {
             <span>· {formatTokens(data.agents.tokensToday)} tokens</span>
           </Item>
         )}
-        {segments.workday && workday && <Item to="/" title="Tu jornada según el horario configurado" className="hidden lg:flex"><Clock className="size-4" aria-hidden /><span className={cn(workday.state === 'after' && 'text-warning')}>{workday.text}</span></Item>}
+        {segments.workday && workday && (
+          <button type="button" onClick={() => window.dispatchEvent(new Event(DAY_WRAP_EVENT))} title="Tu jornada según el horario configurado. Clic: tu día en 10 segundos" className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 transition-colors hover:bg-surface-2 hover:text-fg lg:flex">
+            <Clock className="size-4" aria-hidden /><span className={cn(workday.state === 'after' && 'text-warning')}>{workday.text}</span>
+          </button>
+        )}
         {segments.services && data.services && (
           <Item to="/servicios" title="Servicios obligatorios corriendo" className="hidden md:flex">
             <Boxes className="size-4" aria-hidden />

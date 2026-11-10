@@ -1,4 +1,4 @@
-import { Bot, Boxes, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Bot, Boxes, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon, Trophy } from 'lucide-react';
 
 export interface NavItem {
   path: string;
@@ -34,6 +34,7 @@ export const navGroups: NavGroup[] = [
       { path: '/planificacion', label: 'Desarrollo', description: 'Análisis, plan y diagramas de cada desarrollo', icon: Layers, phase: null },
       { path: '/daily', label: 'Daily', description: 'Resumen diario de trabajo', icon: CalendarDays, phase: null },
       { path: '/agentes', label: 'Agentes', description: 'Subagentes de Claude, por sesión', icon: ListTree, phase: null },
+      { path: '/logros', label: 'Logros', description: 'Tus logros con humor, récords y números', icon: Trophy, phase: null },
     ],
   },
   { label: 'Sistema', items: [

@@ -79,6 +79,6 @@ describe('atajos de teclado', () => {
   });
 
   it('hay un destino por cada entrada del menú', () => {
-    expect(buildDefs().filter((def) => def.context === 'goto')).toHaveLength(13);
+    expect(buildDefs().filter((def) => def.context === 'goto')).toHaveLength(14);
   });
 });
