@@ -20,6 +20,7 @@ import { registerDiscordRoutes } from './routes/discord.js';
 import { registerNudgeRoutes } from './routes/nudges.js';
 import { registerOrchestrationRoutes } from './routes/orchestration.js';
 import { registerActivityBarRoutes } from './routes/activityBar.js';
+import { registerRewardRoutes } from './routes/rewards.js';
 import { registerDiscordBotRoutes } from './routes/discordBot.js';
 import { registerClaudeRoutes } from './routes/claude.js';
 import { registerWorkRoutes } from './routes/work.js';
@@ -58,6 +59,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerNudgeRoutes(app);
   registerOrchestrationRoutes(app);
   registerActivityBarRoutes(app);
+  registerRewardRoutes(app);
   registerReminderRoutes(app);
   registerClaudeEnvRoutes(app);
 
