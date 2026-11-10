@@ -1,5 +1,5 @@
 import { Menu } from 'lucide-react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStoredState } from '../lib/hooks';
 import { cn } from '../lib/cn';
 import { ClaudeUsageBar } from './ClaudeUsageBar';
@@ -29,6 +29,9 @@ export const Layout = ({ userName }: { userName: string }) => {
   const wide = ['/pruebas', '/planificacion', '/kanban'].some((prefix) => pathname.startsWith(prefix));
   // Pruebas y Desarrollo son dos paneles con scroll propio: la página no debe tener un tercero.
   const split = ['/pruebas', '/planificacion'].some((prefix) => pathname.startsWith(prefix));
+  // Pantalla completa de un ticket (?full=1): sin menú lateral ni botón para abrirlo (queda montado, solo oculto, para no perder sus atajos).
+  const [params] = useSearchParams();
+  const ticketFull = split && params.get('full') === '1';
   return (
     <div className="flex h-full">
       <ShortcutHelp />
@@ -36,13 +39,17 @@ export const Layout = ({ userName }: { userName: string }) => {
       <NudgeHost userName={userName} />
       <RewardHost />
       <DayWrap />
-      <Sidebar collapsed={collapsed} userName={userName} />
+      <div className={ticketFull ? 'hidden' : 'contents'}>
+        <Sidebar collapsed={collapsed} userName={userName} />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="relative z-30 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface/60 px-8 backdrop-blur">
           <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} aria-expanded={!collapsed} title={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg">
+            {!ticketFull && (
+              <button type="button" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} aria-expanded={!collapsed} title={collapsed ? 'Expandir el menú' : 'Colapsar el menú'} className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg">
               <Menu className="size-5" aria-hidden />
             </button>
+            )}
             <CommandPalette />
           </div>
           <div className="flex shrink-0 items-center gap-5">
