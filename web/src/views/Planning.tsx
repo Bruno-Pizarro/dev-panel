@@ -20,7 +20,8 @@ import { TicketList } from '../components/TicketList';
 import { RefreshButton } from '../components/RefreshButton';
 import { api } from '../lib/api';
 import { useReloadOn } from '../lib/hooks';
-import { assetUrl, classifyDocs, diagramFile, fileUrl, planDoc, referenceImage } from '../lib/tickets';
+import { assetUrl, classifyDocs, diagramFile, fileUrl, isHtmlReference, planDoc, referenceImage, referenceUrl } from '../lib/tickets';
+import { ReferenceFrame } from '../components/ReferenceFrame';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
 import { useTabParam } from '../lib/urlState';
@@ -71,10 +72,12 @@ const Detail = ({ dir, refreshKey, onRefresh }: { dir: string; refreshKey: numbe
           <EmptyState icon={<Layers className="size-6" />} title="Sin diagrama de flujo">Se muestra un archivo <span className="font-mono">.mmd</span> (Mermaid) de la carpeta o el que indique <span className="font-mono">plan.diagrama</span>.</EmptyState>
         ))}
       {tab === 'referencia' &&
-        (reference ? (
+        (reference && isHtmlReference(reference) ? (
+          <ReferenceFrame src={referenceUrl(dir, reference)} name={reference} />
+        ) : reference ? (
           <img src={assetUrl(dir, reference)} alt="Referencia visual" className="max-w-full rounded-2xl border border-line" />
         ) : (
-          <EmptyState icon={<Layers className="size-6" />} title="Sin referencia visual">Si pedís una captura de cómo debería verse la funcionalidad, queda guardada en la carpeta y aparece acá.</EmptyState>
+          <EmptyState icon={<Layers className="size-6" />} title="Sin referencia visual">Si pedís una captura o un demo en HTML de cómo debería verse la funcionalidad, queda guardado en la carpeta y aparece acá (en `ticket.json`, `plan.referenciaVisual`).</EmptyState>
         ))}
       {tab === 'documentos' && (
         <div className="space-y-4">

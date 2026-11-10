@@ -42,7 +42,7 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
 | Etapa (skill) | Campos |
 |---|---|
 | Requisitos (`ing-requisitos-sdd`) | `ticket`, `titulo`, `url`, `repos`, `rama` (propuesta); opcional, un `flujo.mmd` si el flujo no es trivial |
-| Arquitecto (`arquitecto-sdd`) | `tipo: "desarrollo"`, `rama`, `repos`, `servicios`, `pruebasManuales` (derivadas de los criterios de aceptación), `plan.resumen` (`plan_abreviado.md` de una página: objetivo, alcance, tareas clave, riesgos), `plan.diagrama` (`flujo.mmd` con el flujo de la funcionalidad, no del código) y, solo si el usuario lo pide, `plan.referenciaVisual` |
+| Arquitecto (`arquitecto-sdd`) | `tipo: "desarrollo"`, `rama`, `repos`, `servicios`, `pruebasManuales` (derivadas de los criterios de aceptación), `plan.resumen` (`plan_abreviado.md` de una página: objetivo, alcance, tareas clave, riesgos), `plan.diagrama` (`flujo.mmd` con el flujo de la funcionalidad, no del código) y, solo si el usuario lo pide, `plan.referenciaVisual` (imagen o `.html` de demo con todo incrustado) |
 | Desarrollador (`desarrollador-sdd`) | `estado` ("En desarrollo"), una entrada nueva en `pruebas[]` por cada tanda (`fecha`, `resultado` tipo `31/31`, `resumen`, `conclusion`, `archivo`, `capturas`); ajusta `pruebasManuales` y `servicios` si lo probado difiere |
 | Code review (`gitlab-review`) | `tipo: "revision"` cuando el ticket lo desarrolló otra persona y solo se revisa; una entrada nueva en `codeReview[]` por revisión; `mrs[].estado` |
 | Ship (`ship`) | una entrada en `mrs[]` por MR creado (`fecha`, `repo`, `iid`, `url`, `autor`, `estado: "abierto"`) y `estado` ("En revisión") |

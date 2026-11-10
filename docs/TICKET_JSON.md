@@ -31,7 +31,7 @@ Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener u
 | Skill | Campos |
 |---|---|
 | `ing-requisitos-sdd` | `ticket`, `titulo`, `url`, `repos`, `rama` (propuesta) |
-| `arquitecto-sdd` | `rama`, `repos`, `plan.resumen` (plan abreviado en MD), `plan.diagrama` (Mermaid `.mmd`), `plan.referenciaVisual` (solo si se pidió una captura de cómo debería verse) |
+| `arquitecto-sdd` | `rama`, `repos`, `plan.resumen` (plan abreviado en MD), `plan.diagrama` (Mermaid `.mmd`), `plan.referenciaVisual` (imagen o `.html` de demo con todo incrustado; solo si se pidió una captura de cómo debería verse) |
 | `desarrollador-sdd` | `estado` ("En desarrollo"), `pruebas[]` (una entrada por tanda de pruebas, con `resultado` tipo `31/31`) |
 | `gitlab-review` | `codeReview[]` (una entrada por revisión), `mrs[].estado` |
 | `ship` | `mrs[]` (repo, iid, url, autor, estado "abierto"), `estado` ("En revisión") |
