@@ -1,6 +1,6 @@
 import { Bell, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useDnd } from '../lib/dnd';
 import { funnyPool } from '../lib/greetings';
@@ -39,12 +39,10 @@ export const NudgeHost = ({ userName }: { userName: string }) => {
   const [paused, setPaused] = useState(false);
   const [lift, setLift] = useState(0);
   const dnd = useDnd();
-  const [params] = useSearchParams();
-  const fullscreen = params.get('full') === '1';
 
   // Lo último, para que los temporizadores no usen valores viejos.
   const latest = useRef({ prefs, state, nudges, current, blocked: false, userName });
-  latest.current = { prefs, state, nudges, current, blocked: dnd.active || fullscreen, userName };
+  latest.current = { prefs, state, nudges, current, blocked: dnd.active, userName };
 
   const evaluate = useCallback(() => {
     const now = Date.now();
@@ -126,7 +124,7 @@ export const NudgeHost = ({ userName }: { userName: string }) => {
   const useful = current.type === 'useful' ? current.nudge : null;
   return (
     <section
-      className="fixed right-4 z-40 w-72 max-w-[calc(100vw-2rem)] animate-fade-in overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
+      className="fixed right-4 z-[45] w-72 max-w-[calc(100vw-2rem)] animate-fade-in overflow-hidden rounded-xl border border-line bg-surface shadow-pop"
       style={{ bottom: `calc(${16 + lift}px + var(--footer-h, 0px))` }}
       aria-label="Aviso"
       role="status"

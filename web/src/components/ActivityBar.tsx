@@ -5,7 +5,8 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { DEFAULT_BAR_PREFS, withDefaults, workdayText, type ActivityBarData, type ActivityBarPrefs } from '../lib/activityBar';
 import { useDnd } from '../lib/dnd';
-import { useStoredState } from '../lib/hooks';
+import { useServerEvent, useStoredState } from '../lib/hooks';
+import type { AgentRun } from '../lib/types';
 import { formatTokens } from '../lib/orchestration';
 import { useGame } from '../lib/rewards/gameStore';
 import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
@@ -32,6 +33,12 @@ export const ActivityBar = () => {
   const [now, setNow] = useState(() => new Date());
   const dnd = useDnd();
   const { prefs: game } = useGame();
+  // Agentes de Claude en vivo: los avisos de los hooks llegan al instante (la barra completa solo se pide cada minuto).
+  const [liveRuns, setLiveRuns] = useState<AgentRun[]>([]);
+  useEffect(() => {
+    api.get<{ agents: AgentRun[] }>('/api/agents').then((result) => setLiveRuns(result.agents), () => undefined);
+  }, []);
+  useServerEvent<AgentRun[]>('agents', setLiveRuns);
 
   useEffect(() => {
     if (!prefs.enabled) return;
@@ -61,9 +68,11 @@ export const ActivityBar = () => {
   const context = data.context;
   // La mascota lee el ánimo del día: servicios caídos, cambios en una rama protegida, agentes trabajando y la jornada.
   const servicesDown = data.services !== null && data.services.running > 0 && data.services.running < data.services.total;
-  const mascotInput = { trouble: servicesDown, agentsRunning: data.agents.running, workday: workday?.state ?? null, weekend: now.getDay() === 0 || now.getDay() === 6, commitsToday: data.commitsToday };
+  // Lo que se ve en vivo y lo que leyó el servidor de las transcripciones: se toma lo mayor (los hooks pueden no estar instalados).
+  const agentsRunning = Math.max(data.agents.running, liveRuns.filter((run) => run.status === 'running').length);
+  const mascotInput = { trouble: servicesDown, agentsRunning: agentsRunning, workday: workday?.state ?? null, weekend: now.getDay() === 0 || now.getDay() === 6, commitsToday: data.commitsToday };
   return (
-    <footer className="flex h-8 shrink-0 items-center gap-3 overflow-x-clip overflow-y-visible border-t border-line bg-surface/60 px-6 text-sm text-muted" aria-label="Actividad" data-testid="activity-bar">
+    <footer className="relative z-30 flex h-8 shrink-0 items-center gap-3 overflow-x-clip overflow-y-visible border-t border-line bg-surface/60 px-6 text-sm text-muted" aria-label="Actividad" data-testid="activity-bar">
       {game.enabled && game.mascot && <Mascot mascotId={game.mascotId} name={game.mascotName} input={mascotInput} />}
       {segments.context && (
         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -84,7 +93,7 @@ export const ActivityBar = () => {
         {segments.agents && (
           <Item to="/agentes" title={`Agentes de Claude: ${data.agents.running} trabajando, ${data.agents.today} lanzados hoy. Tokens de hoy: ${data.agents.tokensToday.toLocaleString('es-AR')} (entrada + salida + caché creada, la conversación y sus agentes)`} className="hidden sm:flex">
             <Bot className="size-4" aria-hidden />
-            {data.agents.running > 0 ? <span className="flex items-center gap-1.5 text-accent"><span className="size-2 animate-pulse-dot rounded-full bg-accent" aria-hidden />{data.agents.running} trabajando</span> : <span>{data.agents.today} {data.agents.today === 1 ? 'agente' : 'agentes'} hoy</span>}
+            {agentsRunning > 0 ? <span className="flex items-center gap-1.5 text-accent"><span className="size-2 animate-pulse-dot rounded-full bg-accent" aria-hidden />{agentsRunning} trabajando</span> : <span>{data.agents.today} {data.agents.today === 1 ? 'agente' : 'agentes'} hoy</span>}
             <span>· {formatTokens(data.agents.tokensToday)} tokens</span>
           </Item>
         )}

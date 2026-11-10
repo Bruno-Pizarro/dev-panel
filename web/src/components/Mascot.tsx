@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn';
 import { SpriteFace } from './SpriteFace';
 import { CELEBRATE_EVENT } from '../lib/rewards/bus';
@@ -7,6 +7,11 @@ import { faceOf, mascotById, moodOf, MOOD_BADGE, MOOD_LINES, type Mood, type Moo
 /** Cuánto dura la cara de fiesta después de un festejo, y cuánto el globo cuando le hacés clic. */
 const PARTY_MS = 4500;
 const BUBBLE_MS = 4000;
+
+/** Lo que dice cuando aparece un agente trabajando y cuando terminan todos. */
+const AGENT_START_LINES = ['¡Llegó un agente! A trabajar.', 'Hay un agente en marcha, me pongo las pilas.', 'Agente en camino: yo superviso.'];
+const AGENT_DONE_LINES = ['Los agentes terminaron. ¡Buen laburo!', 'Todo en silencio: ya terminaron los agentes.', 'Listo, los agentes cerraron su tarea.'];
+const pick = (lines: string[]): string => lines[Math.floor(Math.random() * lines.length)]!;
 
 /**
  * La mascota del pie: un bichito que reacciona a lo que pasa (duerme, trabaja cuando hay agentes, se preocupa si cae un servicio, festeja con
@@ -36,6 +41,21 @@ export const Mascot = ({ mascotId, name, input }: { mascotId: string; name: stri
     const timer = window.setTimeout(() => setBubble(null), BUBBLE_MS);
     return () => window.clearTimeout(timer);
   }, [bubble, poked]);
+
+  // Detecta solo cuándo empieza y termina el trabajo de los agentes: se pone a trabajar, avisa y, al terminar, festeja un poquito.
+  const previousAgents = useRef<number | null>(null);
+  useEffect(() => {
+    const before = previousAgents.current;
+    previousAgents.current = input.agentsRunning;
+    if (before === null) return;
+    if (before === 0 && input.agentsRunning > 0) setBubble(pick(AGENT_START_LINES));
+    else if (before > 0 && input.agentsRunning === 0) {
+      setBubble(pick(AGENT_DONE_LINES));
+      setParty(true);
+      const timer = window.setTimeout(() => setParty(false), 2500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [input.agentsRunning]);
 
   const mood: Mood = moodOf({ ...input, celebrating: party });
   const label = name.trim() || mascot.name;
