@@ -23,9 +23,11 @@ import { useReloadOn } from '../lib/hooks';
 import { assetUrl, classifyDocs, diagramFile, fileUrl, planDoc, referenceImage } from '../lib/tickets';
 import type { TicketDetail, TicketSummary } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
+import { useTabParam } from '../lib/urlState';
 import { useShortcut } from '../lib/useShortcuts';
 
-type Tab = 'notas' | 'cambios' | 'estado' | 'plan' | 'diagrama' | 'referencia' | 'documentos';
+const TABS = ['notas', 'cambios', 'estado', 'plan', 'diagrama', 'referencia', 'documentos'] as const;
+type Tab = (typeof TABS)[number];
 
 const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: string; refreshKey: number; children: (content: string) => React.ReactNode }) => {
   const doc = useAsync(() => api.get<{ content: string }>(fileUrl(dir, file)));
@@ -36,7 +38,8 @@ const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: stri
 };
 
 const Detail = ({ dir, refreshKey, onRefresh }: { dir: string; refreshKey: number; onRefresh: () => void }) => {
-  const [tab, setTab] = useState<Tab>('plan');
+  // La pestaña va en la URL (?tab=): al recargar vuelve a la misma.
+  const [tab, setTab] = useTabParam<Tab>(TABS, 'plan');
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   useReloadOn(refreshKey, detail.reload);
   if (detail.loading && !detail.data) return <Skeleton className="h-96" />;
