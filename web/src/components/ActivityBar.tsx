@@ -17,7 +17,7 @@ const POLL_MS = 60_000;
 export const BAR_HEIGHT = '2rem';
 
 const Item = ({ to, title, children, className }: { to: string; title: string; children: React.ReactNode; className?: string }) => (
-  <Link to={to} title={title} className={cn('flex min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 transition-colors hover:bg-surface-2 hover:text-fg', className)}>{children}</Link>
+  <Link to={to} title={title} className={cn('flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 transition-colors hover:bg-surface-2 hover:text-fg', className)}>{children}</Link>
 );
 
 /**
@@ -81,7 +81,7 @@ export const ActivityBar = () => {
       )}
       {!segments.context && <div className="flex-1" />}
       <div className="flex shrink-0 items-center gap-3">
-        {segments.today && <Item to="/daily" title="Commits de hoy (tuyos, en los repos del panel)" className="hidden md:flex"><GitCommitHorizontal className="size-4" aria-hidden />{data.commitsToday} {data.commitsToday === 1 ? 'commit' : 'commits'} hoy</Item>}
+        {segments.today && <Item to="/daily" title="Commits de hoy (tuyos, en los repos del panel)" className="hidden 2xl:flex"><GitCommitHorizontal className="size-4" aria-hidden />{data.commitsToday} {data.commitsToday === 1 ? 'commit' : 'commits'} hoy</Item>}
         {segments.agents && (
           <Item to="/agentes" title={`Agentes de Claude: ${data.agents.running} trabajando, ${data.agents.today} lanzados hoy. Tokens de hoy: ${data.agents.tokensToday.toLocaleString('es-AR')} (entrada + salida + caché creada, la conversación y sus agentes)`} className="hidden sm:flex">
             <Bot className="size-4" aria-hidden />

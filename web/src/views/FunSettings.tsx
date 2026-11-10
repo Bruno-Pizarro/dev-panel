@@ -4,6 +4,7 @@ import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { Field } from '../components/Field';
 import { REWARD_DEMO_EVENT } from '../components/RewardHost';
+import { SpriteFace } from '../components/SpriteFace';
 import { cn } from '../lib/cn';
 import { useStoredState } from '../lib/hooks';
 import { celebrate } from '../lib/rewards/bus';
@@ -54,7 +55,7 @@ export const FunSettings = () => {
         <div className={cn('grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6', !prefs.mascot && 'opacity-50')} role="radiogroup" aria-label="Elegí tu mascota">
           {MASCOTS.map((item) => (
             <button key={item.id} type="button" role="radio" aria-checked={prefs.mascotId === item.id} onClick={() => pick(item.id)} className={cn('flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-colors', prefs.mascotId === item.id ? 'border-accent bg-accent/10' : 'border-line bg-surface-2 hover:border-accent/40')}>
-              <span className="text-3xl" aria-hidden>{item.emoji}</span>
+              {item.sprite ? <SpriteFace sprite={item.sprite} mood="idle" height={40} /> : <span className="text-3xl" aria-hidden>{item.emoji}</span>}
               <span className="text-sm font-medium">{item.name}</span>
             </button>
           ))}

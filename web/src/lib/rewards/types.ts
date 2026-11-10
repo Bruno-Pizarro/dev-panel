@@ -75,7 +75,7 @@ export interface Prefs {
   mascotName: string;
 }
 
-export const DEFAULT_GAME_PREFS: Prefs = { enabled: true, celebrations: true, achievements: true, praise: true, sound: false, closeDay: true, mascot: true, mascotId: 'gato', mascotName: '' };
+export const DEFAULT_GAME_PREFS: Prefs = { enabled: true, celebrations: true, achievements: true, praise: true, sound: false, closeDay: true, mascot: true, mascotId: 'gatito', mascotName: '' };
 
 /** Completa lo guardado con los valores por defecto (por si se sumó una opción). */
 export const gamePrefs = (stored: Partial<Prefs> | null | undefined): Prefs => ({ ...DEFAULT_GAME_PREFS, ...(stored ?? {}) });

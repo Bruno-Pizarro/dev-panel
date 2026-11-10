@@ -193,3 +193,7 @@
 .mascot-worried { animation: mascot-worry 0.7s ease-in-out infinite; }
 .mascot-tired { animation: mascot-droop 3.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .mascot-idle, .mascot-sleep, .mascot-work, .mascot-happy, .mascot-party, .mascot-worried, .mascot-tired { animation: none; } }
+
+/* Mascotas con sprites: la tira avanza de cuadro en cuadro (`--sprite-end` es el ancho total de la tira, en negativo). */
+@keyframes sprite-play { to { background-position-x: var(--sprite-end); } }
+@media (prefers-reduced-motion: reduce) { .sprite-face { animation: none !important; } }
