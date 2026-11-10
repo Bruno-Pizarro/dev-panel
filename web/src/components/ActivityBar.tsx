@@ -7,7 +7,7 @@ import { DEFAULT_BAR_PREFS, withDefaults, workdayText, type ActivityBarData, typ
 import { useDnd } from '../lib/dnd';
 import { useStoredState } from '../lib/hooks';
 import { formatTokens } from '../lib/orchestration';
-import { DEFAULT_GAME_PREFS, gamePrefs, type Prefs } from '../lib/rewards/types';
+import { useGame } from '../lib/rewards/gameStore';
 import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
 import { Mascot } from './Mascot';
 
@@ -31,8 +31,7 @@ export const ActivityBar = () => {
   const [data, setData] = useState<ActivityBarData | null>(null);
   const [now, setNow] = useState(() => new Date());
   const dnd = useDnd();
-  const [storedGame] = useStoredState<Partial<Prefs>>('dev-panel.game.prefs', DEFAULT_GAME_PREFS);
-  const game = gamePrefs(storedGame);
+  const { prefs: game } = useGame();
 
   useEffect(() => {
     if (!prefs.enabled) return;

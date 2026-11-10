@@ -2,14 +2,14 @@ import { Award, Sparkles, Trophy, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useDnd } from '../lib/dnd';
-import { useStoredState } from '../lib/hooks';
 import { ACHIEVEMENT_BY_ID, TIER_LABEL } from '../lib/rewards/achievements';
 import { CELEBRATE_EVENT, CELEBRATION_TEXT, type CelebrateDetail } from '../lib/rewards/bus';
 import { confetti, playSound, soundFor } from '../lib/rewards/effects';
 import { DAY_WRAP_EVENT, shouldWrap, wrapFlag } from '../lib/rewards/dayWrap';
 import { celebrated, rollPraise, step } from '../lib/rewards/engine';
 import { RECORDS } from '../lib/rewards/records';
-import { DEFAULT_GAME_PREFS, EMPTY_GAME, gamePrefs, type CelebrationLevel, type GameState, type Prefs, type RewardEvent, type RewardFacts } from '../lib/rewards/types';
+import { gameStore, useGame } from '../lib/rewards/gameStore';
+import type { CelebrationLevel, RewardEvent, RewardFacts } from '../lib/rewards/types';
 
 /** Cada cuánto se piden los hechos del día. La primera vez, un rato después de abrir el panel (no encima del saludo). */
 const POLL_MS = 60_000;
@@ -17,6 +17,8 @@ const FIRST_MS = 15_000;
 /** Cuánto queda a la vista una tarjeta, y cuántas esperan como mucho. */
 const SHOW_MS = 7000;
 const MAX_QUEUE = 5;
+/** Lo que dura el desvanecido al irse (debe coincidir con `reward-leave` en index.css). */
+const LEAVE_MS = 260;
 export const REWARD_DEMO_EVENT = 'dev-panel:reward-demo';
 
 type Card =
@@ -56,15 +58,16 @@ const highest = (events: RewardEvent[]): CelebrationLevel | null => {
  * Todo es local: lo que desbloqueaste vive en este navegador.
  */
 export const RewardHost = () => {
-  const [stored] = useStoredState<Partial<Prefs>>('dev-panel.game.prefs', DEFAULT_GAME_PREFS);
-  const prefs = gamePrefs(stored);
-  const [game, setGame] = useStoredState<GameState>('dev-panel.game.state', EMPTY_GAME);
+  // Logros y preferencias viven en el servidor (se ven igual desde cualquier navegador): acá hay una copia que se guarda sola.
+  const { prefs, state: game, loaded } = useGame();
   const [queue, setQueue] = useState<Card[]>([]);
   const [current, setCurrent] = useState<Card | null>(null);
   const [paused, setPaused] = useState(false);
+  // La tarjeta sube suave desde abajo al aparecer y se desvanece al irse.
+  const [leaving, setLeaving] = useState(false);
   const dnd = useDnd();
-  const latest = useRef({ prefs, game, dnd: dnd.active, lastPraise: '' });
-  latest.current = { prefs, game, dnd: dnd.active, lastPraise: latest.current.lastPraise };
+  const latest = useRef({ prefs, dnd: dnd.active, lastPraise: '' });
+  latest.current = { prefs, dnd: dnd.active, lastPraise: latest.current.lastPraise };
 
   const show = useCallback((level: CelebrationLevel | null, cards: Card[]) => {
     const { prefs: p, dnd: quiet } = latest.current;
@@ -76,12 +79,14 @@ export const RewardHost = () => {
 
   // Los hechos del día → qué se desbloquea.
   useEffect(() => {
-    if (!prefs.enabled) return;
+    if (!prefs.enabled || !loaded) return;
     const evaluate = () => {
       if (document.visibilityState === 'hidden') return;
-      api.get<RewardFacts>('/api/rewards/facts').then(
-        (facts) => {
-          const { game: state, prefs: p } = latest.current;
+      // Primero lo vigente del servidor (otro navegador pudo haber ganado algo), después los hechos de hoy.
+      Promise.all([api.get<RewardFacts>('/api/rewards/facts'), gameStore.refresh()]).then(
+        ([facts]) => {
+          const { state } = gameStore.getSnapshot();
+          const { prefs: p } = latest.current;
           const result = step({ state, facts, now: new Date(), prefs: p, rng: Math.random });
           let next = result.state;
           // Pasada la hora de salida, el cierre del día se muestra solo (una vez por día).
@@ -89,8 +94,7 @@ export const RewardHost = () => {
             next = { ...next, flags: { ...next.flags, [wrapFlag(facts.day)]: true } };
             window.dispatchEvent(new Event(DAY_WRAP_EVENT));
           }
-          setGame(next);
-          latest.current.game = next;
+          gameStore.updateState(next);
           show(highest(result.events), toCards(result.events));
         },
         () => undefined,
@@ -102,18 +106,16 @@ export const RewardHost = () => {
       window.clearTimeout(first);
       window.clearInterval(poll);
     };
-  }, [prefs.enabled, setGame, show]);
+  }, [prefs.enabled, loaded, show]);
 
   // Festejos que piden las pantallas (se completó algo) y la vista previa de Configuración.
   useEffect(() => {
     const onCelebrate = (event: Event) => {
       const { reason, level } = (event as CustomEvent<CelebrateDetail>).detail;
       const text = CELEBRATION_TEXT[reason];
-      const { game: state } = latest.current;
-      const roll = rollPraise(celebrated(state), new Date(), Math.random, latest.current.lastPraise);
+      const roll = rollPraise(celebrated(gameStore.getSnapshot().state), new Date(), Math.random, latest.current.lastPraise);
       if (roll.text) latest.current.lastPraise = roll.text;
-      setGame(roll.state);
-      latest.current.game = roll.state;
+      gameStore.updateState(roll.state);
       show(level, [...(text ? [{ kind: 'message', title: text.title, text: text.text } as Card] : []), ...(roll.text ? [{ kind: 'praise', text: roll.text } as Card] : [])]);
     };
     const onDemo = () => {
@@ -126,7 +128,7 @@ export const RewardHost = () => {
       window.removeEventListener(CELEBRATE_EVENT, onCelebrate);
       window.removeEventListener(REWARD_DEMO_EVENT, onDemo);
     };
-  }, [setGame, show]);
+  }, [show]);
 
   // De a una tarjeta por vez.
   useEffect(() => {
@@ -134,18 +136,27 @@ export const RewardHost = () => {
     setCurrent(queue[0]!);
     setQueue((rest) => rest.slice(1));
   }, [current, queue]);
+  const close = useCallback(() => {
+    setLeaving(true);
+    window.setTimeout(() => {
+      setCurrent(null);
+      setLeaving(false);
+      setPaused(false);
+    }, LEAVE_MS);
+  }, []);
   useEffect(() => {
-    if (!current || paused) return;
-    const timer = window.setTimeout(() => setCurrent(null), SHOW_MS);
+    if (!current || paused || leaving) return;
+    const timer = window.setTimeout(close, SHOW_MS);
     return () => window.clearTimeout(timer);
-  }, [current, paused]);
+  }, [current, paused, leaving, close]);
 
   if (!current) return null;
   const achievement = current.kind === 'achievement' ? ACHIEVEMENT_BY_ID[current.id] : undefined;
   const unlockedCount = current.kind === 'achievement' ? game.unlocked[current.id]?.count ?? 1 : 1;
   return (
+    <div className="pointer-events-none fixed bottom-[calc(1.5rem+var(--footer-h,0px))] left-0 right-0 z-50 flex justify-center px-4">
     <section
-      className={`fixed bottom-[calc(1.5rem+var(--footer-h,0px))] left-1/2 z-50 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 animate-fade-in rounded-2xl border bg-surface shadow-pop ${achievement?.tier === 'legendario' ? 'border-warning ring-2 ring-warning/40' : achievement?.tier === 'epico' ? 'border-accent ring-2 ring-accent/30' : 'border-accent/40'}`}
+      className={`pointer-events-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border bg-surface shadow-pop ${leaving ? 'reward-leave' : 'reward-rise'} ${achievement?.tier === 'legendario' ? 'border-warning ring-2 ring-warning/40' : achievement?.tier === 'epico' ? 'border-accent ring-2 ring-accent/30' : 'border-accent/40'}`}
       role="status"
       aria-label="Festejo"
       data-testid="reward-card"
@@ -177,8 +188,9 @@ export const RewardHost = () => {
             </>
           )}
         </div>
-        <button type="button" onClick={() => setCurrent(null)} aria-label="Cerrar" title="Cerrar" className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"><X className="size-4" aria-hidden /></button>
+        <button type="button" onClick={close} aria-label="Cerrar" title="Cerrar" className="-mr-1 flex size-7 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"><X className="size-4" aria-hidden /></button>
       </div>
     </section>
+    </div>
   );
 };

@@ -6,25 +6,23 @@ import { Field } from '../components/Field';
 import { REWARD_DEMO_EVENT } from '../components/RewardHost';
 import { SpriteFace } from '../components/SpriteFace';
 import { cn } from '../lib/cn';
-import { useStoredState } from '../lib/hooks';
 import { celebrate } from '../lib/rewards/bus';
 import { DAY_WRAP_EVENT } from '../lib/rewards/dayWrap';
 import { MASCOTS, mascotById } from '../lib/rewards/mascots';
-import { DEFAULT_GAME_PREFS, EMPTY_GAME, gamePrefs, type GameState, type Prefs } from '../lib/rewards/types';
+import { gameStore, useGame } from '../lib/rewards/gameStore';
+import type { GameState, Prefs } from '../lib/rewards/types';
 
 /** Configuración → Diversión: festejos, logros, elogios, sonido, cierre del día y la mascota (se elige entre varias y se le pone nombre). */
 export const FunSettings = () => {
-  const [stored, setStored] = useStoredState<Partial<Prefs>>('dev-panel.game.prefs', DEFAULT_GAME_PREFS);
-  const [game, setGame] = useStoredState<GameState>('dev-panel.game.state', EMPTY_GAME);
-  const prefs = gamePrefs(stored);
-  const set = (patch: Partial<Prefs>) => setStored({ ...prefs, ...patch });
+  const { prefs, state: game } = useGame();
+  const set = (patch: Partial<Prefs>) => gameStore.updatePrefs((current) => ({ ...current, ...patch }));
   const mascot = mascotById(prefs.mascotId);
 
   // Probar varias mascotas y ponerle nombre a una también son logros: se anota en lo que recuerda el juego.
   const flag = (patch: GameState['flags']) => {
     const flags = { ...game.flags, ...patch };
     const tried = Object.keys(flags).filter((key) => key.startsWith('mascot:') && flags[key]).length;
-    setGame({ ...game, flags: { ...flags, mascotsTried: tried } });
+    gameStore.updateState({ ...game, flags: { ...flags, mascotsTried: tried } });
   };
   const pick = (id: string) => {
     set({ mascotId: id });
@@ -38,7 +36,7 @@ export const FunSettings = () => {
   return (
     <div className="space-y-6">
       <Card title="Diversión" action={<span className="flex flex-wrap gap-2"><Button icon={<PartyPopper className="size-4" />} onClick={() => celebrate('demo', 'big')}>Probar un festejo</Button><Button onClick={() => window.dispatchEvent(new Event(REWARD_DEMO_EVENT))}>Probar un logro</Button><Button onClick={() => window.dispatchEvent(new Event(DAY_WRAP_EVENT))}>Ver mi día ahora</Button></span>}>
-        <p className="mb-4 text-muted">El panel te festeja cuando completás algo, te da logros con humor, anota tus récords y de vez en cuando te tira un elogio. Todo es local: lo que desbloqueaste vive en este navegador y nada sale de la máquina. No molestan con «No molestar» y no cuentan para el tope de avisos.</p>
+        <p className="mb-4 text-muted">El panel te festeja cuando completás algo, te da logros con humor, anota tus récords y de vez en cuando te tira un elogio. Lo que desbloqueaste se guarda en el servidor del panel (data/game.json): lo ves igual desde cualquier navegador, también remoto, y nada sale de tu máquina. No molestan con «No molestar» y no cuentan para el tope de avisos.</p>
         <div className="mb-5 flex flex-wrap gap-2">
           <Chip selected={prefs.enabled} onToggle={() => set({ enabled: !prefs.enabled })} hint="Apaga todo lo divertido junto">Diversión activada</Chip>
         </div>

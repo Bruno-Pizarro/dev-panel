@@ -197,3 +197,12 @@
 /* Mascotas con sprites: la tira avanza de cuadro en cuadro (`--sprite-end` es el ancho total de la tira, en negativo). */
 @keyframes sprite-play { to { background-position-x: var(--sprite-end); } }
 @media (prefers-reduced-motion: reduce) { .sprite-face { animation: none !important; } }
+
+/* Tarjetas de logros y festejos: suben suave desde abajo (con un pequeño rebote al final) y se desvanecen al irse. */
+@keyframes reward-rise { 0% { opacity: 0; transform: translateY(34px) scale(0.96); } 60% { opacity: 1; transform: translateY(-4px) scale(1.005); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes reward-leave { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(14px); } }
+.reward-rise { animation: reward-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.reward-leave { animation: reward-leave 260ms ease-in both; }
+@media (prefers-reduced-motion: reduce) { .reward-rise { animation: reward-fade 200ms ease-out both; } .reward-leave { animation: reward-fade-out 150ms ease-in both; } }
+@keyframes reward-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes reward-fade-out { from { opacity: 1; } to { opacity: 0; } }

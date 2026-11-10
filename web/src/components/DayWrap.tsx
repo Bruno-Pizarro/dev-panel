@@ -1,12 +1,12 @@
 import { Check, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { useStoredState } from '../lib/hooks';
 import { ACHIEVEMENT_BY_ID } from '../lib/rewards/achievements';
 import { closingLine, DAY_WRAP_EVENT, dayLevel, wrapText } from '../lib/rewards/dayWrap';
 import { faceOf, mascotById } from '../lib/rewards/mascots';
 import { RECORDS } from '../lib/rewards/records';
-import { DEFAULT_GAME_PREFS, EMPTY_GAME, gamePrefs, type GameState, type Prefs, type RewardFacts } from '../lib/rewards/types';
+import { useGame } from '../lib/rewards/gameStore';
+import type { RewardFacts } from '../lib/rewards/types';
 import { Button } from './Button';
 import { FillBar } from './FillBar';
 import { Modal } from './Modal';
@@ -31,9 +31,7 @@ export const DayWrap = () => {
   const [open, setOpen] = useState(false);
   const [facts, setFacts] = useState<RewardFacts | null>(null);
   const [line, setLine] = useState('');
-  const [stored] = useStoredState<Partial<Prefs>>('dev-panel.game.prefs', DEFAULT_GAME_PREFS);
-  const [game] = useStoredState<GameState>('dev-panel.game.state', EMPTY_GAME);
-  const prefs = gamePrefs(stored);
+  const { prefs, state: game } = useGame();
 
   useEffect(() => {
     const show = () => {

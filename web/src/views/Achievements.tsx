@@ -1,12 +1,12 @@
 import { Trophy } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Chip } from '../components/Chip';
 import { FillBar } from '../components/FillBar';
 import { PageHeader } from '../components/PageHeader';
 import { cn } from '../lib/cn';
-import { useStoredState } from '../lib/hooks';
 import { ACHIEVEMENTS, TIER_LABEL, type Achievement, type Tier } from '../lib/rewards/achievements';
 import { RECORDS } from '../lib/rewards/records';
+import { gameStore, useGame } from '../lib/rewards/gameStore';
 import { EMPTY_GAME, type GameState } from '../lib/rewards/types';
 import { useTabParam } from '../lib/urlState';
 import { Tabs } from '../components/Tabs';
@@ -41,8 +41,12 @@ const Card = ({ achievement, state, today }: { achievement: Achievement; state: 
 
 /** La vitrina: tus logros (diarios, de toda la vida y secretos), récords personales y números. Todo sale de lo que recuerda este navegador. */
 export const Achievements = () => {
-  const [game] = useStoredState<GameState>('dev-panel.game.state', EMPTY_GAME);
+  const { state: game } = useGame();
   const state: GameState = { ...EMPTY_GAME, ...game };
+  // Al abrir la vitrina se trae lo último del servidor (por si ganaste algo desde otro navegador).
+  useEffect(() => {
+    void gameStore.refresh().catch(() => undefined);
+  }, []);
   const [tab, setTab] = useTabParam<Tab>(['logros', 'records', 'numeros'], 'logros');
   const [filter, setFilter] = useState<Filter>('all');
   const [tier, setTier] = useState<Tier | 'all'>('all');
@@ -62,7 +66,7 @@ export const Achievements = () => {
   const numbers: Array<[string, string, number]> = [['🤖', 'Agentes lanzados', c.agents], ['🔨', 'Commits contados', c.commits], ['📆', 'Días con actividad', c.activeDays], ['✅', 'Días con el checklist completo', c.checklistDays], ['🎉', 'Festejos', c.celebrations], ['🏅', 'Récords rotos', c.recordsBroken], ['🏆', 'Logros ganados', won]];
   return (
     <>
-      <PageHeader title="Logros" description="Tus logros con humor, tus récords y tus números. Todo lo recuerda este navegador: no sale de tu máquina." />
+      <PageHeader title="Logros" description="Tus logros con humor, tus récords y tus números. Se guardan en el servidor del panel: los ves igual desde cualquier navegador y no salen de tu máquina." />
       <div className="mb-6 max-w-xl"><FillBar label="Logros ganados" value={won} max={ACHIEVEMENTS.length} valueLabel={`${won} de ${ACHIEVEMENTS.length}`} /></div>
       <Tabs<Tab> value={tab} onChange={setTab} items={[{ id: 'logros', label: 'Logros', count: won }, { id: 'records', label: 'Récords' }, { id: 'numeros', label: 'Números' }]} />
       {tab === 'logros' && (
