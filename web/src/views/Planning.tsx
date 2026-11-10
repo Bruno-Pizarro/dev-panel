@@ -39,7 +39,7 @@ const FileText = ({ dir, file, refreshKey, children }: { dir: string; file: stri
 
 const Detail = ({ dir, refreshKey, onRefresh }: { dir: string; refreshKey: number; onRefresh: () => void }) => {
   // La pestaña va en la URL (?tab=): al recargar vuelve a la misma.
-  const [tab, setTab] = useTabParam<Tab>(TABS, 'plan');
+  const [tab, setTab] = useTabParam<Tab>(TABS, 'plan', ['doc']);
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   useReloadOn(refreshKey, detail.reload);
   if (detail.loading && !detail.data) return <Skeleton className="h-96" />;

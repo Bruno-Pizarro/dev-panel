@@ -16,10 +16,22 @@ export const withParam = (params: URLSearchParams, key: string, value: string | 
  * Pestaña actual guardada en la URL (`?tab=`), para que al recargar la pantalla vuelva a la misma. La pestaña por defecto no
  * escribe nada (URL limpia). Reemplaza la entrada del historial: cambiar de pestaña no llena el botón «atrás».
  */
-export const useTabParam = <T extends string>(valid: readonly T[], fallback: T): [T, (tab: T) => void] => {
+export const useTabParam = <T extends string>(valid: readonly T[], fallback: T, clear: readonly string[] = []): [T, (tab: T) => void] => {
   const [params, setParams] = useSearchParams();
   const tab = pickTab(params.get('tab'), valid, fallback);
-  const setTab = useCallback((next: T) => setParams((previous) => withParam(previous, 'tab', next === fallback ? null : next), { replace: true }), [fallback, setParams]);
+  // `clear`: parámetros que son de la pestaña anterior (por ejemplo el documento abierto) y se quitan al cambiar de pestaña.
+  const clearKey = clear.join('|');
+  const setTab = useCallback(
+    (next: T) =>
+      setParams(
+        (previous) => {
+          const base = clearKey ? clearKey.split('|').reduce((params, key) => withParam(params, key, null), previous) : previous;
+          return withParam(base, 'tab', next === fallback ? null : next);
+        },
+        { replace: true },
+      ),
+    [fallback, setParams, clearKey],
+  );
   return [tab, setTab];
 };
 

@@ -1,5 +1,4 @@
 import { ArrowDown, ArrowUp, Archive, GitBranch, GitCommitHorizontal, UploadCloud, User } from 'lucide-react';
-import { useState } from 'react';
 import { Badge } from '../components/Badge';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
@@ -7,6 +6,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { Tooltip } from '../components/Tooltip';
 import { api } from '../lib/api';
+import { useTabParam } from '../lib/urlState';
 import { pillStyle, serviceColor, tint } from '../lib/colors';
 import { usePolling } from '../lib/hooks';
 import type { RepoStatus } from '../lib/types';
@@ -139,7 +139,7 @@ const Branches = () => {
 };
 
 export const Repos = () => {
-  const [tab, setTab] = useState<'ramas' | 'env' | 'variables'>('ramas');
+  const [tab, setTab] = useTabParam(['ramas', 'env', 'variables'] as const, 'ramas');
   return (
     <>
       <PageHeader title="Repos y .env" description="Estado de las ramas y perfiles de MinIO local o S3 remoto." />

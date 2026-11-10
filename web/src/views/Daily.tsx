@@ -13,6 +13,7 @@ import { Skeleton } from '../components/Skeleton';
 import { Tabs } from '../components/Tabs';
 import { useToast } from '../components/Toast';
 import { api } from '../lib/api';
+import { useTabParam } from '../lib/urlState';
 import { dailyToShow, dayLabel } from '../lib/dailyShown';
 import type { DailyList } from '../lib/types';
 import { useAsync } from '../lib/useAsync';
@@ -29,7 +30,7 @@ export const Daily = () => {
   const [editing, setEditing] = useState(false);
   const [since, setSince] = useState<Since>('today');
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState<'daily' | 'historial'>('daily');
+  const [view, setView] = useTabParam(['daily', 'historial'] as const, 'daily');
 
   const today = list.data?.today ?? null;
   const dates = list.data?.dates ?? [];

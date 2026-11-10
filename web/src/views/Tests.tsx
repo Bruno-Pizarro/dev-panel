@@ -76,7 +76,7 @@ const Summary = ({ detail, onListChanged, refreshKey }: { detail: TicketDetail; 
 
 const Detail = ({ dir, onListChanged, refreshKey, onRefresh }: { dir: string; onListChanged: () => void; refreshKey: number; onRefresh: () => void }) => {
   // La pestaña va en la URL (?tab=): al recargar vuelve a la misma.
-  const [tab, setTab] = useTabParam<Tab>(TABS, 'resumen');
+  const [tab, setTab] = useTabParam<Tab>(TABS, 'resumen', ['doc']);
   const detail = useAsync(() => api.get<TicketDetail>(`/api/tickets/${encodeURIComponent(dir)}`));
   useReloadOn(refreshKey, detail.reload);
   if (detail.loading && !detail.data) return <Skeleton className="h-96" />;

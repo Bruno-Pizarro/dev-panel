@@ -1,10 +1,12 @@
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { buildDocTree, countDocs, folderPaths, foldersContaining, type DocNode } from '../lib/docTree';
 import { useReloadOn, useStoredState } from '../lib/hooks';
 import { fileUrl } from '../lib/tickets';
+import { withParam } from '../lib/urlState';
 import { useAsync } from '../lib/useAsync';
 import { Markdown } from './Markdown';
 import { Skeleton } from './Skeleton';
@@ -66,7 +68,12 @@ const Nodes = ({ nodes, depth, closed, selected, onToggle, onPick }: NodesProps)
  * juntas desde el botón de arriba, y el panel recuerda cuáles dejaste cerradas en cada ticket (`localStorage`).
  */
 export const DocViewer = ({ dir, files, initial, refreshKey = 0 }: { dir: string; files: string[]; initial?: string | null; refreshKey?: number }) => {
-  const [selected, setSelected] = useState<string | null>(initial && files.includes(initial) ? initial : (files[0] ?? null));
+  // El documento abierto va en la URL (?doc=): al recargar o compartir el enlace se abre el mismo. Sin pedido (o uno que ya no existe), el de por defecto.
+  const [params, setParams] = useSearchParams();
+  const defaultFile = initial && files.includes(initial) ? initial : (files[0] ?? null);
+  const requested = params.get('doc');
+  const selected = requested && files.includes(requested) ? requested : defaultFile;
+  const setSelected = (file: string) => setParams((previous) => withParam(previous, 'doc', file === defaultFile ? null : file), { replace: true });
   const [closedList, setClosedList] = useStoredState<string[]>(`dev-panel.docs-closed.${dir}`, []);
   // La lista puede llegar como un arreglo nuevo en cada render: el árbol se rearma solo si cambian los documentos.
   const filesKey = files.join('\n');
