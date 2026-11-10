@@ -32,6 +32,7 @@ describe('hechos del día', () => {
     containers: async () => [{ name: 'a', state: 'running', status: 'Up', ports: '', image: '', service: 'panel', startedAt: null }],
     sessions: () => [session],
     checklist: () => [{ id: 'marcar-entrada', done: true }, { id: 'marcar-salida', done: false }],
+    holidays: async (year: number) => (year === 2026 ? [{ date: '2026-11-09', name: 'Feriado', type: 'inamovible' }, { date: '2026-03-23', name: 'Puente', type: 'puente' }] : []),
   };
   const config = { ...defaultConfig('/x'), workday: { entry: '09:00', exit: '18:00', punchUrl: '' }, startup: { ...defaultConfig('/x').startup, stage1: [], stage2: [], mandatory: ['panel', 'security'] } };
 
@@ -39,6 +40,9 @@ describe('hechos del día', () => {
     const facts = await collectRewardFacts(config, deps);
     expect(facts).toMatchObject({ day: '2026-11-10', weekday: 2, commits: { today: 3, firstToday: '07:45', lastToday: '13:00', week: 4 }, ticketsToday: ['33528', '33939'] });
     expect(facts.commits.byDay).toMatchObject({ '2026-11-10': 3, '2026-11-09': 1, '2026-11-03': 1 });
+  });
+  it('feriados que no se trabajan (sin los puentes)', async () => {
+    expect((await collectRewardFacts(config, deps)).offDays).toEqual(['2026-11-09']);
   });
   it('estado del git: cambios, sin pushear y cambios en una rama protegida', async () => {
     expect((await collectRewardFacts(config, deps)).repos).toEqual({ dirty: 2, unpushed: 4, onProtectedWithChanges: true });

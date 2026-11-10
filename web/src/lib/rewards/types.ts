@@ -10,6 +10,8 @@ export interface RewardFacts {
   checklist: { total: number; done: number; items: Record<string, boolean> };
   services: { running: number; total: number } | null;
   workday: { entry: string; exit: string };
+  /** Feriados que no se trabajan: las rachas de días no se cortan por ellos. */
+  offDays?: string[];
 }
 
 export type RecordKey = 'commitsDay' | 'parallel' | 'tokensDay' | 'agentsDay' | 'commitsWeek' | 'streak' | 'ticketsDay' | 'earliest';
@@ -25,7 +27,17 @@ export interface GameState {
   /** Logros ganados: la primera vez, la última y cuántas veces (los diarios se pueden ganar todos los días). */
   unlocked: Record<string, { first: string; last: string; count: number }>;
   today: { day: string; earned: string[]; recordsAnnounced: string[]; praised: number; lastPraiseAt: number; finishedSeen: number };
-  counters: { agents: number; commits: number; activeDays: number; checklistDays: number; celebrations: number; recordsBroken: number; lastDay: string; lastAgentsToday: number; lastCommitsToday: number; activeToday: boolean; checklistToday: boolean };
+  counters: {
+    agents: number; commits: number; activeDays: number; checklistDays: number; celebrations: number; recordsBroken: number;
+    /** Tokens de toda la vida (entrada + salida + caché creada). */
+    tokens: number;
+    /** Días hábiles seguidos con actividad / con el checklist completo (fines de semana y feriados no cortan). */
+    streak: number; checklistStreak: number;
+    lastActiveDay: string; lastChecklistDay: string;
+    /** El primer día que el panel vio actividad. */
+    firstDay: string;
+    lastDay: string; lastAgentsToday: number; lastCommitsToday: number; lastTokensToday: number; activeToday: boolean; checklistToday: boolean;
+  };
   records: Partial<Record<RecordKey, RecordEntry>>;
   /** Cosas que anota la interfaz (nombró a la mascota, probó varias…). */
   flags: Record<string, number | boolean>;
@@ -35,7 +47,7 @@ export const EMPTY_GAME: GameState = {
   version: 1,
   unlocked: {},
   today: { day: '', earned: [], recordsAnnounced: [], praised: 0, lastPraiseAt: 0, finishedSeen: 0 },
-  counters: { agents: 0, commits: 0, activeDays: 0, checklistDays: 0, celebrations: 0, recordsBroken: 0, lastDay: '', lastAgentsToday: 0, lastCommitsToday: 0, activeToday: false, checklistToday: false },
+  counters: { agents: 0, commits: 0, activeDays: 0, checklistDays: 0, celebrations: 0, recordsBroken: 0, tokens: 0, streak: 0, checklistStreak: 0, lastActiveDay: '', lastChecklistDay: '', firstDay: '', lastDay: '', lastAgentsToday: 0, lastCommitsToday: 0, lastTokensToday: 0, activeToday: false, checklistToday: false },
   records: {},
   flags: {},
 };

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID } from './achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_BY_ID, TIER_LABEL } from './achievements';
+import { MASCOTS } from './mascots';
+import { daysBetween, nextStreak } from './streaks';
 import { PRAISE } from './praise';
 import { commitStreak, RECORDS, updateRecords } from './records';
 import { EMPTY_GAME, type RewardFacts } from './types';
@@ -17,7 +19,7 @@ describe('catálogo', () => {
   it('todos tienen nombre, descripción y emoji; ninguno se gana con un día vacío', () => {
     for (const a of ACHIEVEMENTS) {
       expect(a.name && a.desc && a.emoji).toBeTruthy();
-      expect(a.test({ facts: facts(), state: EMPTY_GAME, now: new Date(2026, 10, 10, 15) }), a.id).toBe(false);
+      expect(a.test({ facts: facts(), state: EMPTY_GAME, now: new Date(2026, 10, 10, 15), earnedToday: [] }), a.id).toBe(false);
     }
   });
   it('hay un buen surtido de elogios', () => {
@@ -27,7 +29,7 @@ describe('catálogo', () => {
 });
 
 describe('condiciones de algunos logros', () => {
-  const ctx = (f: RewardFacts, hour = 15, state = EMPTY_GAME) => ({ facts: f, state, now: new Date(2026, 10, 10, hour) });
+  const ctx = (f: RewardFacts, hour = 15, state = EMPTY_GAME) => ({ facts: f, state, now: new Date(2026, 10, 10, hour), earnedToday: [] as string[] });
   const get = (id: string) => ACHIEVEMENT_BY_ID[id]!;
   it('madrugador: commit antes de las 8; noctámbulo: después de las 22', () => {
     expect(get('madrugador').test(ctx(facts({ commits: { today: 2, firstToday: '07:30', lastToday: '10:00', week: 2, byDay: {} } })))).toBe(true);
@@ -83,5 +85,57 @@ describe('récords', () => {
     const early = updateRecords({ ...EMPTY_GAME, records: { earliest: { value: 8 * 60, day: '2026-11-03' } } }, facts({ commits: { today: 1, firstToday: '07:15', lastToday: '07:15', week: 1, byDay: {} } }));
     expect(early.broken).toEqual([{ key: 'earliest', value: 7 * 60 + 15, previous: 8 * 60 }]);
     expect(rec('earliest').value(facts({ commits: { today: 1, firstToday: '02:00', lastToday: '02:00', week: 1, byDay: {} } }))).toBeNull();
+  });
+});
+
+describe('dificultad: hay logros muy difíciles', () => {
+  const byTier = (tier: string) => ACHIEVEMENTS.filter((a) => a.tier === tier);
+  it('hay de los cuatro niveles; los épicos y legendarios son varios', () => {
+    expect(Object.keys(TIER_LABEL)).toEqual(['comun', 'raro', 'epico', 'legendario']);
+    expect(byTier('comun').length).toBeGreaterThanOrEqual(15);
+    expect(byTier('raro').length).toBeGreaterThanOrEqual(15);
+    expect(byTier('epico').length).toBeGreaterThanOrEqual(12);
+    expect(byTier('legendario').length).toBeGreaterThanOrEqual(8);
+    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(70);
+  });
+  it('un día excelente no alcanza para ningún legendario ni para casi ningún épico', () => {
+    const great = facts({
+      commits: { today: 12, firstToday: '08:30', lastToday: '17:30', week: 30, byDay: {} },
+      agents: { today: 7, running: 0, finishedToday: 7, maxParallelToday: 5, tokensToday: 2_000_000, tokensWeek: 5_000_000, modelsToday: ['opus', 'sonnet'] },
+      checklist: { total: 4, done: 4, items: {} },
+      ticketsToday: ['1', '2'],
+    });
+    const now = new Date(2026, 10, 10, 18);
+    const won = ACHIEVEMENTS.filter((a) => a.test({ facts: great, state: EMPTY_GAME, now, earnedToday: [] }));
+    expect(won.filter((a) => a.tier === 'legendario')).toEqual([]);
+    expect(won.filter((a) => a.tier === 'epico')).toEqual([]);
+  });
+  it('los legendarios son de mucho tiempo o de un día casi perfecto: ninguno se gana con contadores bajos', () => {
+    const low = { ...EMPTY_GAME, counters: { ...EMPTY_GAME.counters, agents: 99, commits: 999, activeDays: 99, streak: 19, checklistStreak: 4, tokens: 50_000_000 } };
+    for (const a of byTier('legendario')) expect(a.test({ facts: facts(), state: low, now: new Date(2026, 10, 10, 15), earnedToday: [] }), a.id).toBe(false);
+  });
+  it('con contadores muy altos sí se ganan', () => {
+    const high = { ...EMPTY_GAME, counters: { ...EMPTY_GAME.counters, agents: 1000, commits: 5000, activeDays: 365, streak: 60, checklistStreak: 20, tokens: 100_000_000, celebrations: 500, firstDay: '2025-11-01' }, flags: { mascotsTried: MASCOTS.length } };
+    const ctx = { facts: facts(), state: high, now: new Date(2026, 10, 10, 15), earnedToday: [] as string[] };
+    for (const id of ['mil-agentes', 'cinco-mil-commits', 'leyenda-viva', 'racha-60', 'mes-de-oro', 'oceano-de-tokens', 'festejador-supremo', 'aniversario', 'coleccionista-total']) expect(ACHIEVEMENT_BY_ID[id]!.test(ctx), id).toBe(true);
+    expect(ACHIEVEMENT_BY_ID['barrida']!.test({ ...ctx, earnedToday: Array.from({ length: 12 }, (_, i) => `x${i}`) })).toBe(true);
+  });
+  it('completista: todos los logros a la vista (sin los secretos)', () => {
+    const everything = { ...EMPTY_GAME, unlocked: Object.fromEntries(ACHIEVEMENTS.filter((a) => !a.secret && a.id !== 'completista').map((a) => [a.id, { first: 'x', last: 'x', count: 1 }])) };
+    const ctx = { facts: facts(), state: everything, now: new Date(), earnedToday: [] as string[] };
+    expect(ACHIEVEMENT_BY_ID['completista']!.test(ctx)).toBe(true);
+    delete everything.unlocked['rompehielo'];
+    expect(ACHIEVEMENT_BY_ID['completista']!.test({ ...ctx, state: everything })).toBe(false);
+  });
+});
+
+describe('rachas sin culpa', () => {
+  it('siguen con fines de semana y feriados en el medio; un día hábil vacío las corta', () => {
+    expect(nextStreak(3, '2026-11-06', '2026-11-10', ['2026-11-09'])).toBe(4); // viernes → martes con el lunes feriado
+    expect(nextStreak(3, '2026-11-06', '2026-11-09')).toBe(4); // viernes → lunes (sábado y domingo)
+    expect(nextStreak(3, '2026-11-05', '2026-11-09')).toBe(1); // jueves → lunes: faltó el viernes
+    expect(nextStreak(3, '', '2026-11-10')).toBe(1);
+    expect(nextStreak(3, '2026-11-10', '2026-11-10')).toBe(3);
+    expect(daysBetween('2025-11-10', '2026-11-10')).toBe(365);
   });
 });

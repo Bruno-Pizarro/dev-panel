@@ -1,4 +1,6 @@
+import { MASCOTS } from './mascots';
 import { commitStreak } from './records';
+import { daysBetween } from './streaks';
 import type { GameState, RewardFacts } from './types';
 
 /** Todo lo que un logro puede mirar para decidir si se gana. */
@@ -7,7 +9,13 @@ export interface Ctx {
   state: GameState;
   /** La hora de esta máquina. */
   now: Date;
+  /** Los logros diarios que ya se ganaron hoy. */
+  earnedToday: string[];
 }
+
+/** Qué tan difícil es: se nota en la vitrina y en cómo se festeja. */
+export type Tier = 'comun' | 'raro' | 'epico' | 'legendario';
+export const TIER_LABEL: Record<Tier, string> = { comun: 'común', raro: 'raro', epico: 'épico', legendario: 'legendario' };
 
 export interface Achievement {
   id: string;
@@ -19,8 +27,11 @@ export interface Achievement {
   kind: 'daily' | 'lifetime';
   /** Secreto: no se ve en la vitrina hasta ganarlo. */
   secret?: boolean;
+  tier: Tier;
   test: (ctx: Ctx) => boolean;
 }
+
+type Raw = Omit<Achievement, 'tier'>;
 
 const minutes = (time: string | null): number | null => {
   const match = time ? /^(\d{2}):(\d{2})$/.exec(time) : null;
@@ -34,7 +45,7 @@ const allDone = (facts: RewardFacts) => facts.checklist.total > 0 && facts.check
 const total = (state: GameState, key: 'agents' | 'commits' | 'activeDays' | 'checklistDays' | 'recordsBroken') => state.counters[key];
 const flag = (state: GameState, key: string) => Boolean(state.flags[key]);
 
-export const ACHIEVEMENTS: Achievement[] = [
+const RAW: Raw[] = [
   // ---------------------------------------------------------------- diarios: se ganan todos los días
   { id: 'rompehielo', name: 'Rompehielo', emoji: '🧊', kind: 'daily', desc: 'Hiciste el primer commit del día. El primero siempre es el que más cuesta.', test: ({ facts }) => facts.commits.today >= 1 },
   { id: 'madrugador', name: 'Madrugador', emoji: '🌅', kind: 'daily', desc: 'Commit antes de las 8:00. El que madruga, mergea.', test: ({ facts }) => firstBefore(facts, 8 * 60) && facts.commits.today >= 1 },
@@ -93,6 +104,38 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'viernes-13', name: 'Viernes 13 sin miedo', emoji: '🔪', kind: 'lifetime', secret: true, desc: 'Un commit un viernes 13. Las supersticiones no compilan.', test: ({ facts }) => facts.weekday === 5 && facts.day.endsWith('-13') && facts.commits.today >= 1 },
   { id: 'cuatro-veinte', name: 'Hora pico', emoji: '⏰', kind: 'lifetime', secret: true, desc: 'Un commit a las 11:11. Pedí un deseo.', test: ({ facts }) => facts.commits.lastToday === '11:11' || facts.commits.firstToday === '11:11' },
   { id: 'todo-junto', name: 'Todo junto', emoji: '🧩', kind: 'lifetime', secret: true, desc: 'El día perfecto: 5 commits, 3 agentes en paralelo y el checklist completo.', test: ({ facts }) => facts.commits.today >= 5 && facts.agents.maxParallelToday >= 3 && allDone(facts) },
+  // ---------------------------------------------------------------- los muy difíciles (épicos y legendarios)
+  { id: 'racha-10', name: 'Imparable', emoji: '🚂', kind: 'lifetime', desc: '10 días hábiles seguidos con actividad. Los fines de semana y feriados no cortan la racha.', test: ({ state }) => state.counters.streak >= 10 },
+  { id: 'racha-20', name: 'Máquina de rachas', emoji: '⚙️', kind: 'lifetime', desc: '20 días hábiles seguidos con actividad. Un mes entero sin aflojar.', test: ({ state }) => state.counters.streak >= 20 },
+  { id: 'racha-60', name: 'Inmortal', emoji: '♾️', kind: 'lifetime', desc: '60 días hábiles seguidos con actividad. Tres meses sin faltar. Que alguien le avise a tus amigos que estás bien.', test: ({ state }) => state.counters.streak >= 60 },
+  { id: 'semana-de-oro', name: 'Semana de oro', emoji: '🥇', kind: 'lifetime', desc: '5 días hábiles seguidos con el checklist completo. Ni un solo día flojo.', test: ({ state }) => state.counters.checklistStreak >= 5 },
+  { id: 'mes-de-oro', name: 'Mes de oro', emoji: '🏆', kind: 'lifetime', desc: '20 días hábiles seguidos con el checklist completo. Hay gente que no logra ordenar la heladera.', test: ({ state }) => state.counters.checklistStreak >= 20 },
+  { id: 'dia-legendario', name: 'Día legendario', emoji: '🐉', kind: 'lifetime', desc: 'En un solo día: 15 commits, 8 agentes en paralelo, tres tickets, los tres modelos y el checklist completo. Eso no es un día, es una epopeya.', test: ({ facts }) => facts.commits.today >= 15 && facts.agents.maxParallelToday >= 8 && facts.ticketsToday.length >= 3 && ['opus', 'sonnet', 'haiku'].every((model) => facts.agents.modelsToday.includes(model)) && allDone(facts) },
+  { id: 'barrida', name: 'Barrida', emoji: '🧹', kind: 'lifetime', desc: 'Doce logros diarios ganados en el mismo día. Pasaste la escoba por la vitrina.', test: ({ earnedToday }) => earnedToday.length >= 12 },
+  { id: 'semana-brutal', name: 'Semana brutal', emoji: '💪', kind: 'lifetime', desc: '60 commits en una semana. Tu teclado pide vacaciones.', test: ({ facts }) => facts.commits.week >= 60 },
+  { id: 'reactor', name: 'Reactor', emoji: '☢️', kind: 'lifetime', desc: '20 millones de tokens en un solo día. Esto ya es fusión nuclear.', test: ({ facts }) => facts.agents.tokensToday >= 20_000_000 },
+  { id: 'mil-agentes', name: 'Mil agentes', emoji: '🪐', kind: 'lifetime', desc: '1000 agentes lanzados en total. Ya sos un país.', test: ({ state }) => state.counters.agents >= 1000 },
+  { id: 'cinco-mil-commits', name: 'Cinco mil commits', emoji: '🏔️', kind: 'lifetime', desc: '5000 commits. El historial de git te debe una estatua.', test: ({ state }) => state.counters.commits >= 5000 },
+  { id: 'leyenda-viva', name: 'Leyenda viva', emoji: '🗿', kind: 'lifetime', desc: '365 días de actividad con el panel. Un año entero. Ya sos parte del mobiliario.', test: ({ state }) => state.counters.activeDays >= 365 },
+  { id: 'oceano-de-tokens', name: 'Océano de tokens', emoji: '🌊', kind: 'lifetime', desc: '100 millones de tokens en total. Las ballenas te saludan.', test: ({ state }) => state.counters.tokens >= 100_000_000 },
+  { id: 'aniversario', name: 'Aniversario', emoji: '🎂', kind: 'lifetime', desc: 'Un año desde tu primer día con el panel. ¡Feliz cumple, dev!', test: ({ state, facts }) => state.counters.firstDay !== '' && daysBetween(state.counters.firstDay, facts.day) >= 365 },
+  { id: 'festejador-supremo', name: 'Festejador supremo', emoji: '🪩', kind: 'lifetime', desc: '500 festejos. Vivís de fiesta en fiesta.', test: ({ state }) => state.counters.celebrations >= 500 },
+  { id: 'coleccionista-total', name: 'Coleccionista total', emoji: '🎠', kind: 'lifetime', desc: 'Probaste todas las mascotas. Las tenés a todas fichadas.', test: ({ state }) => Number(state.flags['mascotsTried'] ?? 0) >= MASCOTS.length },
+  { id: 'gran-maestro', name: 'Gran maestro', emoji: '🎓', kind: 'lifetime', desc: '45 logros distintos. A esta altura ya das clases.', test: ({ state }) => Object.keys(state.unlocked).length >= 45 },
+  { id: 'leyenda-de-logros', name: 'Leyenda de logros', emoji: '🌌', kind: 'lifetime', desc: '60 logros distintos. La vitrina ya no te entra en la casa.', test: ({ state }) => Object.keys(state.unlocked).length >= 60 },
+  { id: 'completista', name: 'Completista', emoji: '👑', kind: 'lifetime', desc: 'Ganaste TODOS los logros a la vista (los secretos no cuentan). Podés retirarte. O seguir, como siempre.', test: ({ state }) => RAW.filter((achievement) => !achievement.secret && achievement.id !== 'completista').every((achievement) => state.unlocked[achievement.id] !== undefined) },
 ];
+
+/** La dificultad de cada logro (los que no figuran son comunes). Los legendarios son de mucho tiempo o de un día casi perfecto. */
+const TIERS: Record<string, Tier> = {
+  // raros
+  ametralladora: 'raro', 'jefe-de-planta': 'raro', 'rebano-digital': 'raro', 'tres-modelos': 'raro', 'quemador-de-tokens': 'raro', 'semana-redonda': 'raro', 'pequeno-ejercito': 'raro', centenario: 'raro', 'constancia-30': 'raro', 'semana-perfecta': 'raro', 'racha-de-fuego': 'raro', maraton: 'raro', coleccionista: 'raro', festejador: 'raro', 'veinte-logros': 'raro', 'todo-junto': 'raro', 'a-las-tres': 'raro', 'dia-del-pi': 'raro', 'navidad-de-codigo': 'raro', 'viernes-13': 'raro', 'cuatro-veinte': 'raro', 'racha-10': 'raro', 'semana-de-oro': 'raro',
+  // épicos
+  legion: 'epico', 'domador-de-agentes': 'epico', 'medio-millar': 'epico', 'constancia-100': 'epico', 'mes-impecable': 'epico', 'barril-sin-fondo': 'epico', 'diez-records': 'epico', 'treinta-logros': 'epico', 'skynet-moderado': 'epico', 'racha-20': 'epico', barrida: 'epico', reactor: 'epico', 'coleccionista-total': 'epico', aniversario: 'epico', 'festejador-supremo': 'epico', 'semana-brutal': 'epico', 'gran-maestro': 'epico',
+  // legendarios
+  'mil-y-un-commits': 'legendario', 'mil-agentes': 'legendario', 'cinco-mil-commits': 'legendario', 'leyenda-viva': 'legendario', 'oceano-de-tokens': 'legendario', completista: 'legendario', 'racha-60': 'legendario', 'mes-de-oro': 'legendario', 'dia-legendario': 'legendario', 'leyenda-de-logros': 'legendario',
+};
+
+export const ACHIEVEMENTS: Achievement[] = RAW.map((achievement) => ({ ...achievement, tier: TIERS[achievement.id] ?? 'comun' }));
 
 export const ACHIEVEMENT_BY_ID: Record<string, Achievement> = Object.fromEntries(ACHIEVEMENTS.map((achievement) => [achievement.id, achievement]));

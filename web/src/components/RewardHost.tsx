@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useDnd } from '../lib/dnd';
 import { useStoredState } from '../lib/hooks';
-import { ACHIEVEMENT_BY_ID } from '../lib/rewards/achievements';
+import { ACHIEVEMENT_BY_ID, TIER_LABEL } from '../lib/rewards/achievements';
 import { CELEBRATE_EVENT, CELEBRATION_TEXT, type CelebrateDetail } from '../lib/rewards/bus';
 import { confetti, playSound, soundFor } from '../lib/rewards/effects';
 import { DAY_WRAP_EVENT, shouldWrap, wrapFlag } from '../lib/rewards/dayWrap';
@@ -145,7 +145,7 @@ export const RewardHost = () => {
   const unlockedCount = current.kind === 'achievement' ? game.unlocked[current.id]?.count ?? 1 : 1;
   return (
     <section
-      className="fixed bottom-[calc(1.5rem+var(--footer-h,0px))] left-1/2 z-50 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 animate-fade-in rounded-2xl border border-accent/40 bg-surface shadow-pop"
+      className={`fixed bottom-[calc(1.5rem+var(--footer-h,0px))] left-1/2 z-50 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 animate-fade-in rounded-2xl border bg-surface shadow-pop ${achievement?.tier === 'legendario' ? 'border-warning ring-2 ring-warning/40' : achievement?.tier === 'epico' ? 'border-accent ring-2 ring-accent/30' : 'border-accent/40'}`}
       role="status"
       aria-label="Festejo"
       data-testid="reward-card"
@@ -157,7 +157,7 @@ export const RewardHost = () => {
         <div className="min-w-0 flex-1 space-y-0.5">
           {current.kind === 'achievement' && achievement && (
             <>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-accent"><Trophy className="size-4" aria-hidden />Logro desbloqueado{current.first ? ' · ¡primera vez!' : unlockedCount > 1 ? ` · ×${unlockedCount}` : ''}</p>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-accent"><Trophy className="size-4" aria-hidden />Logro {achievement.tier === 'comun' ? '' : `${TIER_LABEL[achievement.tier]} `}desbloqueado{current.first ? ' · ¡primera vez!' : unlockedCount > 1 ? ` · ×${unlockedCount}` : ''}</p>
               <p className="text-base font-semibold leading-snug">{achievement.name}</p>
               <p className="text-sm leading-snug text-muted">{achievement.desc}</p>
             </>

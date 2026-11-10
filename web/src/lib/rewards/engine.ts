@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS } from './achievements';
 import { pickPraise } from './praise';
 import { updateRecords } from './records';
+import { nextStreak } from './streaks';
 import { EMPTY_GAME, type CelebrationLevel, type GameState, type Prefs, type RewardEvent, type RewardFacts } from './types';
 
 /** Mínimo entre dos elogios sorpresa, tope por día y probabilidad con la que sale uno cuando pasa algo bueno. */
@@ -13,23 +14,35 @@ const forToday = (state: GameState, day: string): GameState => (state.today.day 
 
 /** Suma a los contadores de toda la vida lo que pasó desde la última mirada (solo lo nuevo: no se cuenta dos veces). */
 export const updateCounters = (state: GameState, facts: RewardFacts): GameState['counters'] => {
-  const c = state.counters;
+  // Un estado guardado antes de que existiera un contador se completa con ceros.
+  const c = { ...EMPTY_GAME.counters, ...state.counters };
   const sameDay = c.lastDay === facts.day;
   const agentsDelta = Math.max(0, facts.agents.today - (sameDay ? c.lastAgentsToday : 0));
   const commitsDelta = Math.max(0, facts.commits.today - (sameDay ? c.lastCommitsToday : 0));
+  const tokensDelta = Math.max(0, facts.agents.tokensToday - (sameDay ? c.lastTokensToday : 0));
   const active = facts.commits.today > 0 || facts.agents.today > 0;
   const complete = facts.checklist.total > 0 && facts.checklist.done === facts.checklist.total;
   const activeToday = sameDay ? c.activeToday : false;
   const checklistToday = sameDay ? c.checklistToday : false;
+  const off = facts.offDays ?? [];
+  const newActive = active && !activeToday;
+  const newComplete = complete && !checklistToday;
   return {
     ...c,
     agents: c.agents + agentsDelta,
     commits: c.commits + commitsDelta,
-    activeDays: c.activeDays + (active && !activeToday ? 1 : 0),
-    checklistDays: c.checklistDays + (complete && !checklistToday ? 1 : 0),
+    tokens: c.tokens + tokensDelta,
+    activeDays: c.activeDays + (newActive ? 1 : 0),
+    checklistDays: c.checklistDays + (newComplete ? 1 : 0),
+    streak: newActive ? nextStreak(c.streak, c.lastActiveDay, facts.day, off) : c.streak,
+    lastActiveDay: newActive ? facts.day : c.lastActiveDay,
+    checklistStreak: newComplete ? nextStreak(c.checklistStreak, c.lastChecklistDay, facts.day, off) : c.checklistStreak,
+    lastChecklistDay: newComplete ? facts.day : c.lastChecklistDay,
+    firstDay: c.firstDay || (active ? facts.day : ''),
     lastDay: facts.day,
     lastAgentsToday: facts.agents.today,
     lastCommitsToday: facts.commits.today,
+    lastTokensToday: facts.agents.tokensToday,
     activeToday: activeToday || active,
     checklistToday: checklistToday || complete,
   };
@@ -71,13 +84,13 @@ export const step = ({ state: input, facts, now, prefs, rng }: StepInput): { sta
   for (const achievement of ACHIEVEMENTS) {
     const already = achievement.kind === 'daily' ? earned.includes(achievement.id) : unlocked[achievement.id] !== undefined;
     if (already) continue;
-    if (!achievement.test({ facts, state: { ...state, unlocked }, now })) continue;
+    if (!achievement.test({ facts, state: { ...state, unlocked }, now, earnedToday: earned })) continue;
     const previous = unlocked[achievement.id];
     unlocked[achievement.id] = { first: previous?.first ?? stamp, last: stamp, count: (previous?.count ?? 0) + 1 };
     if (achievement.kind === 'daily') earned.push(achievement.id);
     if (prefs.enabled && prefs.achievements) {
       events.push({ type: 'achievement', id: achievement.id, first: previous === undefined });
-      if (prefs.celebrations) events.push({ type: 'celebrate', reason: `achievement:${achievement.id}`, level: previous === undefined && achievement.kind === 'lifetime' ? 'big' : LEVEL_OF[achievement.kind] });
+      if (prefs.celebrations) events.push({ type: 'celebrate', reason: `achievement:${achievement.id}`, level: achievement.tier === 'epico' || achievement.tier === 'legendario' || (previous === undefined && achievement.kind === 'lifetime') ? 'big' : LEVEL_OF[achievement.kind] });
     }
   }
 

@@ -99,3 +99,35 @@ describe('agentes que terminan', () => {
     expect(more.events).toContainEqual({ type: 'celebrate', reason: 'agent-done', level: 'small' });
   });
 });
+
+describe('contadores nuevos: tokens y rachas', () => {
+  const f = (n: number, over: Record<string, unknown> = {}) => ({ ...facts(n), offDays: ['2026-11-09'], ...over }) as RewardFacts;
+  const active = (n: number) => f(n, { commits: { today: 1, firstToday: '09:00', lastToday: '09:00', week: 1, byDay: {} } });
+
+  it('los tokens de toda la vida suman solo lo nuevo', () => {
+    let state: GameState = EMPTY_GAME;
+    state = { ...state, counters: updateCounters(state, f(10, { agents: { ...facts(10).agents, tokensToday: 1000 } })) };
+    state = { ...state, counters: updateCounters(state, f(10, { agents: { ...facts(10).agents, tokensToday: 1800 } })) };
+    expect(state.counters.tokens).toBe(1800);
+    state = { ...state, counters: updateCounters(state, f(11, { agents: { ...facts(11).agents, tokensToday: 500 } })) };
+    expect(state.counters.tokens).toBe(2300);
+  });
+  it('la racha sigue de viernes a martes con el lunes feriado y se corta si falta un día hábil', () => {
+    let state: GameState = EMPTY_GAME;
+    for (const n of [5, 6, 10]) state = { ...state, counters: updateCounters(state, active(n)) };
+    expect(state.counters.streak).toBe(3);
+    state = { ...state, counters: updateCounters(state, active(13)) }; // faltaron el miércoles y el jueves
+    expect(state.counters.streak).toBe(1);
+  });
+  it('la racha del checklist cuenta días seguidos con todo tildado', () => {
+    const done = (n: number) => f(n, { checklist: { total: 2, done: 2, items: {} } });
+    let state: GameState = EMPTY_GAME;
+    for (const n of [5, 6, 10]) state = { ...state, counters: updateCounters(state, done(n)) };
+    expect(state.counters.checklistStreak).toBe(3);
+  });
+  it('un estado guardado de antes (sin los contadores nuevos) se completa sin romper', () => {
+    const old = { ...EMPTY_GAME, counters: { agents: 5, commits: 7, activeDays: 2, checklistDays: 1, celebrations: 3, recordsBroken: 0, lastDay: '2026-11-09', lastAgentsToday: 0, lastCommitsToday: 0, activeToday: true, checklistToday: false } } as unknown as GameState;
+    const next = updateCounters(old, active(10));
+    expect(next).toMatchObject({ agents: 5, commits: 8, tokens: 0, streak: 1 });
+  });
+});

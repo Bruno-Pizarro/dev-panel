@@ -5,6 +5,7 @@ import { agentsToday, localDayKey } from './activityBar.js';
 import { ticketOfText } from './agents.js';
 import { getDailyChecklist } from './checklists.js';
 import { listContainers } from './containers.js';
+import { holidaysOf, type Holiday } from './holidays.js';
 import { readRepoStates, type RepoState } from './nudges.js';
 import type { OrchSession } from './orchestration.js';
 
@@ -36,6 +37,8 @@ export interface RewardFacts {
   checklist: { total: number; done: number; items: Record<string, boolean> };
   services: { running: number; total: number } | null;
   workday: { entry: string; exit: string };
+  /** Feriados que no se trabajan (este año y el anterior): las rachas de días no se cortan por ellos. */
+  offDays: string[];
 }
 
 const MS_DAY = 86_400_000;
@@ -64,6 +67,7 @@ export interface FactsDeps {
   containers?: typeof listContainers;
   sessions?: () => OrchSession[];
   checklist?: () => Array<{ id: string; done: boolean }>;
+  holidays?: (year: number) => Promise<Holiday[]>;
 }
 
 export const collectRewardFacts = async (config: DevPanelConfig, deps: FactsDeps = {}): Promise<RewardFacts> => {
@@ -121,6 +125,9 @@ export const collectRewardFacts = async (config: DevPanelConfig, deps: FactsDeps
   const required = [...config.startup.stage1, ...config.startup.stage2, ...config.startup.mandatory];
   const services = containers.length === 0 ? null : { running: required.filter((service) => containers.some((container) => container.service === service && container.state === 'running')).length, total: required.length };
 
+  const lists = await safe(() => Promise.all([now.getFullYear() - 1, now.getFullYear()].map((year) => (deps.holidays ?? holidaysOf)(year))), [] as Holiday[][]);
+  const offDays = lists.flat().filter((holiday) => holiday.type === 'inamovible' || holiday.type === 'trasladable').map((holiday) => holiday.date).sort();
+
   return {
     generatedAt: now.toISOString(),
     day,
@@ -132,5 +139,6 @@ export const collectRewardFacts = async (config: DevPanelConfig, deps: FactsDeps
     checklist: { total: items.length, done: items.filter((item) => item.done).length, items: Object.fromEntries(items.map((item) => [item.id, item.done])) },
     services,
     workday: { entry: config.workday.entry, exit: config.workday.exit },
+    offDays,
   };
 };
