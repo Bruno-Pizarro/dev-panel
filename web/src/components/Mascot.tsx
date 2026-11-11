@@ -9,7 +9,7 @@ import { currentTalkWeather, refreshTalkWeather } from '../lib/rewards/talkWeath
 /** Cuánto dura la cara de fiesta después de un festejo, cuánto queda un aviso suyo (agentes) y cuánto tarda en desvanecerse el globo (igual que `.mascot-bubble` en index.css). */
 const PARTY_MS = 4500;
 const BUBBLE_MS = 4000;
-const FADE_MS = 1800;
+const FADE_MS = 700;
 
 /** Lo que dice cuando aparece un agente trabajando y cuando terminan todos. */
 const AGENT_START_LINES = ['¡Llegó un agente! A trabajar.', 'Hay un agente en marcha, me pongo las pilas.', 'Agente en camino: yo superviso.'];
