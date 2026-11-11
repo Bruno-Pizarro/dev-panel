@@ -151,6 +151,7 @@
     .mascot-party { animation-duration: 0.9s !important; animation-iteration-count: infinite !important; }
     .mascot-worried { animation-duration: 0.7s !important; animation-iteration-count: infinite !important; }
     .mascot-tired { animation-duration: 3.6s !important; animation-iteration-count: infinite !important; }
+    .mascot-bubble { transition-duration: 700ms !important; }
     .reward-rise { animation-duration: 560ms !important; }
     .reward-leave { animation-duration: 260ms !important; }
   }
@@ -207,6 +208,11 @@
 
 /* Mascotas con sprites: la tira avanza de cuadro en cuadro (`--sprite-end` es el ancho total de la tira, en negativo). */
 @keyframes sprite-play { to { background-position-x: var(--sprite-end); } }
+
+/* Globo de la mascota: se desvanece despacio al sacarle el mouse (FADE_MS en Mascot.tsx). */
+.mascot-bubble { transition: opacity 700ms ease-out; animation: mascot-bubble-in 250ms ease-out; }
+/* Solo la entrada (sin fill-mode): después manda la clase de opacidad, que es la que se desvanece. */
+@keyframes mascot-bubble-in { from { opacity: 0; } }
 
 /* Tarjetas de logros y festejos: suben suave desde abajo (con un pequeño rebote al final) y se desvanecen al irse. */
 @keyframes reward-rise { 0% { opacity: 0; transform: translateY(34px) scale(0.96); } 60% { opacity: 1; transform: translateY(-4px) scale(1.005); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
