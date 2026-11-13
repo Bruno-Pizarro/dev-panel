@@ -9,12 +9,13 @@ const issue = (over: Record<string, unknown> = {}): RedmineIssue =>
 describe('1. vencimientos (solo del sprint actual)', () => {
   const today = '2026-11-04';
   const inSprint = (...ids: number[]) => new Set(ids);
+  const DUE = ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado'];
   it('avisa los vencidos, los de hoy, mañana y los próximos dentro del umbral, del más urgente al menos', () => {
     const notices = dueNotices(
       [issue({ id: 3, due_date: '2026-11-07' }), issue({ id: 1, due_date: '2026-11-02' }), issue({ id: 2, due_date: '2026-11-04' }), issue({ id: 4, due_date: '2026-11-05' }), issue({ id: 5, due_date: '2026-11-20' })],
       today,
       3,
-      ['Revisión'],
+      DUE,
       inSprint(1, 2, 3, 4, 5),
     );
     expect(notices.map((n) => [n.id, n.level])).toEqual([['due-1', 'important'], ['due-2', 'important'], ['due-4', 'important'], ['due-3', 'info']]);
@@ -23,18 +24,23 @@ describe('1. vencimientos (solo del sprint actual)', () => {
   });
   it('solo los tickets del sprint actual: un ticket viejo que quedó perdido, aunque esté vencido, no se avisa', () => {
     const issues = [issue({ id: 30392, due_date: '2025-10-17' }), issue({ id: 33528, due_date: '2026-11-06' }), issue({ id: 33000, due_date: '2026-11-05' })];
-    expect(dueNotices(issues, today, 3, [], inSprint(33528)).map((n) => n.id)).toEqual(['due-33528']);
+    expect(dueNotices(issues, today, 3, DUE, inSprint(33528)).map((n) => n.id)).toEqual(['due-33528']);
     // Un ticket del sprint vencido hace mucho SÍ se avisa: está en el sprint.
-    expect(dueNotices(issues, today, 3, [], inSprint(30392)).map((n) => n.id)).toEqual(['due-30392']);
+    expect(dueNotices(issues, today, 3, DUE, inSprint(30392)).map((n) => n.id)).toEqual(['due-30392']);
   });
   it('sin sprint actual (null) o con un sprint vacío no se avisa ningún vencimiento', () => {
     const issues = [issue({ id: 1, due_date: '2026-11-04' })];
-    expect(dueNotices(issues, today, 3, [], null)).toEqual([]);
-    expect(dueNotices(issues, today, 3, [], inSprint())).toEqual([]);
+    expect(dueNotices(issues, today, 3, DUE, null)).toEqual([]);
+    expect(dueNotices(issues, today, 3, DUE, inSprint())).toEqual([]);
   });
-  it('no avisa lo sin fecha, lo cerrado ni lo ya entregado (estado "listo")', () => {
-    const all = inSprint(7, 8, 9);
-    expect(dueNotices([issue({ id: 9 }), issue({ id: 8, due_date: '2026-11-01', status: { name: 'Revisión', is_closed: false } }), issue({ id: 7, due_date: '2026-11-01', status: { name: 'Terminado', is_closed: true } })], today, 3, ['Revisión'], all)).toEqual([]);
+  it('no avisa lo sin fecha ni lo cerrado', () => {
+    const all = inSprint(7, 9);
+    expect(dueNotices([issue({ id: 9 }), issue({ id: 7, due_date: '2026-11-01', status: { name: 'Terminado', is_closed: true } })], today, 3, DUE, all)).toEqual([]);
+  });
+  it('solo avisa en análisis, req. definido, desarrollo, revisión y testeado: Testing Consultoría (Externo) y posteriores no', () => {
+    const states = ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado', 'Testing Consultoría', 'Testing Consultoría Externo', 'Testing Aprobado Consultoría', 'Entregado'];
+    const issues = states.map((name, i) => issue({ id: 100 + i, due_date: '2026-11-01', status: { name, is_closed: false } }));
+    expect(dueNotices(issues, today, 3, DUE, inSprint(...issues.map((i) => i.id))).map((n) => n.id)).toEqual(['due-100', 'due-101', 'due-102', 'due-103', 'due-104']);
   });
 });
 

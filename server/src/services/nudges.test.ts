@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '../config.js';
-import { collectNudges, gitNudges, holidayNudges, isWorkday, nextWorkdayName, serviceNudges, testDataNudges, workdayNudges, type RepoState } from './nudges.js';
+import { collectNudges, countDirty, gitNudges, holidayNudges, isWorkday, nextWorkdayName, serviceNudges, testDataNudges, workdayNudges, type RepoState } from './nudges.js';
 
 const at = (day: number, hour: number, minute = 0) => new Date(2026, 10, day, hour, minute); // noviembre 2026: 6 = viernes, 9 = lunes
 const repo = (over: Partial<RepoState> = {}): RepoState => ({ repo: 'front', branch: 'feature/33939', dirty: 0, ahead: 0, lastCommitAt: at(6, 9), ...over });
@@ -36,6 +36,19 @@ describe('avisos de git', () => {
     const a = gitNudges([repo({ dirty: 3, lastCommitAt: null })], rules(at(6, 14)))[0]!.id;
     const b = gitNudges([repo({ dirty: 4, lastCommitAt: null })], rules(at(6, 14)))[0]!.id;
     expect(a).not.toBe(b);
+  });
+});
+
+describe('countDirty: el .env gestionado por el panel no cuenta', () => {
+  const status = ' M .env\n M src/a.ts\n?? nuevo.ts';
+  it('lo descuenta solo en repos con perfil de .env', () => {
+    expect(countDirty(status, '.env')).toBe(2);
+    expect(countDirty(' M .env', '.env')).toBe(0);
+    expect(countDirty(status, undefined)).toBe(3);
+  });
+  it('no confunde otros archivos .env ni subcarpetas', () => {
+    expect(countDirty(' M .env.local\n M sub/.env', '.env')).toBe(2);
+    expect(countDirty(null, '.env')).toBe(0);
   });
 });
 
