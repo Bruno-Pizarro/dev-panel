@@ -40,7 +40,7 @@ const DEFAULT_TEST_DATA = [
 ];
 /** Repos cuyo servicio de compose se llama distinto. Los que no están acá se asumen con el mismo nombre. */
 const DEFAULT_REPO_SERVICES = { 'control-horario': 'controlhorario', 'file-manager': 'files', panel: 'new-panel' } as Record<string, string>;
-const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
+const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'liquidacion', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
   /** Nombre que se muestra debajo de "Dev Panel" en el menú; vacío = no se muestra nada. */

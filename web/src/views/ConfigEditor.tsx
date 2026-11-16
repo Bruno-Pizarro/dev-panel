@@ -8,6 +8,7 @@ import { Card } from '../components/Card';
 import { Field } from '../components/Field';
 import { cn } from '../lib/cn';
 import { api } from '../lib/api';
+import { ListField } from '../components/ListField';
 import { PathField } from '../components/PathField';
 import { TagEditor } from '../components/TagEditor';
 import type { DevPanelConfig, SetupDetect } from '../lib/types';
@@ -115,6 +116,7 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
           <PathField label="Base de conocimiento" help="Carpeta que la web usa como fuente: ahí lee las pruebas, los análisis y los planes de cada ticket." value={config.paths.extra} status={exists(detect, 'extra')} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, extra: value } })} />
           <PathField label="Carpeta de scripts" help="De acá se leen los scripts usuales (backup remoto, etc.): no viven en este repo." value={config.paths.scripts} status={exists(detect, 'scripts')} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, scripts: value } })} />
           <Field label="Script de backup remoto" help="Nombre del archivo dentro de la carpeta de scripts." value={config.remoteBackup.script} onChange={(script) => setConfig({ ...config, remoteBackup: { ...config.remoteBackup, script } })} />
+          <ListField label="Tipos de backup remoto" help="Los que se pueden elegir al traer una base (Datos → Backup remoto), separados por comas. Cada tipo es el prefijo del archivo de backup y el nombre de la base. Ej.: liquidacion." value={config.remoteBackup.types} onChange={(types) => setConfig({ ...config, remoteBackup: { ...config.remoteBackup, types } })} />
           <PathField label="Carpeta del Daily" help="Se conservan los últimos 5 archivos." value={config.paths.daily} onChange={(value) => setConfig({ ...config, paths: { ...config.paths, daily: value } })} />
           <Field label="Contenedor de Mongo" value={config.mongo.container} onChange={(value) => setConfig({ ...config, mongo: { container: value } })} />
           <PathField label="docker-compose principal" kind="file" value={config.compose.main} status={exists(detect, 'composeMain')} onChange={(value) => setConfig({ ...config, compose: { ...config.compose, main: value } })} />
