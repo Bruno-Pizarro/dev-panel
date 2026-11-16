@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
 import type { DevPanelConfig } from '../config.js';
-import { paths } from '../config.js';
+import { backupTypes, paths } from '../config.js';
 import { run, type Runner } from '../docker.js';
 
 export const SAFE_NAME = /^[A-Za-z0-9._-]+$/;
@@ -242,7 +242,7 @@ export const runRemoteBackup = (config: DevPanelConfig, options: { types: string
       return reject(error as Error);
     }
     if (!existsSync(script)) return reject(new Error(`No existe el script: ${script}`));
-    const types = options.types.filter((type) => config.remoteBackup.types.includes(type) || type === 'all');
+    const types = options.types.filter((type) => backupTypes(config).includes(type) || type === 'all');
     if (!types.length) return reject(new Error('Elegí al menos un tipo de backup'));
     const args = [script, '--type', types.join(',')];
     if (options.restore) args.push('--restore', '--container', config.mongo.container);

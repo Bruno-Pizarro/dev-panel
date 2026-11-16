@@ -40,7 +40,7 @@ const DEFAULT_TEST_DATA = [
 ];
 /** Repos cuyo servicio de compose se llama distinto. Los que no están acá se asumen con el mismo nombre. */
 const DEFAULT_REPO_SERVICES = { 'control-horario': 'controlhorario', 'file-manager': 'files', panel: 'new-panel' } as Record<string, string>;
-const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'liquidacion', 'e-panel', 'node-ts-boilerplate'];
+export const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'liquidacion', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
   /** Nombre que se muestra debajo de "Dev Panel" en el menú; vacío = no se muestra nada. */
@@ -323,3 +323,6 @@ export const saveConfig = (config: DevPanelConfig, file: string = paths.config):
   writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   renameSync(temp, file);
 };
+
+/** Tipos de backup remoto que se ofrecen: los de la config y, al final, los por defecto que le falten (así un tipo nuevo, como `liquidacion`, aparece aunque la config guardada ya tenga su propia lista). */
+export const backupTypes = (config: DevPanelConfig): string[] => [...config.remoteBackup.types, ...DEFAULT_BACKUP_TYPES.filter((type) => !config.remoteBackup.types.includes(type))];
