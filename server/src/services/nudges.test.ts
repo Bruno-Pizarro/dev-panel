@@ -46,6 +46,10 @@ describe('countDirty: el .env gestionado por el panel no cuenta', () => {
     expect(countDirty(' M .env', '.env')).toBe(0);
     expect(countDirty(status, undefined)).toBe(3);
   });
+  it('con la primera línea sin su espacio inicial (la salida de git viene con trim)', () => {
+    expect(countDirty('M .env', '.env')).toBe(0);
+    expect(countDirty('M .env\n M src/a.ts', '.env')).toBe(1);
+  });
   it('no confunde otros archivos .env ni subcarpetas', () => {
     expect(countDirty(' M .env.local\n M sub/.env', '.env')).toBe(2);
     expect(countDirty(null, '.env')).toBe(0);

@@ -193,7 +193,8 @@ export const countDirty = (porcelain: string | null, managedEnv?: string): numbe
   (porcelain ?? '')
     .split('\n')
     .filter(Boolean)
-    .filter((line) => !managedEnv || line.slice(3).trim().replace(/^"|"$/g, '') !== managedEnv).length;
+    // `gitOut` hace trim() de la salida: la primera línea puede haber perdido el espacio inicial (" M .env" → "M .env"), por eso no se corta por posición.
+    .filter((line) => !managedEnv || line.replace(/^\S+\s+/, '').replace(/^"|"$/g, '') !== managedEnv).length;
 
 /** Estado git de los repos configurados que existen en esta máquina. */
 export const readRepoStates = async (config: DevPanelConfig, runner: Runner = run): Promise<RepoState[]> => {
