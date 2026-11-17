@@ -120,12 +120,15 @@ export const reviewerCommentCount = (journals: RawJournal[] | undefined, reviewe
   (journals ?? []).filter((journal) => journal.notes?.trim() && journal.user && reviewerIds.has(journal.user.id) && journal.user.id !== authorId).length;
 
 /**
- * El Control QA es «para mí» si no tiene a nadie asignado, está asignado a mí, al usuario bolsa (Backlog e-sueldos) o a la MISMA
+ * El Control QA es «para mí» si no tiene a nadie asignado, está asignado a mí, a un usuario bolsa (Backlog e-sueldos o Backlog Sprint e-sueldos) o a la MISMA
  * persona que el ticket padre (nadie más lo tomó: lo dejó a su nombre). Cualquier otra persona asignada significa que es una revisión
  * de otro.
  */
-export const qaIsForMe = (assignee: { id: number; name: string } | null | undefined, meId: number | null, backlogUser: string, parentAssigneeId: number | null = null): boolean =>
-  !assignee || assignee.id === meId || normalizeStatus(assignee.name) === normalizeStatus(backlogUser) || (parentAssigneeId !== null && assignee.id === parentAssigneeId);
+export const qaIsForMe = (assignee: { id: number; name: string } | null | undefined, meId: number | null, backlogUsers: string | readonly string[], parentAssigneeId: number | null = null): boolean => {
+  if (!assignee || assignee.id === meId) return true;
+  const bags = (typeof backlogUsers === 'string' ? [backlogUsers] : backlogUsers).map(normalizeStatus);
+  return bags.includes(normalizeStatus(assignee.name)) || (parentAssigneeId !== null && assignee.id === parentAssigneeId);
+};
 
 /** Sin revisor = ningún comentario de revisor; con los roles sin leer no se puede descartar a nadie. */
 export const isUnclaimed = (reviewerComments: number, rolesKnown: boolean): boolean => !rolesKnown || reviewerComments === 0;
@@ -220,7 +223,7 @@ export const fetchReviewQueue = async (config: DevPanelConfig, fetcher: JsonFetc
       qaRaw = ((await get(`/issues/${qaChild.id}.json?include=journals`)) as { issue?: RawDetail }).issue;
       if (qaRaw) {
         // Ya asignado a otra persona: es una revisión para ese otro
-        if (!qaIsForMe(qaRaw.assigned_to, me.user?.id ?? null, config.redmine.backlogUser, listedRaw.assigned_to?.id ?? null)) {
+        if (!qaIsForMe(qaRaw.assigned_to, me.user?.id ?? null, [config.redmine.backlogUser, config.redmine.backlogSprintUser], listedRaw.assigned_to?.id ?? null)) {
           skipped.push({ id: issue.id, title: issue.title, reason: 'qa-other', detail: `El QA #${qaRaw.id} está asignado a ${qaRaw.assigned_to?.name ?? '—'}${listedRaw.assigned_to ? `, y el ticket a ${listedRaw.assigned_to.name}` : ''}` });
           continue;
         }

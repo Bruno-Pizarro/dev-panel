@@ -51,6 +51,14 @@ describe('cola de revisión: piezas puras', () => {
     expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, 1, 'Backlog e-sueldos', 6)).toBe(false);
   });
 
+  it('el QA también es para mí si está asignado a Backlog Sprint e-sueldos (con la lista de usuarios bolsa)', () => {
+    const bags = ['Backlog e-sueldos', 'Backlog Sprint e-sueldos'];
+    expect(qaIsForMe({ id: 8, name: 'Backlog e-sueldos' }, 1, bags)).toBe(true);
+    expect(qaIsForMe({ id: 9, name: 'Backlog Sprint e-Sueldos' }, 1, bags)).toBe(true);
+    expect(qaIsForMe({ id: 9, name: 'Backlog Sprint e-sueldos' }, 1, 'Backlog e-sueldos')).toBe(false);
+    expect(qaIsForMe({ id: 5, name: 'Alvaro Blanco' }, 1, bags)).toBe(false);
+  });
+
   it('sin revisores comentando está sin tomar; si los roles no se pudieron leer no se descarta a nadie', () => {
     expect(isUnclaimed(0, true)).toBe(true);
     expect(isUnclaimed(2, true)).toBe(false);
