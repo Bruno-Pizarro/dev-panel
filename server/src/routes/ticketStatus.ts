@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { getViewed, getViewedRef, setViewed, setViewedRef, viewKey } from '../services/changeReview.js';
 import { getNote, setNote, MAX_NOTE } from '../services/ticketNotes.js';
 import { readFileDiff, readFileDiffSince, readFileSignature, readTicketChanges, snapshotWorkingFile, viewedProgress, type ChangeScope } from '../services/ticketChanges.js';
+import { readLocalCritical, readMrCritical } from '../services/criticalChanges.js';
 import { readServicesHealth, readTestDataReport } from '../services/ticketHealth.js';
 import { readMrChanges, readMrFileDiff, readMrFileDiffSince, readMrSignature } from '../services/mrChanges.js';
 import { buildClosing } from '../services/ticketClosing.js';
@@ -55,6 +56,12 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
     return { baseBranch: loaded.config.git.baseBranch, repos, progress: viewedProgress(repos) };
   });
 
+  /** Cambios críticos de los repos locales del ticket: puntos exactos (por reglas y los que dejó una revisión) para resaltar en Cambios. */
+  app.get<{ Params: { dir: string } }>('/api/tickets/:dir/changes/critical', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    return loaded ? readLocalCritical(loaded.config, loaded.ticket.meta, getViewed(request.params.dir)) : reply;
+  });
+
   app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; scope?: string; since?: string } }>('/api/tickets/:dir/changes/diff', async (request, reply) => {
     const loaded = load(reply, request.params.dir);
     if (!loaded) return reply;
@@ -91,6 +98,11 @@ export const registerTicketStatusRoutes = (app: FastifyInstance): void => {
   app.get<{ Params: { dir: string }; Querystring: { fresh?: string } }>('/api/tickets/:dir/mr-changes', async (request, reply) => {
     const loaded = load(reply, request.params.dir);
     return loaded ? readMrChanges(loaded.config, loaded.ticket.meta, getViewed(mrMarks(request.params.dir)), request.query.fresh === '1') : reply;
+  });
+
+  app.get<{ Params: { dir: string } }>('/api/tickets/:dir/mr-changes/critical', async (request, reply) => {
+    const loaded = load(reply, request.params.dir);
+    return loaded ? readMrCritical(loaded.config, loaded.ticket.meta, getViewed(mrMarks(request.params.dir))) : reply;
   });
 
   app.get<{ Params: { dir: string }; Querystring: { repo?: string; path?: string; since?: string } }>('/api/tickets/:dir/mr-changes/diff', async (request, reply) => {

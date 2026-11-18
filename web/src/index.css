@@ -109,6 +109,11 @@
 /* Buscador de la pestaña Cambios: coincidencias y el resultado actual. */
 .search-hit { background: rgb(var(--warning) / 0.4); color: inherit; border-radius: 2px; }
 .search-hit-active { background: rgb(var(--accent) / 0.6); }
+/* Cambios críticos (pestaña Cambios): la línea del punto y el motivo debajo. */
+.editor-row.critical { box-shadow: inset 4px 0 0 rgb(var(--danger)); background-image: linear-gradient(rgb(var(--danger) / 0.16), rgb(var(--danger) / 0.16)); }
+.editor-row.critical.alta { box-shadow: inset 4px 0 0 rgb(var(--warning)); background-image: linear-gradient(rgb(var(--warning) / 0.16), rgb(var(--warning) / 0.16)); }
+.critical-note { display: block; padding: 0.375rem 0.75rem 0.5rem 5.5rem; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; line-height: 1.35rem; background: rgb(var(--danger) / 0.1); border-block: 1px solid rgb(var(--danger) / 0.35); color: var(--ed-fg); white-space: normal; }
+.critical-note.alta { background: rgb(var(--warning) / 0.1); border-block-color: rgb(var(--warning) / 0.35); }
 .editor-row.search-active { outline: 2px solid rgb(var(--accent) / 0.85); outline-offset: -2px; }
 /* Colores de sintaxis: derivados del tema, así acompañan al que se elija. */
 .tok-kw { color: rgb(var(--accent)); font-weight: 600; }

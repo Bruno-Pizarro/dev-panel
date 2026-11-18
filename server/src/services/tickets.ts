@@ -24,6 +24,8 @@ export const ticketMetaSchema = z
     /** Notas sobre los datos de prueba del ticket. Solo se muestran: el panel nunca ejecuta lo que dicen. */
     datosPrueba: z.object({ descripcion: z.string().optional(), siembra: z.string().optional(), limpieza: z.string().optional(), avisos: z.array(z.string()).optional() }).optional(),
     mrs: z.array(z.object({ fecha: z.string().optional(), repo: z.string().optional(), iid: z.number().optional(), url: z.string().optional(), autor: z.string().optional(), estado: z.string().optional() }).passthrough()).optional(),
+    /** Puntos críticos que dejó una revisión (de Claude o a mano): se resaltan en la pestaña Cambios. */
+    cambiosCriticos: z.array(z.object({ repo: z.string().optional(), path: z.string(), linea: z.number().int().optional(), lineas: z.union([z.string(), z.number().int()]).optional(), motivo: z.string(), severidad: z.string().optional(), categoria: z.string().optional() }).passthrough()).optional(),
     codeReview: z.array(z.object({ fecha: z.string().optional(), veredicto: z.string().optional(), resumen: z.string().optional(), hallazgos: z.number().optional() }).passthrough()).optional(),
     pruebas: z.array(z.object({ conclusion: z.string().optional(), fecha: z.string().optional(), resumen: z.string().optional(), resultado: z.string().optional(), archivo: z.string().optional(), capturas: z.array(z.string()).optional() }).passthrough()).optional(),
     plan: z.object({ resumen: z.string().optional(), diagrama: z.string().optional(), referenciaVisual: z.string().optional() }).passthrough().optional(),

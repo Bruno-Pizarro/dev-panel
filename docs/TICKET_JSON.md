@@ -22,6 +22,7 @@ Cada carpeta de ticket en `_EXTRA` (ruta configurable en el panel) puede tener u
   "repos": ["front", "legajo", "documentos"],
   "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.icono-cloud.com/...", "autor": "usuario", "estado": "abierto" }],
   "codeReview": [{ "fecha": "2026-10-27", "veredicto": "aprobado | con cambios | rechazado", "resumen": "una línea", "hallazgos": 2 }],
+  "cambiosCriticos": [{ "repo": "legajo", "path": "src/modules/x/x.service.ts", "lineas": "120-135", "motivo": "Desbloquea sin mirar la réplica", "severidad": "critica", "categoria": "permisos" }],
   "pruebas": [{ "fecha": "2026-10-27", "conclusion": "aprobado | requiere-cambios | sin-conclusion", "resultado": "31/31", "resumen": "qué se probó", "archivo": "33526_EJECUCION_v1.0.md", "capturas": ["pruebas/capturas/b1.png"] }],
   "plan": { "resumen": "plan_abreviado.md", "diagrama": "flujo.mmd", "referenciaVisual": "referencia.png" }
 }
