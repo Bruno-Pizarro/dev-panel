@@ -13,6 +13,7 @@ import { RemindersModal } from './RemindersModal';
 import { Skeleton } from './Skeleton';
 import { api } from '../lib/api';
 import { uniqueById } from '../lib/uniqueById';
+import { splitNoticeMessage } from '../lib/noticeText';
 
 const KIND_ICONS: Record<NoticeKind, LucideIcon> = { due: CalendarClock, mr: GitPullRequest, review: MessageSquare, sprint: Flag, holiday: PartyPopper, routine: ListChecks, reminder: Bell, discord: MessagesSquare };
 const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge request', review: 'Comentario nuevo', sprint: 'Sprint', holiday: 'Feriado', routine: 'Rutina', reminder: 'Recordatorio', discord: 'Discord' };
@@ -20,12 +21,19 @@ const KIND_LABELS: Record<NoticeKind, string> = { due: 'Vencimiento', mr: 'Merge
 const Notice = ({ notice, onDismiss, onDone }: { notice: HomeNotice; onDismiss: () => void; onDone: (id: string) => void }) => {
   const Icon = KIND_ICONS[notice.kind];
   const external = notice.link !== null && !notice.link.startsWith('/');
+  const { lead, message } = splitNoticeMessage(notice.detail);
   return (
     <li className={cn('flex items-start gap-3 rounded-xl border px-4 py-3', notice.level === 'important' ? 'border-warning/50 bg-warning/5' : 'border-line bg-surface-2')} data-testid="home-notice" data-level={notice.level}>
       <Icon className={cn('mt-0.5 size-5 shrink-0', notice.level === 'important' ? 'text-warning' : 'text-accent')} aria-label={KIND_LABELS[notice.kind]} />
       <div className="min-w-0 flex-1">
         <p className="font-medium leading-snug">{notice.title}</p>
-        <p className="mt-0.5 break-words text-sm text-muted">{notice.detail}</p>
+        {message !== null ? (
+          <>
+            {lead && <p className="mt-0.5 break-words text-sm text-muted">{lead}</p>}
+            {/* El mensaje como tal (comentario o nota), bien claro y con una barra al costado para que se distinga del contexto. */}
+            <p className="mt-1.5 whitespace-pre-wrap break-words border-l-2 border-accent/70 pl-3 text-sm font-medium text-fg" data-testid="home-notice-message">{message}</p>
+          </>
+        ) : <p className="mt-0.5 break-words text-sm text-muted">{notice.detail}</p>}
       </div>
       {notice.reminderId && <Button className="h-8 shrink-0" icon={<Check className="size-4" />} onClick={() => onDone(notice.reminderId!)}>Hecho</Button>}
       {notice.link && (external
