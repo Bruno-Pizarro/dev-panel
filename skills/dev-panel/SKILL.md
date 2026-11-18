@@ -33,6 +33,7 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
   "pruebasManuales": [{ "grupo": "Listado", "caso": "Buscar un documento por nombre", "esperado": "Filtra sin recargar", "ruta": "/profile?panel=pending-signatures&tab=documentos" }],
   "mrs": [{ "fecha": "2026-10-27", "repo": "front", "iid": 123, "url": "https://git.../merge_requests/123", "autor": "usuario", "estado": "abierto" }],
   "codeReview": [{ "fecha": "2026-10-27", "veredicto": "aprobado | con cambios | rechazado", "resumen": "una línea", "hallazgos": 2 }],
+  "cambiosCriticos": [{ "repo": "legajo", "path": "src/modules/x/x.service.ts", "lineas": "120-135", "motivo": "Desbloquea sin mirar la réplica", "severidad": "critica", "categoria": "permisos" }],
   "pruebas": [{ "fecha": "2026-10-27", "conclusion": "aprobado | requiere-cambios | sin-conclusion", "resultado": "31/31", "resumen": "qué se probó", "archivo": "33526_EJECUCION_v1.0.md", "capturas": ["pruebas/capturas/b1.png"] }],
   "plan": { "resumen": "plan_abreviado.md", "diagrama": "flujo.mmd", "referenciaVisual": "referencia.png" }
 }
@@ -46,6 +47,9 @@ El Dev Panel (panel web local del repo `dev-panel`) muestra el avance de cada ti
 | Desarrollador (`desarrollador-sdd`) | `estado` ("En desarrollo"), una entrada nueva en `pruebas[]` por cada tanda (`fecha`, `resultado` tipo `31/31`, `resumen`, `conclusion`, `archivo`, `capturas`); ajusta `pruebasManuales` y `servicios` si lo probado difiere |
 | Code review (`gitlab-review`) | `tipo: "revision"` cuando el ticket lo desarrolló otra persona y solo se revisa; una entrada nueva en `codeReview[]` por revisión; `mrs[].estado` |
 | Ship (`ship`) | una entrada en `mrs[]` por MR creado (`fecha`, `repo`, `iid`, `url`, `autor`, `estado: "abierto"`) y `estado` ("En revisión") |
+
+## `cambiosCriticos`: dónde mirar con más cuidado
+Al revisar un cambio (propio o de otra persona), agregá a `cambiosCriticos[]` los **puntos exactos** donde el cambio puede ser riesgoso o necesita algo (un permiso, una migración, un índice, un contrato con otro servicio…): `{ repo, path, linea | lineas ("120-135"), motivo, severidad ("critica" | "alta"), categoria }`. `repo` es el nombre de la carpeta, `path` es relativo al repo y `linea` es la del archivo nuevo. `categoria` es una de: `seguridad`, `permisos`, `compartido`, `base-datos`, `modelos`, `liquidacion`, `borrados`, `inyeccion`, `contratos`, `dinero-fechas`, `rendimiento`, `infra`, `sensibles`, `guards` (si no calza, `revision`). El `motivo` explica el riesgo en una frase para quien revisa. El panel los resalta en la pestaña Cambios junto a los de las reglas automáticas; no repitas lo que una regla ya marca (permisos, índices, borrados, validaciones), sumá lo que solo se ve leyendo el código. Leé antes y mezclá: no pises los puntos anteriores.
 
 `pruebas[].fecha`, `codeReview[].fecha` y `mrs[].fecha` alimentan el historial de 5 días del Daily: sin fecha el evento no aparece. `pruebas[].conclusion` es lo que dice la skill; lo que se marque en el panel tiene prioridad. Los checklists de cada tanda y "Listo para pruebas" viven en el panel, no acá.
 

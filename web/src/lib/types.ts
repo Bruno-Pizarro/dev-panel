@@ -19,6 +19,7 @@ export interface DevPanelConfig {
   };
   home: { due: boolean; mrs: boolean; reviews: boolean; sprint: boolean; holidays: boolean; routines: boolean; dueDays: number; dueStatuses: string[]; mrStaleDays: number; refreshMinutes: number };
   weekly: { template: string };
+  changes: { critical: { enabled: boolean; fanOutThreshold: number; disabledRules: string[]; customRules: CriticalRuleConfig[] } };
   discord?: { webhookVar: string; tags: Record<string, string>; otherTag: string; userId: string };
   repos: string[];
 }
@@ -508,6 +509,13 @@ export interface TicketDataReport {
 }
 
 export type ViewedState = 'yes' | 'changed' | 'no';
+export type CriticalCategory = 'seguridad' | 'permisos' | 'compartido' | 'base-datos' | 'modelos' | 'liquidacion' | 'borrados' | 'inyeccion' | 'contratos' | 'dinero-fechas' | 'rendimiento' | 'infra' | 'sensibles' | 'guards' | 'revision';
+export type CriticalSeverity = 'critica' | 'alta';
+/** Un punto de un cambio que conviene mirar con más cuidado. `line: null` = todo el archivo. */
+export interface CriticalPoint { repo: string; scope: 'committed' | 'working'; path: string; line: number | null; endLine?: number | null; ruleId: string; category: CriticalCategory; severity: CriticalSeverity; reason: string; source: 'regla' | 'revision' | 'compartido'; snippet?: string }
+export interface CriticalReport { enabled: boolean; generatedAt: string; threshold: number; points: CriticalPoint[]; analyzed: number; skipped: number }
+export interface CriticalRuleConfig { id: string; category: CriticalCategory; severity: CriticalSeverity; reason: string; paths?: string[]; lines?: string[]; unless?: string[]; removedLines?: string[]; repos?: string[] }
+
 export interface ChangedFile { path: string; status: string; added: number | null; deleted: number | null; binary: boolean; untracked: boolean; signature: string; viewed: ViewedState }
 export interface RepoChanges {
   repo: string; exists: boolean; branch: string | null; base: string | null;

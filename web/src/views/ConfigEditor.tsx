@@ -1,4 +1,4 @@
-import { Bell, Bot, PanelLeft, Clock, PartyPopper, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
+import { Bell, Bot, ShieldAlert, PanelLeft, Clock, PartyPopper, MessageSquare, Eraser, Home, MonitorSmartphone, FileText, FolderOpen, GitBranch, GitFork, Keyboard, Rocket, Save, Ticket, User, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useShortcut } from '../lib/useShortcuts';
@@ -183,6 +183,20 @@ export const ConfigEditor = ({ initial, detect, saving, saveLabel, onSave, sideb
           <Field label="MR sin movimiento desde (días)" type="number" min={1} max={60} help="Un MR abierto sin actividad por esta cantidad de días se avisa." value={config.home.mrStaleDays} onChange={(value) => setConfig({ ...config, home: { ...config.home, mrStaleDays: Math.min(60, Math.max(1, Math.round(Number(value) || 1))) } })} />
           <Field label="Revisar los avisos cada (minutos)" type="number" min={15} max={1440} help="Mientras el panel está abierto, los avisos del Inicio (Redmine, GitLab…) se vuelven a revisar pasado este tiempo. Por defecto, una hora." value={config.home.refreshMinutes} onChange={(value) => setConfig({ ...config, home: { ...config.home, refreshMinutes: Math.min(1440, Math.max(15, Math.round(Number(value) || 60))) } })} />
         </div>
+      </Card>
+    ) },
+    { id: 'criticos', label: 'Cambios críticos', icon: ShieldAlert, content: (
+      <Card title="Cambios críticos">
+        <p className="mb-4 text-muted">En la pestaña Cambios, el panel resalta los puntos exactos de un cambio que conviene mirar con más cuidado (seguridad, permisos, base de datos, modelos, motor de liquidación, utilidades usadas en muchos lugares…). Salen de reglas automáticas y de lo que deja una revisión de Claude en <span className="font-mono">cambiosCriticos</span> del <span className="font-mono">ticket.json</span>. Solo resalta: no bloquea nada.</p>
+        <label className="mb-5 flex cursor-pointer items-start gap-3 rounded-lg border border-line px-3 py-2.5">
+          <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={config.changes.critical.enabled} onChange={(event) => setConfig({ ...config, changes: { critical: { ...config.changes.critical, enabled: event.target.checked } } })} />
+          <span><span className="block font-medium">Marcar cambios críticos</span><span className="block text-sm text-muted">Si se apaga, la pestaña Cambios no analiza ni resalta nada.</span></span>
+        </label>
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field label="«Usado en muchos lugares» desde (archivos)" type="number" min={2} max={500} help="Un archivo cambiado que usan tantos archivos o más se marca como crítico. Por defecto, 10." value={config.changes.critical.fanOutThreshold} onChange={(value) => setConfig({ ...config, changes: { critical: { ...config.changes.critical, fanOutThreshold: Math.min(500, Math.max(2, Math.round(Number(value) || 10))) } } })} />
+          <ListField label="Reglas apagadas" help="Ids de reglas de fábrica que no querés (por ejemplo dinero-fechas, rend-limite, guards-front), separados por comas." value={config.changes.critical.disabledRules} onChange={(disabledRules) => setConfig({ ...config, changes: { critical: { ...config.changes.critical, disabledRules } } })} />
+        </div>
+        <p className="mt-4 text-sm text-muted">Las reglas propias se agregan en <span className="font-mono">changes.critical.customRules</span> del config.json (id, categoría, severidad, motivo y expresiones regulares de rutas o líneas).</p>
       </Card>
     ) },
     { id: 'semanal', label: 'Resumen semanal', icon: FileText, content: (

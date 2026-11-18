@@ -215,6 +215,36 @@ export const configSchema = z.object({
     })
     .default({}),
   git: z.object({ baseBranch: z.string().regex(/^[A-Za-z0-9._/-]+$/).default('desarrollo') }).default({}),
+  /** Cambios críticos de la pestaña Cambios: reglas automáticas que resaltan lo que conviene mirar con más cuidado. */
+  changes: z
+    .object({
+      critical: z
+        .object({
+          enabled: z.boolean().default(true),
+          /** Desde cuántos archivos que usan un archivo cambiado se lo marca como «usado en muchos lugares». */
+          fanOutThreshold: z.number().int().min(2).max(500).default(10),
+          /** Ids de reglas de fábrica que se apagan. */
+          disabledRules: z.array(z.string().max(80)).default([]),
+          /** Reglas propias: mismas formas que las de fábrica (rutas y líneas como expresiones regulares). */
+          customRules: z
+            .array(
+              z.object({
+                id: z.string().min(1).max(80),
+                category: z.enum(['seguridad', 'permisos', 'compartido', 'base-datos', 'modelos', 'liquidacion', 'borrados', 'inyeccion', 'contratos', 'dinero-fechas', 'rendimiento', 'infra', 'sensibles', 'guards', 'revision']),
+                severity: z.enum(['critica', 'alta']),
+                reason: z.string().min(1).max(300),
+                paths: z.array(z.string().max(300)).optional(),
+                lines: z.array(z.string().max(300)).optional(),
+                unless: z.array(z.string().max(300)).optional(),
+                removedLines: z.array(z.string().max(300)).optional(),
+                repos: z.array(z.string().max(100)).optional(),
+              }),
+            )
+            .default([]),
+        })
+        .default({}),
+    })
+    .default({}),
   checks: z
     .object({
       /** Variable compartida entre servicios que debe existir y coincidir (se compara el hash, nunca se muestra). */
@@ -282,6 +312,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   weekly: { template: '' },
   discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} },
   git: { baseBranch: 'desarrollo' },
+  changes: { critical: { enabled: true, fanOutThreshold: 10, disabledRules: [], customRules: [] } },
   checks: { sharedSecret: { key: 'INTERNAL_SERVICE_SECRET', repos: ['panel', 'legajo', 'cursos', 'file-manager'] }, firmaCaDir: 'firma/src/modules/certificados/CA' },
   testData: DEFAULT_TEST_DATA,
   envProfiles: DEFAULT_ENV_PROFILES,

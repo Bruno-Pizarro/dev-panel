@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, File, Folder, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, File, Folder, PanelLeftClose, PanelLeftOpen, ShieldAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { buildFileTree, countFiles, type TreeNode } from '../lib/fileTree';
 import { cn } from '../lib/cn';
@@ -10,6 +10,10 @@ interface Props {
   current: string | null;
   keyOf: (repo: string, scope: TreeScope, path: string) => string;
   stateOf: (repo: string, scope: TreeScope, file: ChangedFile) => ViewedState;
+  /** Cuántos puntos críticos tiene el archivo (0 = ninguno). */
+  criticalOf?: (repo: string, scope: TreeScope, path: string) => number;
+  /** Con «Solo críticos»: el árbol muestra solo los archivos con puntos. */
+  hideOthers?: boolean;
   onPick: (key: string) => void;
   open: boolean;
   onToggle: () => void;
@@ -49,6 +53,7 @@ const Nodes = ({ nodes, repo, scope, depth, props, shut, toggle }: { nodes: Tree
             <File className="size-3.5 shrink-0 text-muted" aria-hidden />
             <span className={cn('min-w-0 flex-1 truncate font-mono', viewed === 'yes' && 'text-muted line-through decoration-muted/50')}>{node.name}</span>
             <span className={cn('font-mono text-sm font-semibold', statusTone(node.file.status))}>{node.file.status === 'nuevo' ? 'A' : node.file.status}</span>
+            {(props.criticalOf?.(repo, scope, node.file.path) ?? 0) > 0 && <ShieldAlert className="size-3.5 shrink-0 text-danger" aria-label="Tiene puntos críticos" />}
             {viewed === 'yes' ? <Check className="size-3.5 shrink-0 text-success" aria-label="Visto" /> : viewed === 'changed' ? <span className="size-2 shrink-0 rounded-full bg-warning" title="Cambió desde que lo viste" /> : null}
           </button>
         </li>
@@ -61,7 +66,17 @@ const Nodes = ({ nodes, repo, scope, depth, props, shut, toggle }: { nodes: Tree
 export const ChangesTree = (props: Props) => {
   const [shut, setShut] = useState<Set<string>>(new Set());
   const toggle = (id: string) => setShut((previous) => { const next = new Set(previous); if (!next.delete(id)) next.add(id); return next; });
-  const trees = useMemo(() => props.repos.map((repo) => ({ repo: repo.repo, committed: buildFileTree(repo.committed), working: buildFileTree(repo.working), total: repo.committed.length + repo.working.length })), [props.repos]);
+  const { criticalOf, hideOthers } = props;
+  const trees = useMemo(
+    () =>
+      props.repos.map((repo) => {
+        const pick = (scope: TreeScope, files: ChangedFile[]) => (hideOthers && criticalOf ? files.filter((file) => criticalOf(repo.repo, scope, file.path) > 0) : files);
+        const committed = pick('committed', repo.committed);
+        const working = pick('working', repo.working);
+        return { repo: repo.repo, committed: buildFileTree(committed), working: buildFileTree(working), total: committed.length + working.length };
+      }),
+    [props.repos, criticalOf, hideOthers],
+  );
 
   if (!props.open) {
     return (

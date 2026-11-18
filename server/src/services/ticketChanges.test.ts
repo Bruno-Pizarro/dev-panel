@@ -114,6 +114,38 @@ describe('base de una rama cortada de otra feature', () => {
   });
 });
 
+describe('repo parado en la rama base con ramas ya mergeadas', () => {
+  beforeEach(clearBaseCache);
+  const projects = mkdtempSync(join(tmpdir(), 'dp-base-protegida-'));
+  const repoDir = join(projects, 'liquidacion');
+  const git = (...args: string[]) => execFileSync('git', ['-C', repoDir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { encoding: 'utf8' });
+  const commit = (file: string, message: string) => (writeFileSync(join(repoDir, file), `${message}\n`), git('add', '.'), git('commit', '-q', '-m', message));
+  mkdirSync(repoDir);
+  git('init', '-q', '-b', 'desarrollo');
+  commit('base.ts', 'base');
+  git('checkout', '-q', '-b', 'bugfix/9-ajeno');
+  commit('ajeno.ts', 'cambio de otro ticket');
+  git('checkout', '-q', 'desarrollo');
+  git('merge', '-q', '--no-ff', '-m', 'Merge bugfix/9-ajeno (#9)', 'bugfix/9-ajeno');
+  const config = defaultConfig(projects) as unknown as DevPanelConfig;
+
+  it('en desarrollo no muestra como cambios los commits de ramas ya mergeadas', async () => {
+    const [changes] = await readTicketChanges(config, ['liquidacion']);
+    expect(changes).toMatchObject({ branch: 'desarrollo', base: 'desarrollo' });
+    expect(changes!.commits).toEqual([]);
+    expect(changes!.committed).toEqual([]);
+  });
+
+  it('en desarrollo sí muestra lo que está sin commitear', async () => {
+    writeFileSync(join(repoDir, 'suelto.ts'), 'x\n');
+    git('add', 'suelto.ts');
+    const [changes] = await readTicketChanges(config, ['liquidacion']);
+    expect(changes!.committed).toEqual([]);
+    expect(changes!.working.map((file) => file.path)).toContain('suelto.ts');
+    git('reset', '-q');
+  });
+});
+
 describe('un archivo con caracteres especiales en la ruta', () => {
   beforeEach(clearBaseCache);
   const projects = mkdtempSync(join(tmpdir(), 'dp-changes-glob-'));

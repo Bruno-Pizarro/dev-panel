@@ -12,9 +12,9 @@ const tones: Record<Tone, string> = {
   accent: 'bg-accent/15 text-accent',
 };
 
-export const Badge = ({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) => (
+export const Badge = ({ tone = 'neutral', children, title }: { tone?: Tone; children: ReactNode; title?: string }) => (
   // Si el texto es más largo que el espacio disponible se corta con "…" en vez de salirse de la tarjeta.
-  <span className={cn('inline-flex h-7 max-w-full items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium', tones[tone])}>
+  <span title={title} className={cn('inline-flex h-7 max-w-full items-center whitespace-nowrap rounded-full px-2.5 text-sm font-medium', tones[tone])}>
     <span className="truncate">{children}</span>
   </span>
 );

@@ -1,9 +1,10 @@
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitCompare, Search, X } from 'lucide-react';
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitCompare, Search, ShieldAlert, X } from 'lucide-react';
+import { createContext, Fragment, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useReloadOn, useStoredState } from '../lib/hooks';
-import type { ChangedFile, FileDiff, RepoChanges, TicketChangesReport, ViewedState } from '../lib/types';
+import type { ChangedFile, CriticalPoint, CriticalReport, FileDiff, RepoChanges, TicketChangesReport, ViewedState } from '../lib/types';
+import { CATEGORY_LABELS, coversLine, pointsFor, sourceLabel } from '../lib/critical';
 import { findMatches, splitByQuery, type SearchFile, type SearchMatch } from '../lib/changeSearch';
 import { parseDiffLines, type DiffLine } from '../lib/diff';
 import { languageOf, tokenizeLine } from '../lib/highlight';
@@ -34,7 +35,7 @@ const Hits = ({ text, query, active = false }: { text: string; query: string; ac
  * todas las secciones, y sin esto cada una volvía a resaltar todas sus líneas. Por eso recibe solo lo mínimo de la búsqueda:
  * el texto buscado y, si el resultado actual está en este archivo, su línea.
  */
-const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, searchTick }: { loadDiff: Review['loadDiff']; repo: string; scope: Scope; path: string; since: boolean; query: string; activeLine: number | null; searchTick: number }) => {
+const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, searchTick, points }: { loadDiff: Review['loadDiff']; repo: string; scope: Scope; path: string; since: boolean; query: string; activeLine: number | null; searchTick: number; points: CriticalPoint[] }) => {
   const diff = useAsync(() => loadDiff(repo, scope, path, since));
   const slash = path.lastIndexOf('/');
   const rows = useMemo(() => {
@@ -42,6 +43,22 @@ const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, 
     const language = languageOf(path);
     return parseDiffLines(diff.data.diff).map((line) => ({ line, tokens: line.kind !== 'hunk' && line.text ? tokenizeLine(line.text, language) : null }));
   }, [diff.data, path]);
+  // Cambios críticos: qué filas se resaltan, bajo cuáles va el motivo y qué puntos no tienen una línea visible en este diff.
+  const placement = useMemo(() => {
+    const marked = new Map<number, 'critica' | 'alta'>();
+    const notes = new Map<number, CriticalPoint[]>();
+    const placed = new Set<CriticalPoint>();
+    rows.forEach(({ line }, index) => {
+      if (line.kind === 'hunk') return;
+      for (const point of points) {
+        if (!coversLine(point, line.next)) continue;
+        placed.add(point);
+        if (marked.get(index) !== 'critica') marked.set(index, point.severity);
+        if (point.line === line.next) notes.set(index, [...(notes.get(index) ?? []), point]);
+      }
+    });
+    return { marked, notes, floating: points.filter((point) => point.line === null || !placed.has(point)) };
+  }, [rows, points]);
   const code = useRef<HTMLDivElement | null>(null);
   // El resultado actual de la búsqueda se trae a la vista cuando el diff ya está dibujado.
   useEffect(() => {
@@ -53,6 +70,13 @@ const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, 
         <span className="min-w-0 truncate"><span>{slash >= 0 ? path.slice(0, slash + 1) : ''}</span><span className="font-semibold" style={{ color: 'var(--ed-fg)' }}>{path.slice(slash + 1)}</span></span>
         {since && diff.data?.since && <span className="shrink-0 text-sm">Cambios desde que lo viste</span>}
       </div>
+      {placement.floating.length > 0 && (
+        <div data-testid="critical-floating">
+          {placement.floating.map((point, index) => (
+            <div key={index} className={cn('critical-note', point.severity)} style={{ paddingLeft: '0.75rem' }}><b>{CATEGORY_LABELS[point.category]}</b>{point.line !== null ? ` · línea ${point.line}${point.endLine ? `-${point.endLine}` : ''}` : ''} · {point.reason} <span className="text-muted">({sourceLabel(point)})</span></div>
+          ))}
+        </div>
+      )}
       {diff.data?.note && <p className="editor-note" style={{ color: 'rgb(var(--warning))' }}>{diff.data.note}</p>}
       {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : rows.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
         <div className="editor-code" ref={code}>
@@ -60,12 +84,17 @@ const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, 
             line.kind === 'hunk' ? (
               <div key={index} className="editor-hunk">{line.text}</div>
             ) : (
-              <div key={index} className={cn('editor-row', line.kind !== 'ctx' && line.kind, activeLine === index && 'search-active')} data-search-active={activeLine === index ? '' : undefined}>
-                <span className="editor-num">{line.old ?? ''}</span>
-                <span className="editor-num">{line.next ?? ''}</span>
-                <span className="editor-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
-                <span>{tokens ? tokens.map((token, position) => <span key={position} className={token.cls ? `tok-${token.cls}` : undefined}><Hits text={token.text} query={query} /></span>) : ' '}</span>
-              </div>
+              <Fragment key={index}>
+                <div className={cn('editor-row', line.kind !== 'ctx' && line.kind, placement.marked.has(index) && `critical ${placement.marked.get(index)}`, activeLine === index && 'search-active')} data-search-active={activeLine === index ? '' : undefined} data-critical={placement.marked.has(index) ? '' : undefined}>
+                  <span className="editor-num">{line.old ?? ''}</span>
+                  <span className="editor-num">{line.next ?? ''}</span>
+                  <span className="editor-sign">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
+                  <span>{tokens ? tokens.map((token, position) => <span key={position} className={token.cls ? `tok-${token.cls}` : undefined}><Hits text={token.text} query={query} /></span>) : ' '}</span>
+                </div>
+                {placement.notes.get(index)?.map((point, position) => (
+                  <div key={position} className={cn('critical-note', point.severity)} data-testid="critical-note"><b>{CATEGORY_LABELS[point.category]}</b> · {point.reason} <span className="text-muted">({sourceLabel(point)})</span></div>
+                ))}
+              </Fragment>
             )
           )}
         </div>
@@ -90,6 +119,8 @@ interface Review {
   loadDiff: (repo: string, scope: Scope, path: string, since: boolean) => Promise<FileDiff>;
   /** Búsqueda (Ctrl + F): lo buscado, el resultado actual y un contador que sube cada vez que se pide ir a un resultado. */
   search: { query: string; active: SearchMatch | null; tick: number };
+  /** Cambios críticos: los puntos de todos los archivos y si se muestran solo los archivos que tienen alguno. */
+  critical: { points: CriticalPoint[]; only: boolean };
 }
 const ReviewContext = createContext<Review | null>(null);
 const useReview = (): Review => {
@@ -130,6 +161,7 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
   const [busy, setBusy] = useState(false);
   const { ref, near, force } = useNearViewport();
   const isCurrent = review.current === markKey(repo, scope, file.path);
+  const points = useMemo(() => pointsFor(review.critical.points, repo, scope, file.path), [review.critical.points, repo, scope, file.path]);
   // «Últimos cambios»: lo que ya se vio muestra solo lo nuevo (y lo que no cambió, nada); lo que nunca se vio, completo.
   const { shows, since: sinceMode } = displayOf(review.mode, viewed);
   // Búsqueda: si el resultado actual está en este archivo, se abre, se carga y se trae a la vista.
@@ -175,6 +207,7 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
           <span className="min-w-0 flex-1 break-all font-mono text-sm"><Hits text={file.path} query={review.search.query} active={active?.line === null} /></span>
           {file.binary ? <span className="text-sm text-muted">binario</span> : file.added !== null && <span className="whitespace-nowrap font-mono text-sm"><span className="text-success">+{file.added}</span> <span className="text-danger">-{file.deleted}</span></span>}
         </button>
+        {points.length > 0 && <Badge tone={points.some((point) => point.severity === 'critica') ? 'danger' : 'warning'} title={[...new Set(points.map((point) => CATEGORY_LABELS[point.category]))].join(' · ')}><ShieldAlert className="mr-1 inline size-3.5" aria-hidden />Crítico ({points.length})</Badge>}
         {viewed === 'changed' && <Badge tone="warning">{sinceMode ? 'Mostrando lo nuevo' : 'Cambió desde que lo viste'}</Badge>}
         <label className={cn('flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors', viewed === 'yes' ? 'border-success/50 bg-success/10 text-success' : 'border-line text-muted hover:text-fg', busy && 'opacity-60')}>
           <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={viewed === 'yes'} disabled={busy} onChange={(event) => void toggleViewed(event.target.checked)} />
@@ -185,14 +218,20 @@ const FileSection = ({ repo, file, scope }: { repo: string; file: ChangedFile; s
       </div>
       {open && (
         <div className="px-3 pb-3">
-          {!shows ? <p className="rounded-lg border border-line px-3 py-2 text-sm text-muted">Sin cambios desde que lo viste. Para leerlo entero, pasá a «Cambios completos».</p> : near ? <DiffView key={sinceMode ? 'since' : 'full'} loadDiff={review.loadDiff} repo={repo} scope={scope} path={file.path} since={sinceMode} query={review.search.query} activeLine={active?.line ?? null} searchTick={active ? review.search.tick : 0} /> : <Skeleton className="h-24" />}
+          {!shows ? <p className="rounded-lg border border-line px-3 py-2 text-sm text-muted">Sin cambios desde que lo viste. Para leerlo entero, pasá a «Cambios completos».</p> : near ? <DiffView key={sinceMode ? 'since' : 'full'} loadDiff={review.loadDiff} repo={repo} scope={scope} path={file.path} since={sinceMode} query={review.search.query} activeLine={active?.line ?? null} searchTick={active ? review.search.tick : 0} points={points} /> : <Skeleton className="h-24" />}
         </div>
       )}
     </li>
   );
 };
 
-const FileList = ({ repo, files, scope }: { repo: string; files: ChangedFile[]; scope: Scope }) => <ul className="space-y-3">{files.map((file) => <FileSection key={`${scope}:${file.path}`} repo={repo} file={file} scope={scope} />)}</ul>;
+/** Los archivos que se muestran: todos, o solo los que tienen algún punto crítico. */
+const shownFiles = (review: Review, repo: string, scope: Scope, files: ChangedFile[]): ChangedFile[] => (review.critical.only ? files.filter((file) => pointsFor(review.critical.points, repo, scope, file.path).length > 0) : files);
+
+const FileList = ({ repo, files, scope }: { repo: string; files: ChangedFile[]; scope: Scope }) => {
+  const review = useReview();
+  return <ul className="space-y-3">{shownFiles(review, repo, scope, files).map((file) => <FileSection key={`${scope}:${file.path}`} repo={repo} file={file} scope={scope} />)}</ul>;
+};
 
 const totals = (files: ChangedFile[]) => files.reduce((sum, file) => ({ added: sum.added + (file.added ?? 0), deleted: sum.deleted + (file.deleted ?? 0) }), { added: 0, deleted: 0 });
 
@@ -205,6 +244,8 @@ const Repo = ({ changes, baseBranch }: { changes: RepoChanges; baseBranch: strin
     if (currentFile?.startsWith(`${changes.repo}|`)) setOpen(true);
   }, [currentFile, changes.repo]);
   const sum = totals(changes.committed);
+  const committedShown = shownFiles(review, changes.repo, 'committed', changes.committed);
+  const workingShown = shownFiles(review, changes.repo, 'working', changes.working);
   const files = [...changes.committed.map((file) => ({ file, scope: 'committed' as Scope })), ...changes.working.map((file) => ({ file, scope: 'working' as Scope }))];
   const seen = files.filter(({ file, scope }) => review.stateOf(changes.repo, scope, file) === 'yes').length;
   const none = changes.committed.length === 0 && changes.working.length === 0 && changes.commits.length === 0;
@@ -224,6 +265,7 @@ const Repo = ({ changes, baseBranch }: { changes: RepoChanges; baseBranch: strin
         <div className="space-y-6 p-5">
           {changes.base === null && <p className="text-sm text-warning">No se encontró la rama base {baseBranch}: solo se muestran los cambios sin commitear.</p>}
           {none && <p className="text-sm text-muted">Sin cambios respecto de {changes.base ?? baseBranch}.</p>}
+          {!none && review.critical.only && committedShown.length === 0 && workingShown.length === 0 && <p className="text-sm text-muted" data-testid="critical-none-here">Ningún archivo de este repo tiene puntos críticos.</p>}
           {changes.commits.length > 0 && (
             <div>
               <h3 className="mb-2 text-sm font-semibold">Commits ({changes.commits.length})</h3>
@@ -234,8 +276,8 @@ const Repo = ({ changes, baseBranch }: { changes: RepoChanges; baseBranch: strin
               </ul>
             </div>
           )}
-          {changes.committed.length > 0 && <div><h3 className="mb-3 text-sm font-semibold">Commiteado contra {changes.base} ({changes.committed.length})</h3><FileList repo={changes.repo} files={changes.committed} scope="committed" /></div>}
-          {changes.working.length > 0 && <div><h3 className="mb-3 text-sm font-semibold">Sin commitear ({changes.working.length})</h3><FileList repo={changes.repo} files={changes.working} scope="working" /></div>}
+          {committedShown.length > 0 && <div><h3 className="mb-3 text-sm font-semibold">Commiteado contra {changes.base} ({committedShown.length}{committedShown.length !== changes.committed.length ? ` de ${changes.committed.length}` : ''})</h3><FileList repo={changes.repo} files={changes.committed} scope="committed" /></div>}
+          {workingShown.length > 0 && <div><h3 className="mb-3 text-sm font-semibold">Sin commitear ({workingShown.length}{workingShown.length !== changes.working.length ? ` de ${changes.working.length}` : ''})</h3><FileList repo={changes.repo} files={changes.working} scope="working" /></div>}
           {changes.ignored.length > 0 && <p className="text-sm text-muted">No se cuentan: {changes.ignored.join(', ')} (lo administra el panel por el perfil de entorno).</p>}
         </div>
       ))}
@@ -251,6 +293,11 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   const toast = useToast();
   const state = useAsync(() => api.get<TicketChangesReport>(`/api/tickets/${encodeURIComponent(dir)}/${segment}`));
   useReloadOn(refreshKey, state.reload);
+  // Cambios críticos: se analizan aparte (puede tardar) y la pantalla de cambios no espera por ellos.
+  const criticalState = useAsync(() => api.get<CriticalReport>(`/api/tickets/${encodeURIComponent(dir)}/${segment}/critical`));
+  useReloadOn(refreshKey, criticalState.reload);
+  const [criticalOnly, setCriticalOnly] = useStoredState('devpanel.changes.criticalOnly', false);
+  const criticalPoints = useMemo(() => criticalState.data?.points ?? [], [criticalState.data]);
   // Lo marcado en esta pantalla se refleja al instante; al volver a leer del servidor, manda lo que él guardó.
   const [marks, setMarks] = useState<Record<string, ViewedState>>({});
   useEffect(() => setMarks({}), [state.data]);
@@ -281,8 +328,12 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
 
   // Todos los archivos en el orden en que se ven (por repo: primero lo commiteado y después lo sin commitear), para moverse con el teclado.
   const flat = useMemo(
-    () => (state.data?.repos ?? []).flatMap((repo) => [...repo.committed.map((file) => ({ repo: repo.repo, scope: 'committed' as Scope, file })), ...repo.working.map((file) => ({ repo: repo.repo, scope: 'working' as Scope, file }))].map((item) => ({ ...item, key: markKey(item.repo, item.scope, item.file.path) }))),
-    [state.data],
+    () =>
+      (state.data?.repos ?? [])
+        .flatMap((repo) => [...repo.committed.map((file) => ({ repo: repo.repo, scope: 'committed' as Scope, file })), ...repo.working.map((file) => ({ repo: repo.repo, scope: 'working' as Scope, file }))].map((item) => ({ ...item, key: markKey(item.repo, item.scope, item.file.path) })))
+        // Con «Solo críticos», N / P recorren únicamente los archivos que se ven.
+        .filter((item) => !criticalOnly || pointsFor(criticalPoints, item.repo, item.scope, item.file.path).length > 0),
+    [state.data, criticalOnly, criticalPoints],
   );
   /** Elegir en el árbol: marca el archivo y, si ya era el actual (el efecto no se dispara), lo trae a la vista igual. */
   const pick = (key: string) => {
@@ -413,8 +464,8 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
     return () => window.removeEventListener('keydown', onKey);
   }, [openSearch]);
   const review = useMemo<Review>(
-    () => ({ dir, segment, stateOf, toggle, bulk, current, mode, loadDiff, search: { query: activeQuery, active: activeMatch, tick: searchTick } }),
-    [dir, segment, stateOf, toggle, bulk, current, mode, loadDiff, activeQuery, activeMatch, searchTick],
+    () => ({ dir, segment, stateOf, toggle, bulk, current, mode, loadDiff, search: { query: activeQuery, active: activeMatch, tick: searchTick }, critical: { points: criticalPoints, only: criticalOnly } }),
+    [dir, segment, stateOf, toggle, bulk, current, mode, loadDiff, activeQuery, activeMatch, searchTick, criticalPoints, criticalOnly],
   );
 
   if (state.loading && !state.data) return <Skeleton className="h-64" />;
@@ -423,13 +474,15 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
   if (report.message && report.repos.length === 0) return <EmptyState icon={<GitCompare className="size-6" />} title="No se pudieron leer los MRs">{report.message}</EmptyState>;
   if (report.repos.length === 0) return <EmptyState icon={<GitCompare className="size-6" />} title="Sin repos">El ticket.json no declara repos: no hay de dónde leer los cambios.</EmptyState>;
 
+  // Cuántos archivos tienen al menos un punto crítico (y de cuántos puntos en total salen).
+  const criticalFiles = new Set(criticalPoints.map((point) => `${point.repo.split(' ')[0]}|${point.path}`)).size;
   const all = report.repos.flatMap((repo) => [...repo.committed.map((file) => stateOf(repo.repo, 'committed', file)), ...repo.working.map((file) => stateOf(repo.repo, 'working', file))]);
   const seen = all.filter((value) => value === 'yes').length;
   return (
     <ReviewContext.Provider value={review}>
       <CelebrateWhen done={all.length > 0 && seen === all.length} reason="all-viewed" level="medium" />
       <div className="flex items-start gap-4">
-      <ChangesTree repos={report.repos} current={current} keyOf={markKey} stateOf={stateOf} onPick={pick} open={treeOpen} onToggle={() => setTreeOpen(!treeOpen)} />
+      <ChangesTree repos={report.repos} current={current} keyOf={markKey} stateOf={stateOf} criticalOf={(repo, scope, path) => pointsFor(criticalPoints, repo, scope, path).length} hideOthers={criticalOnly} onPick={pick} open={treeOpen} onToggle={() => setTreeOpen(!treeOpen)} />
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-surface px-5 py-3.5">
           <div className="min-w-48 flex-1">
@@ -444,9 +497,22 @@ const TicketChanges = ({ dir, refreshKey, segment }: { dir: string; refreshKey: 
               <Chip selected={mode === 'full'} onToggle={() => setChosenMode('full')} hint="El cambio completo de cada archivo contra la base.">Cambios completos</Chip>
             </span>
           )}
+          <span className="flex items-center gap-2" role="group" aria-label="Qué archivos mostrar" data-testid="critical-filter">
+            <Chip selected={!criticalOnly} onToggle={() => setCriticalOnly(false)} hint="Todos los archivos cambiados; los puntos críticos se resaltan igual.">Todo</Chip>
+            <Chip selected={criticalOnly} onToggle={() => setCriticalOnly(true)} hint="Solo los archivos con puntos críticos: seguridad, permisos, base de datos, modelos, motor de liquidación y lo que se usa en muchos lugares.">{criticalState.loading && !criticalState.data ? 'Solo críticos…' : `Solo críticos (${criticalFiles})`}</Chip>
+          </span>
           <Button icon={<Search className="size-4" />} onClick={openSearch} title="Buscar en los nombres y en los cambios de los archivos (Ctrl + F)">Buscar<span className="ml-1 font-mono text-sm text-muted">Ctrl F</span></Button>
           <Button icon={bulk.open ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />} onClick={() => setBulk({ open: !bulk.open, tick: bulk.tick + 1 })}>{bulk.open ? 'Contraer todo' : 'Expandir todo'}<ShortcutKey id="changes.expand" /></Button>
         </div>
+        {criticalPoints.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-danger/40 bg-danger/10 px-4 py-2.5 text-sm" data-testid="critical-summary">
+            <ShieldAlert className="size-4 shrink-0 text-danger" aria-hidden />
+            <span className="font-medium">{criticalPoints.length} {criticalPoints.length === 1 ? 'punto crítico' : 'puntos críticos'} en {criticalFiles} {criticalFiles === 1 ? 'archivo' : 'archivos'}.</span>
+            {Object.entries(criticalPoints.reduce<Record<string, number>>((acc, point) => ({ ...acc, [point.category]: (acc[point.category] ?? 0) + 1 }), {})).map(([category, count]) => <Badge key={category} tone="danger">{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]} · {count}</Badge>)}
+          </div>
+        )}
+        {criticalState.error && <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-warning">No se pudieron analizar los cambios críticos: {criticalState.error}</p>}
+        {criticalState.data && !criticalState.data.enabled && <p className="text-sm text-muted">Los cambios críticos están apagados (Configuración → Cambios críticos).</p>}
         {searchOpen && (
           <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-accent/50 bg-surface px-3 py-2 shadow-lg" role="search" data-testid="changes-search">
             <Search className="size-4 shrink-0 text-muted" aria-hidden />
