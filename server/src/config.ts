@@ -40,7 +40,7 @@ const DEFAULT_TEST_DATA = [
 ];
 /** Repos cuyo servicio de compose se llama distinto. Los que no están acá se asumen con el mismo nombre. */
 const DEFAULT_REPO_SERVICES = { 'control-horario': 'controlhorario', 'file-manager': 'files', panel: 'new-panel' } as Record<string, string>;
-const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'e-panel', 'node-ts-boilerplate'];
+export const DEFAULT_BACKUP_TYPES = ['incidencia', 'legajo', 'cursos', 'documentos', 'recibos', 'notificaciones', 'firma', 'control-horario', 'proyecto', 'liquidacion', 'e-panel', 'node-ts-boilerplate'];
 
 export const configSchema = z.object({
   /** Nombre que se muestra debajo de "Dev Panel" en el menú; vacío = no se muestra nada. */
@@ -107,6 +107,8 @@ export const configSchema = z.object({
       reviewerRole: z.string().default('Desarrollador'),
       /** Usuario «bolsa» al que se asignan los Control QA que nadie tomó: junto con los asignados a mí, son los que entran en «Tickets para revisión». */
       backlogUser: z.string().default('Backlog e-sueldos'),
+      /** Segundo usuario «bolsa» (los Control QA del sprint que nadie tomó): también entra en «Tickets para revisión». */
+      backlogSprintUser: z.string().default('Backlog Sprint e-sueldos'),
     })
     .default({}),
   /** GitLab (solo lectura): estado de los MRs y sus pipelines. El token sale de GITLAB_TOKEN o de `token` (opcional, solo en este config.json local). */
@@ -178,6 +180,8 @@ export const configSchema = z.object({
       routines: z.boolean().default(true),
       /** Un ticket que vence en esta cantidad de días (o menos) se avisa. */
       dueDays: z.number().int().min(0).max(30).default(3),
+      /** Solo los tickets en estos estados avisan su vencimiento: pasado el testeo (Testing Consultoría…) ya no es del desarrollador. */
+      dueStatuses: z.array(z.string()).default(['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado']),
       /** Un MR abierto sin movimiento por esta cantidad de días se avisa. */
       mrStaleDays: z.number().int().min(1).max(60).default(3),
       /** Cada cuántos minutos se vuelven a revisar los avisos del Inicio (Redmine, GitLab…) mientras el panel está abierto. */
@@ -266,7 +270,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   mongo: { container: 'mongo-db', deniedDbs: ['admin', 'config', 'local'], superadmin: { email: 'e-sueldos@gmail.com', db: 'node-ts-boilerplate' } },
   remoteBackup: { script: 'backup_improved4.sh', types: DEFAULT_BACKUP_TYPES },
   session: { enabled: true, securityEnv: '', jwtKey: 'JWT_SECRET', db: 'node-ts-boilerplate', frontUrl: 'http://localhost:4200', accessTtlSec: 3600, refreshTtlSec: 86_400 },
-  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador', backlogUser: 'Backlog e-sueldos' },
+  redmine: { enabled: true, apiKey: '', configFile: '', baseUrl: '', doneStatuses: ['Revisión', 'Testeado', 'Testing Consultoría', 'Testing Aprobado Consultoría', 'Terminado', 'Entregado'], approvedStatuses: ['Testeado', 'Testing Consultoría', 'Terminado', 'Entregado'], reviewStatuses: ['Revisión'], reviewerRole: 'Desarrollador', backlogUser: 'Backlog e-sueldos', backlogSprintUser: 'Backlog Sprint e-sueldos' },
   gitlab: { enabled: true, token: '', baseUrl: 'https://git.icono-cloud.com', sshAuto: false, sshHost: '', group: 'e-sueldos-v3' },
   claudeEnv: { gitlabDaily: false },
   claude: { binary: 'claude', liveUsage: true },
@@ -274,7 +278,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
-  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, mrStaleDays: 3, refreshMinutes: 60 },
+  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, dueStatuses: ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado'], mrStaleDays: 3, refreshMinutes: 60 },
   weekly: { template: '' },
   discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} },
   git: { baseBranch: 'desarrollo' },
@@ -321,3 +325,6 @@ export const saveConfig = (config: DevPanelConfig, file: string = paths.config):
   writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   renameSync(temp, file);
 };
+
+/** Tipos de backup remoto que se ofrecen: los de la config y, al final, los por defecto que le falten (así un tipo nuevo, como `liquidacion`, aparece aunque la config guardada ya tenga su propia lista). */
+export const backupTypes = (config: DevPanelConfig): string[] => [...config.remoteBackup.types, ...DEFAULT_BACKUP_TYPES.filter((type) => !config.remoteBackup.types.includes(type))];

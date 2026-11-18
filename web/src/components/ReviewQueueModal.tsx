@@ -118,18 +118,31 @@ const ReviewQueueContent = ({ onClose, onChanged }: { onClose: () => void; onCha
   };
 
   const data = queue.data;
+  // Los que ya tienen carpeta (ya se empezaron a revisar) van aparte y contraídos: lo nuevo queda arriba.
+  const fresh = data?.items.filter((item) => !item.folder) ?? [];
+  const withFolder = data?.items.filter((item) => item.folder) ?? [];
   return (
     <Modal open onClose={onClose} title="Tickets para revisión" size="xl" footer={<Button icon={<RefreshCw className={cn('size-4', queue.loading && 'animate-spin')} />} disabled={queue.loading} onClick={refresh} title="Vuelve a consultar Redmine (se guarda 10 minutos para no hacer pedidos de más)">Actualizar</Button>}>
       <div className="max-h-[70vh] overflow-y-auto pr-1">
         {queue.loading && !data ? <div className="space-y-3"><Skeleton className="h-24" /><Skeleton className="h-24" /></div> : queue.error || !data ? <p className="text-danger">{queue.error}</p> : (
           <>
             <p className="mb-3 text-sm text-muted">
-              {data.sprint ? `${data.sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')} · ` : ''}Tickets de otras personas en Revisión que no tienen Control QA, o cuyo QA está asignado a vos, a Backlog e-sueldos o a la misma persona que el ticket, y no tiene comentarios de {data.reviewerRole === 'Desarrollador' ? 'desarrolladores' : `usuarios con el rol «${data.reviewerRole}»`} (aparte de quien armó el QA). Si el QA ya está asignado a otra persona, es una revisión para ella.
+              {data.sprint ? `${data.sprint.subject.replace(/^Sprint\s*/i, 'Sprint ')} · ` : ''}Tickets de otras personas en Revisión que no tienen Control QA, o cuyo QA está asignado a vos, a Backlog e-sueldos, a Backlog Sprint e-sueldos o a la misma persona que el ticket, y no tiene comentarios de {data.reviewerRole === 'Desarrollador' ? 'desarrolladores' : `usuarios con el rol «${data.reviewerRole}»`} (aparte de quien armó el QA). Si el QA ya está asignado a otra persona, es una revisión para ella.
             </p>
             <p className="mb-3 text-sm text-muted" data-testid="review-counts">El sprint tiene {data.sprintTickets} tickets relacionados; {data.inReview} están en Revisión. Un ticket que no esté relacionado al ticket del sprint no se ve acá.</p>
             {!data.rolesKnown && <p className="mb-3 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">No pude leer qué usuarios tienen el rol «{data.reviewerRole}» en Redmine: se muestran todos los de Revisión, incluso los que alguien ya tomó.</p>}
             {!data.sprint ? <p className="py-8 text-center text-muted">No se encontró el sprint actual.</p> : data.items.length === 0 ? <p className="py-8 text-center text-muted" data-testid="review-empty">No hay tickets esperando revisión: todos los de Revisión del sprint ya los tomó alguien.</p> : (
-              <ul className="space-y-3">{data.items.map((item) => <Item key={item.id} item={item} busy={busyId !== null} onStart={start} />)}</ul>
+              <>
+                {fresh.length === 0 ? <p className="py-6 text-center text-muted" data-testid="review-no-new">No hay tickets nuevos para revisar: los que quedan ya tienen carpeta (abajo).</p> : (
+                  <ul className="space-y-3" data-testid="review-fresh">{fresh.map((item) => <Item key={item.id} item={item} busy={busyId !== null} onStart={start} />)}</ul>
+                )}
+                {withFolder.length > 0 && (
+                  <details className="mt-5 rounded-xl border border-line bg-surface-2 px-4 py-3" data-testid="review-with-folder">
+                    <summary className="cursor-pointer font-medium">Ya tienen carpeta ({withFolder.length})</summary>
+                    <ul className="mt-3 space-y-3">{withFolder.map((item) => <Item key={item.id} item={item} busy={busyId !== null} onStart={start} />)}</ul>
+                  </details>
+                )}
+              </>
             )}
             {data.skipped.length > 0 && (
               <details className="mt-5 rounded-xl border border-line bg-surface-2 px-4 py-3" data-testid="review-skipped">

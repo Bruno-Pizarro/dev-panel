@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createJob, registerJobRoutes } from '../services/jobs.js';
 import { existsSync } from 'node:fs';
 import { MongoClient, MongoError, listBackupScripts, backupScriptFeatures, resolveBackupScript, scriptsDir, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot, runRemoteBackup } from '../services/mongo.js';
+import { backupTypes } from '../config.js';
 import { requireConfig } from './helpers.js';
 
 const itemSchema = z.object({ db: z.string(), collection: z.string() });
@@ -80,7 +81,7 @@ export const registerDataRoutes = (app: FastifyInstance): void => {
     const config = requireConfig(reply);
     if (!config) return reply;
     const selected = resolveBackupScript(config);
-    return { types: config.remoteBackup.types, scriptsDir: scriptsDir(config), scriptsDirExists: existsSync(scriptsDir(config)), scripts: listBackupScripts(config), features: backupScriptFeatures(config), selected: selected.split('/').pop(), selectedExists: existsSync(selected) };
+    return { types: backupTypes(config), scriptsDir: scriptsDir(config), scriptsDirExists: existsSync(scriptsDir(config)), scripts: listBackupScripts(config), features: backupScriptFeatures(config), selected: selected.split('/').pop(), selectedExists: existsSync(selected) };
   });
 
   app.post('/api/data/remote-backup', async (request, reply) => {

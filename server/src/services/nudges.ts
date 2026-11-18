@@ -185,6 +185,17 @@ const gitOut = async (runner: Runner, repo: string, args: string[]): Promise<str
   return result.ok ? result.stdout.trim() : null;
 };
 
+/**
+ * Archivos con cambios según `git status --porcelain`, sin contar el `.env` que el panel cambia a propósito en los repos con perfil
+ * (documentos, firma, file-manager): que figure modificado no es trabajo sin commitear.
+ */
+export const countDirty = (porcelain: string | null, managedEnv?: string): number =>
+  (porcelain ?? '')
+    .split('\n')
+    .filter(Boolean)
+    // `gitOut` hace trim() de la salida: la primera línea puede haber perdido el espacio inicial (" M .env" → "M .env"), por eso no se corta por posición.
+    .filter((line) => !managedEnv || line.replace(/^\s*\S+\s+/, '').replace(/^"|"$/g, '') !== managedEnv).length;
+
 /** Estado git de los repos configurados que existen en esta máquina. */
 export const readRepoStates = async (config: DevPanelConfig, runner: Runner = run): Promise<RepoState[]> => {
   const states: RepoState[] = [];
@@ -196,7 +207,7 @@ export const readRepoStates = async (config: DevPanelConfig, runner: Runner = ru
     const status = await gitOut(runner, cwd, ['status', '--porcelain']);
     const ahead = await gitOut(runner, cwd, ['rev-list', '--count', '@{u}..HEAD']);
     const last = await gitOut(runner, cwd, ['log', '-1', '--format=%cI']);
-    states.push({ repo, branch, dirty: status ? status.split('\n').filter(Boolean).length : 0, ahead: ahead && /^\d+$/.test(ahead) ? Number(ahead) : 0, lastCommitAt: last && !Number.isNaN(Date.parse(last)) ? new Date(last) : null });
+    states.push({ repo, branch, dirty: countDirty(status, config.envProfiles[repo]?.file), ahead: ahead && /^\d+$/.test(ahead) ? Number(ahead) : 0, lastCommitAt: last && !Number.isNaN(Date.parse(last)) ? new Date(last) : null });
   }
   return states;
 };

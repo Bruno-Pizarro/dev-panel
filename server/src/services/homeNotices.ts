@@ -67,12 +67,13 @@ export const plainNote = (text: string): string =>
 // ---------------------------------------------------------------- 1. vencimientos
 /**
  * Tickets míos abiertos que ya vencieron o vencen en `dueDays` días o menos, **solo los del sprint actual** (`sprintIds`): hay tickets
- * viejos, sin especificación, que quedaron perdidos en el tiempo y no sirven como aviso. Los ya entregados (estado "listo") no se avisan.
+ * viejos, sin especificación, que quedaron perdidos en el tiempo y no sirven como aviso. Solo avisan los tickets en `dueStatuses`
+ * (análisis, req. definido, desarrollo, revisión, testeado): en Testing Consultoría o más adelante ya no depende del desarrollador.
  * Sin sprint actual (`null`) no se avisa ninguno.
  */
-export const dueNotices = (issues: RedmineIssue[], today: string, dueDays: number, doneStatuses: string[], sprintIds: ReadonlySet<number> | null): Notice[] =>
+export const dueNotices = (issues: RedmineIssue[], today: string, dueDays: number, dueStatuses: string[], sprintIds: ReadonlySet<number> | null): Notice[] =>
   issues
-    .filter((issue) => sprintIds?.has(issue.id) === true && issue.dueDate && issue.statusClosed !== true && !doneStatuses.includes(issue.status))
+    .filter((issue) => sprintIds?.has(issue.id) === true && issue.dueDate && issue.statusClosed !== true && statusIn(issue.status, dueStatuses))
     .map((issue) => ({ issue, left: dayNumber(issue.dueDate!) - dayNumber(today) }))
     .filter(({ left }) => left <= dueDays)
     .sort((a, b) => a.left - b.left || a.issue.id - b.issue.id)
@@ -443,7 +444,7 @@ const redmineNotices = async (config: DevPanelConfig, credentials: Credentials, 
 
   if (config.home.due) {
     if (noSprint) notes.push({ source: 'Vencimientos', message: 'No se encontró el sprint actual: sin él no se avisan vencimientos (solo cuentan los tickets del sprint).' });
-    else out.push(...dueNotices(mine, today, config.home.dueDays, doneStatuses, sprintIds));
+    else out.push(...dueNotices(mine, today, config.home.dueDays, config.home.dueStatuses, sprintIds));
   }
 };
 
