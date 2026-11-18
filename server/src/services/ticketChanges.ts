@@ -136,9 +136,21 @@ const resolveBase = async (git: ReturnType<typeof gitIn>, baseBranch: string, re
   return base;
 };
 
+/** Ramas en las que se trabaja de verdad solo por merge: no tienen «cambios propios» de un ticket. */
+const PROTECTED_BRANCHES = ['main', 'master', 'produccion'];
+
 const computeBase = async (git: ReturnType<typeof gitIn>, baseBranch: string): Promise<string | null> => {
   const fallback = await configuredBase(git, baseBranch);
   const current = (await git(['rev-parse', '--abbrev-ref', 'HEAD'])).stdout;
+  // Parado en una rama protegida (la base u otra): ahí no hay «cambios del ticket». Buscar otra base inventaría cambios ajenos:
+  // en `desarrollo` toda rama ya mergeada queda contenida en HEAD y ganaba como base (por ejemplo `bugfix/x`), mostrando como
+  // propios los commits de otros tickets. Se compara con su propio remoto (solo lo que no se subió).
+  if ([baseBranch, ...PROTECTED_BRANCHES].includes(current)) {
+    for (const own of [`origin/${current}`, current]) {
+      if ((await git(['rev-parse', '--verify', '--quiet', own])).ok) return own;
+    }
+    return fallback;
+  }
   // Ramas que apuntan a los últimos commits del historial de HEAD (ya contenidas en HEAD): una consulta barata en lugar de recorrer todas las ramas.
   const listed = await git(['log', 'HEAD', `-n${BASE_HISTORY_COMMITS}`, '--format=%D', '--decorate-refs=refs/heads/', '--decorate-refs=refs/remotes/origin/']);
   if (!listed.ok) return fallback;
