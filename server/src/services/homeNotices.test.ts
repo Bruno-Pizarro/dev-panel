@@ -9,7 +9,7 @@ const issue = (over: Record<string, unknown> = {}): RedmineIssue =>
 describe('1. vencimientos (solo del sprint actual)', () => {
   const today = '2026-11-04';
   const inSprint = (...ids: number[]) => new Set(ids);
-  const DUE = ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado'];
+  const DUE = ['Req. Definido', 'Desarrollo', 'Revisión'];
   it('avisa los vencidos, los de hoy, mañana y los próximos dentro del umbral, del más urgente al menos', () => {
     const notices = dueNotices(
       [issue({ id: 3, due_date: '2026-11-07' }), issue({ id: 1, due_date: '2026-11-02' }), issue({ id: 2, due_date: '2026-11-04' }), issue({ id: 4, due_date: '2026-11-05' }), issue({ id: 5, due_date: '2026-11-20' })],
@@ -37,10 +37,10 @@ describe('1. vencimientos (solo del sprint actual)', () => {
     const all = inSprint(7, 9);
     expect(dueNotices([issue({ id: 9 }), issue({ id: 7, due_date: '2026-11-01', status: { name: 'Terminado', is_closed: true } })], today, 3, DUE, all)).toEqual([]);
   });
-  it('solo avisa en análisis, req. definido, desarrollo, revisión y testeado: Testing Consultoría (Externo) y posteriores no', () => {
-    const states = ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado', 'Testing Consultoría', 'Testing Consultoría Externo', 'Testing Aprobado Consultoría', 'Entregado'];
+  it('solo avisa en req. definido, desarrollo y revisión: análisis, estimación, testeado y posteriores no', () => {
+    const states = ['Análisis', 'Req. Definido', 'Estimación', 'Desarrollo', 'Commit', 'Revisión', 'Testeado', 'Testing Consultoría', 'Testing Consultoría Externo', 'Testing Aprobado Consultoría', 'Entregado'];
     const issues = states.map((name, i) => issue({ id: 100 + i, due_date: '2026-11-01', status: { name, is_closed: false } }));
-    expect(dueNotices(issues, today, 3, DUE, inSprint(...issues.map((i) => i.id))).map((n) => n.id)).toEqual(['due-100', 'due-101', 'due-102', 'due-103', 'due-104']);
+    expect(dueNotices(issues, today, 3, DUE, inSprint(...issues.map((i) => i.id))).map((n) => n.id)).toEqual(['due-101', 'due-103', 'due-105']);
   });
 });
 
