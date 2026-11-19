@@ -181,7 +181,7 @@ export const configSchema = z.object({
       /** Un ticket que vence en esta cantidad de días (o menos) se avisa. */
       dueDays: z.number().int().min(0).max(30).default(3),
       /** Solo los tickets en estos estados avisan su vencimiento: pasado el testeo (Testing Consultoría…) ya no es del desarrollador. */
-      dueStatuses: z.array(z.string()).default(['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado']),
+      dueStatuses: z.array(z.string()).default(['Req. Definido', 'Desarrollo', 'Revisión']),
       /** Un MR abierto sin movimiento por esta cantidad de días se avisa. */
       mrStaleDays: z.number().int().min(1).max(60).default(3),
       /** Cada cuántos minutos se vuelven a revisar los avisos del Inicio (Redmine, GitLab…) mientras el panel está abierto. */
@@ -308,7 +308,7 @@ export const defaultConfig = (projectsRoot: string): DevPanelConfig => ({
   userName: '',
   repoServices: DEFAULT_REPO_SERVICES,
   checklists: { test: ['Actualizar el ticket en Redmine', 'Subir los comentarios'], daily: ['Marcar entrada', 'Marcar salida', 'Cargar horas'] },
-  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, dueStatuses: ['Análisis', 'Req. Definido', 'Desarrollo', 'Revisión', 'Testeado'], mrStaleDays: 3, refreshMinutes: 60 },
+  home: { due: true, mrs: true, reviews: true, sprint: true, holidays: true, routines: true, dueDays: 3, dueStatuses: ['Req. Definido', 'Desarrollo', 'Revisión'], mrStaleDays: 3, refreshMinutes: 60 },
   weekly: { template: '' },
   discord: { webhookVar: 'DISCORD_WEBHOOK_MR', tags: {}, otherTag: '', userId: '', botTokenVar: 'DISCORD_BOT_TOKEN', channelId: '', approvedTag: '', people: {} },
   git: { baseBranch: 'desarrollo' },
