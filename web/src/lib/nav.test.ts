@@ -12,7 +12,7 @@ describe('visibleNavGroups', () => {
     expect(paths).toEqual(expect.arrayContaining(['/', '/claude', '/configuracion']));
   });
   it('un grupo sin items desaparece', () => {
-    const entorno = ['/servicios', '/levantado', '/datos', '/sesiones', '/entorno'];
+    const entorno = ['/servicios', '/levantado', '/datos', '/explorador', '/sesiones', '/entorno'];
     expect(visibleNavGroups(entorno).map((group) => group.label)).not.toContain('Entorno');
   });
 });

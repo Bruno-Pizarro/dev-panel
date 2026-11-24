@@ -1,4 +1,4 @@
-import { Bot, Boxes, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon, Trophy } from 'lucide-react';
+import { Bot, Boxes, DatabaseZap, KanbanSquare, LogIn, CalendarDays, ClipboardCheck, ListTree, Database, FileCog, Home, Layers, Rocket, Settings, ShieldCheck, type LucideIcon, Trophy } from 'lucide-react';
 
 export interface NavItem {
   path: string;
@@ -22,6 +22,7 @@ export const navGroups: NavGroup[] = [
       { path: '/servicios', label: 'Servicios', description: 'Contenedores, logs y reinicio', icon: Boxes, phase: null },
       { path: '/levantado', label: 'Levantado', description: 'Levantar el stack en el orden correcto', icon: Rocket, phase: null },
       { path: '/datos', label: 'Datos', description: 'Snapshots y backups con chips', icon: Database, phase: null },
+      { path: '/explorador', label: 'Explorador de bases', description: 'Ver colecciones y documentos de Mongo, solo lectura', icon: DatabaseZap, phase: null },
       { path: '/sesiones', label: 'Sesiones de prueba', description: 'Entrar como un usuario del entorno local', icon: LogIn, phase: null },
       { path: '/entorno', label: 'Repos y .env', description: 'Perfiles de .env y chequeos', icon: FileCog, phase: null },
     ],

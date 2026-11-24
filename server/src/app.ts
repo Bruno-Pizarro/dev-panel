@@ -10,6 +10,7 @@ import { registerStartupRoutes } from './routes/startup.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerTicketStatusRoutes } from './routes/ticketStatus.js';
 import { registerDataRoutes } from './routes/data.js';
+import { registerExplorerRoutes } from './routes/explorer.js';
 import { registerDailyRoutes } from './routes/daily.js';
 import { registerEnvRoutes } from './routes/env.js';
 import { registerToolRoutes } from './routes/tools.js';
@@ -45,6 +46,7 @@ export const buildApp = async ({ port, serveWeb = true }: AppOptions): Promise<F
   registerTicketRoutes(app);
   registerTicketStatusRoutes(app);
   registerDataRoutes(app);
+  registerExplorerRoutes(app);
   registerDailyRoutes(app);
   registerEnvRoutes(app);
   registerToolRoutes(app);
