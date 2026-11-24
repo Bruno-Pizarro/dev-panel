@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { cn } from '../lib/cn';
 import { useReloadOn, useStoredState } from '../lib/hooks';
 import type { ChangedFile, CriticalPoint, CriticalReport, FileDiff, RepoChanges, TicketChangesReport, ViewedState } from '../lib/types';
-import { CATEGORY_LABELS, coversLine, pointsFor, sourceLabel } from '../lib/critical';
+import { CATEGORY_LABELS, placeCriticalPoints, pointsFor, sourceLabel } from '../lib/critical';
 import { findMatches, splitByQuery, type SearchFile, type SearchMatch } from '../lib/changeSearch';
 import { parseDiffLines, type DiffLine } from '../lib/diff';
 import { languageOf, tokenizeLine } from '../lib/highlight';
@@ -44,21 +44,12 @@ const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, 
     return parseDiffLines(diff.data.diff).map((line) => ({ line, tokens: line.kind !== 'hunk' && line.text ? tokenizeLine(line.text, language) : null }));
   }, [diff.data, path]);
   // Cambios críticos: qué filas se resaltan, bajo cuáles va el motivo y qué puntos no tienen una línea visible en este diff.
-  const placement = useMemo(() => {
-    const marked = new Map<number, 'critica' | 'alta'>();
-    const notes = new Map<number, CriticalPoint[]>();
-    const placed = new Set<CriticalPoint>();
-    rows.forEach(({ line }, index) => {
-      if (line.kind === 'hunk') return;
-      for (const point of points) {
-        if (!coversLine(point, line.next)) continue;
-        placed.add(point);
-        if (marked.get(index) !== 'critica') marked.set(index, point.severity);
-        if (point.line === line.next) notes.set(index, [...(notes.get(index) ?? []), point]);
-      }
-    });
-    return { marked, notes, floating: points.filter((point) => point.line === null || !placed.has(point)) };
-  }, [rows, points]);
+  const placement = useMemo(() => placeCriticalPoints(rows.map(({ line }) => line), points), [rows, points]);
+  // En «Últimos cambios» el diff solo trae lo que cambió desde que se marcó: los puntos de las líneas ya vistas no se pueden ubicar
+  // ahí. Se juntan en un bloque contraído en vez de apilarse arriba del archivo. Si no, se dejan abiertos (nada crítico se esconde).
+  const sinceView = since && !!diff.data?.since;
+  const floating = sinceView ? placement.fileWide : [...placement.fileWide, ...placement.outside];
+  const collapsed = sinceView ? placement.outside : [];
   const code = useRef<HTMLDivElement | null>(null);
   // El resultado actual de la búsqueda se trae a la vista cuando el diff ya está dibujado.
   useEffect(() => {
@@ -70,12 +61,20 @@ const DiffView = memo(({ loadDiff, repo, scope, path, since, query, activeLine, 
         <span className="min-w-0 truncate"><span>{slash >= 0 ? path.slice(0, slash + 1) : ''}</span><span className="font-semibold" style={{ color: 'var(--ed-fg)' }}>{path.slice(slash + 1)}</span></span>
         {since && diff.data?.since && <span className="shrink-0 text-sm">Cambios desde que lo viste</span>}
       </div>
-      {placement.floating.length > 0 && (
+      {floating.length > 0 && (
         <div data-testid="critical-floating">
-          {placement.floating.map((point, index) => (
+          {floating.map((point, index) => (
             <div key={index} className={cn('critical-note', point.severity)} style={{ paddingLeft: '0.75rem' }}><b>{CATEGORY_LABELS[point.category]}</b>{point.line !== null ? ` · línea ${point.line}${point.endLine ? `-${point.endLine}` : ''}` : ''} · {point.reason} <span className="text-muted">({sourceLabel(point)})</span></div>
           ))}
         </div>
+      )}
+      {collapsed.length > 0 && (
+        <details data-testid="critical-outside" className="px-3 py-1.5 text-sm text-muted">
+          <summary className="cursor-pointer">{collapsed.length} {collapsed.length === 1 ? 'punto crítico' : 'puntos críticos'} en líneas que no cambiaron desde que lo viste</summary>
+          {collapsed.map((point, index) => (
+            <div key={index} className={cn('critical-note', point.severity)} style={{ paddingLeft: '0.75rem' }}><b>{CATEGORY_LABELS[point.category]}</b> · línea {point.line}{point.endLine ? `-${point.endLine}` : ''} · {point.reason} <span className="text-muted">({sourceLabel(point)})</span></div>
+          ))}
+        </details>
       )}
       {diff.data?.note && <p className="editor-note" style={{ color: 'rgb(var(--warning))' }}>{diff.data.note}</p>}
       {diff.loading && !diff.data ? <Skeleton className="m-3 h-20" /> : diff.error || !diff.data ? <p className="editor-note" style={{ color: 'rgb(var(--danger))' }}>{diff.error}</p> : diff.data.reason ? <p className="editor-note">{diff.data.reason}</p> : rows.length === 0 ? <p className="editor-note">Sin diferencias de contenido.</p> : (
