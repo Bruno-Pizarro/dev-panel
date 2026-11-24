@@ -117,6 +117,26 @@ describe('MongoExplorer.documents', () => {
   });
 });
 
+describe('MongoExplorer.databases y collections', () => {
+  it('las bases se piden sin recorrer sus colecciones y sin las prohibidas', async () => {
+    const { runner, calls } = fakeDocker([], JSON.stringify(['admin', 'legajo', 'liquidacion']));
+    expect(await new MongoExplorer(config, runner).databases()).toEqual(['legajo', 'liquidacion']);
+    expect(calls).toHaveLength(1);
+  });
+  it('las colecciones se piden de UNA base, ordenadas y sin las del sistema', async () => {
+    const { runner, calls } = fakeDocker([], JSON.stringify([{ name: 'z', count: 1 }, { name: 'system.indexes', count: 0 }, { name: 'a', count: 7 }]));
+    expect(await new MongoExplorer(config, runner).collections('legajo')).toEqual([{ name: 'a', count: 7 }, { name: 'z', count: 1 }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('legajo');
+  });
+  it('no deja pedir las colecciones de una base prohibida ni de un nombre raro', async () => {
+    const { runner, calls } = fakeDocker([]);
+    await expect(new MongoExplorer(config, runner).collections('admin')).rejects.toThrow(MongoError);
+    await expect(new MongoExplorer(config, runner).collections('a;b')).rejects.toThrow(/inválid/);
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe('MongoExplorer.indexes', () => {
   it('devuelve los índices y las estadísticas', async () => {
     const shell = JSON.stringify({ indexes: [{ name: '_id_', key: { _id: 1 } }], stats: { count: 5, size: 100, storageSize: 4096, avgObjSize: 20 } });

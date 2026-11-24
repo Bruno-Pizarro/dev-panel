@@ -1,6 +1,6 @@
 import type { DevPanelConfig } from '../config.js';
 import { run, type Runner } from '../docker.js';
-import { MongoClient, MongoError, assertDb, assertName } from './mongo.js';
+import { MongoClient, MongoError, assertDb, assertName, type Collection } from './mongo.js';
 
 /**
  * Explorador de solo lectura del Mongo local. Las consultas van por `mongoexport`: el filtro, el orden y los campos viajan como JSON
@@ -143,6 +143,22 @@ export class MongoExplorer {
           throw new MongoError('La respuesta de mongo no es un JSON válido', 500);
         }
       });
+  }
+
+  /** Solo los nombres de las bases (sin recorrer sus colecciones): es lo único que se pide al abrir la vista. */
+  async databases(): Promise<string[]> {
+    return this.mongo.listDatabases();
+  }
+
+  /** Las colecciones de UNA base, con su conteo: se pide cuando esa base se expande. */
+  async collections(db: unknown): Promise<Collection[]> {
+    const name = assertDb(this.config, db);
+    const out = await this.mongo.evalJs(name, 'var r=[];db.getCollectionNames().forEach(function(c){r.push({name:c,count:db.getCollection(c).count({})})});print(JSON.stringify(r))');
+    try {
+      return (JSON.parse(out) as Collection[]).filter((item) => !item.name.startsWith('system.')).sort((a, b) => a.name.localeCompare(b.name));
+    } catch {
+      throw new MongoError('No se pudieron leer las colecciones', 500);
+    }
   }
 
   async documents(query: DocumentsQuery): Promise<DocumentsPage> {

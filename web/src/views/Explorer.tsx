@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Copy, Database, Eraser, Search, Table2, Braces } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Database, Eraser, Search, Table2, Braces } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -18,7 +18,9 @@ import { useAsync } from '../lib/useAsync';
 
 type Tab = 'documentos' | 'indices' | 'esquema';
 const TABS = ['documentos', 'indices', 'esquema'] as const;
-type Databases = Record<string, Array<{ name: string; count: number }>>;
+type CollectionInfo = { name: string; count: number };
+/** Lo que se sabe de las colecciones de una base: se pide recién cuando esa base se expande. */
+type Loaded = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; collections: CollectionInfo[] };
 const LIMITS = [10, 25, 50, 100];
 
 const inputClass = 'h-10 w-full rounded-lg border border-line bg-surface-2 px-3 font-mono text-sm text-fg placeholder:text-muted/60 focus:border-accent focus:outline-none';
@@ -237,11 +239,44 @@ const SchemaTab = ({ db, collection }: { db: string; collection: string }) => {
 
 export const Explorer = () => {
   const [params, setParams] = useSearchParams();
-  const databases = useAsync(() => api.get<{ databases: Databases }>('/api/explorer/databases'));
+  const databases = useAsync(() => api.get<{ databases: string[] }>('/api/explorer/databases'));
   const [text, setText] = useState('');
   const db = params.get('db') ?? '';
   const collection = params.get('col') ?? '';
   const tab = pickTab(params.get('tab'), TABS, 'documentos') as Tab;
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(db ? [db] : []));
+  const [loaded, setLoaded] = useState<Record<string, Loaded>>({});
+
+  /** Pide las colecciones (con su conteo) de UNA base. Si ya se pidieron, no vuelve a pedirlas. */
+  const requested = useRef(new Set<string>());
+  const loadCollections = useCallback((name: string) => {
+    if (requested.current.has(name)) return;
+    requested.current.add(name);
+    setLoaded((current) => ({ ...current, [name]: { status: 'loading' } }));
+    void api.get<{ collections: CollectionInfo[] }>(`/api/explorer/collections?db=${encodeURIComponent(name)}`).then(
+      (result) => setLoaded((latest) => ({ ...latest, [name]: { status: 'ready', collections: result.collections } })),
+      (error: Error) => {
+        requested.current.delete(name); // un error se puede reintentar al volver a expandir
+        setLoaded((latest) => ({ ...latest, [name]: { status: 'error', message: error.message } }));
+      },
+    );
+  }, []);
+
+  // La base de la URL (por ejemplo al recargar) se abre sola, y solo esa.
+  useEffect(() => {
+    if (db) loadCollections(db);
+  }, [db, loadCollections]);
+
+  const toggle = (name: string) => {
+    const open = expanded.has(name);
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (open) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+    if (!open) loadCollections(name);
+  };
 
   const choose = (nextDb: string, nextCollection: string) =>
     setParams(() => {
@@ -251,14 +286,23 @@ export const Explorer = () => {
       return next;
     });
 
-  const visible = useMemo(() => {
-    const needle = text.trim().toLowerCase();
-    return Object.entries(databases.data?.databases ?? {})
-      .map(([name, list]) => ({ name, list: list.filter((item) => !needle || `${name}.${item.name}`.toLowerCase().includes(needle)) }))
-      .filter((entry) => entry.list.length > 0);
-  }, [databases.data, text]);
+  const needle = text.trim().toLowerCase();
+  // El buscador filtra por nombre de base y, en las bases ya abiertas, por colección. No abre bases ni pide nada.
+  const visible = useMemo(
+    () =>
+      (databases.data?.databases ?? [])
+        .map((name) => {
+          const info = loaded[name];
+          const collections = info?.status === 'ready' ? info.collections.filter((item) => !needle || `${name}.${item.name}`.toLowerCase().includes(needle)) : [];
+          const matchesName = !needle || name.toLowerCase().includes(needle);
+          return { name, collections, show: matchesName || collections.length > 0, forced: !matchesName && collections.length > 0 };
+        })
+        .filter((entry) => entry.show),
+    [databases.data, loaded, needle],
+  );
 
-  const current = databases.data?.databases[db]?.find((item) => item.name === collection);
+  const currentInfo = loaded[db];
+  const current = currentInfo?.status === 'ready' ? currentInfo.collections.find((item) => item.name === collection) : undefined;
 
   return (
     <div>
@@ -270,24 +314,40 @@ export const Explorer = () => {
           {databases.loading && !databases.data ? (
             <Skeleton className="h-64" />
           ) : (
-            <nav className="max-h-[70vh] space-y-3 overflow-y-auto pr-1" aria-label="Bases y colecciones">
-              {visible.map((entry) => (
-                <div key={entry.name}>
-                  <p className="mb-1 flex items-center gap-2 px-2 text-sm font-semibold text-muted"><Database className="size-4" />{entry.name}</p>
-                  {entry.list.map((item) => (
-                    <button
-                      key={item.name}
-                      type="button"
-                      onClick={() => choose(entry.name, item.name)}
-                      aria-current={entry.name === db && item.name === collection ? 'true' : undefined}
-                      className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-sm', entry.name === db && item.name === collection ? 'bg-accent/15 text-accent' : 'hover:bg-surface-2')}
-                    >
-                      <span className="truncate">{item.name}</span>
-                      <span className="shrink-0 text-muted">{item.count.toLocaleString('es-AR')}</span>
+            <nav className="max-h-[70vh] space-y-1 overflow-y-auto pr-1" aria-label="Bases y colecciones">
+              {visible.map((entry) => {
+                const open = expanded.has(entry.name) || entry.forced;
+                const info = loaded[entry.name];
+                return (
+                  <div key={entry.name}>
+                    <button type="button" onClick={() => toggle(entry.name)} aria-expanded={open} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm font-semibold hover:bg-surface-2">
+                      {open ? <ChevronDown className="size-4 shrink-0 text-muted" /> : <ChevronRight className="size-4 shrink-0 text-muted" />}
+                      <Database className="size-4 shrink-0 text-muted" />
+                      <span className="truncate">{entry.name}</span>
+                      {info?.status === 'ready' && <span className="ml-auto shrink-0 font-normal text-muted">{info.collections.length}</span>}
                     </button>
-                  ))}
-                </div>
-              ))}
+                    {open && (
+                      <div className="ml-4 border-l border-line pl-2">
+                        {info?.status === 'loading' && <p className="px-3 py-1.5 text-sm text-muted">Cargando colecciones…</p>}
+                        {info?.status === 'error' && <p className="px-3 py-1.5 text-sm text-danger">{info.message}</p>}
+                        {entry.collections.map((item) => (
+                          <button
+                            key={item.name}
+                            type="button"
+                            onClick={() => choose(entry.name, item.name)}
+                            aria-current={entry.name === db && item.name === collection ? 'true' : undefined}
+                            className={cn('flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-sm', entry.name === db && item.name === collection ? 'bg-accent/15 text-accent' : 'hover:bg-surface-2')}
+                          >
+                            <span className="truncate">{item.name}</span>
+                            <span className="shrink-0 text-muted">{item.count.toLocaleString('es-AR')}</span>
+                          </button>
+                        ))}
+                        {info?.status === 'ready' && entry.collections.length === 0 && <p className="px-3 py-1.5 text-sm text-muted">{needle ? 'Nada coincide.' : 'Sin colecciones.'}</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {visible.length === 0 && <p className="px-2 text-sm text-muted">Nada coincide.</p>}
             </nav>
           )}
@@ -295,7 +355,7 @@ export const Explorer = () => {
 
         <section className="min-w-0">
           {!db || !collection ? (
-            <EmptyState icon={<Database className="size-6" />} title="Elegí una colección">En la lista de la izquierda están las bases del Mongo local con la cantidad de documentos de cada colección.</EmptyState>
+            <EmptyState icon={<Database className="size-6" />} title="Elegí una colección">Abrí una base en la lista de la izquierda: sus colecciones y la cantidad de documentos de cada una se cargan al expandirla.</EmptyState>
           ) : (
             <>
               <div className="mb-4 flex flex-wrap items-baseline gap-3">
