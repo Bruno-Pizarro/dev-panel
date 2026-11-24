@@ -10,6 +10,7 @@ import { Kanban } from './views/Kanban';
 import { ClaudeAccounts } from './views/ClaudeAccounts';
 import { Daily } from './views/Daily';
 import { Data } from './views/Data';
+import { Explorer } from './views/Explorer';
 import { Repos } from './views/Repos';
 import { Sessions } from './views/Sessions';
 import { Home } from './views/Home';
@@ -51,6 +52,7 @@ export const App = () => {
         <Route path="kanban" element={<Kanban />} />
         <Route path="claude" element={<ClaudeAccounts />} />
         <Route path="datos" element={<Data />} />
+        <Route path="explorador" element={<Explorer />} />
         <Route path="entorno" element={<Repos />} />
         <Route path="sesiones" element={<Sessions />} />
         <Route path="daily" element={<Daily />} />
@@ -58,7 +60,7 @@ export const App = () => {
         <Route path="logros" element={<Achievements />} />
         <Route path="configuracion" element={<Settings config={config} onSaved={state.reload} />} />
         {allNavItems
-          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/entorno', '/daily', '/sesiones', '/claude', '/kanban'].includes(item.path))
+          .filter((item) => item.phase !== null && !['/servicios', '/levantado', '/pruebas', '/planificacion', '/datos', '/explorador', '/entorno', '/daily', '/sesiones', '/claude', '/kanban'].includes(item.path))
           .map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ComingSoon item={item} />} />
           ))}
